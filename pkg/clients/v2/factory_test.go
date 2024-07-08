@@ -488,7 +488,7 @@ func (t testClient) GetAccountAlias(_ context.Context) (string, error) {
 	return "", nil
 }
 
-func (t testClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ bool, _ func(page []*model.Metric)) error {
+func (t testClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ []string, _ bool, _ func(page []*model.Metric)) error {
 	return nil
 }
 

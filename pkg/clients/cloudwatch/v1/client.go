@@ -15,6 +15,7 @@ package v1
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -38,10 +39,13 @@ func NewClient(logger *slog.Logger, cloudwatchAPI cloudwatchiface.CloudWatchAPI)
 	}
 }
 
-func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
 	filter := &cloudwatch.ListMetricsInput{
 		MetricName: aws.String(metric.Name),
 		Namespace:  aws.String(namespace),
+	}
+	if len(includeLinkedAccounts) > 0 {
+		filter.IncludeLinkedAccounts = aws.Bool(true)
 	}
 	if recentlyActiveOnly {
 		filter.RecentlyActive = aws.String("PT3H")
@@ -52,7 +56,7 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 	err := c.cloudwatchAPI.ListMetricsPagesWithContext(ctx, filter, func(page *cloudwatch.ListMetricsOutput, lastPage bool) bool {
 		promutil.CloudwatchAPICounter.WithLabelValues("ListMetrics").Inc()
 
-		metricsPage := toModelMetric(page)
+		metricsPage := toModelMetric(page, includeLinkedAccounts)
 
 		c.logger.Debug("ListMetrics", "output", metricsPage, "last_page", lastPage)
 
@@ -68,15 +72,31 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 	return nil
 }
 
-func toModelMetric(page *cloudwatch.ListMetricsOutput) []*model.Metric {
+func toModelMetric(page *cloudwatch.ListMetricsOutput, includeLinkedAccounts []string) []*model.Metric {
 	modelMetrics := make([]*model.Metric, 0, len(page.Metrics))
-	for _, cloudwatchMetric := range page.Metrics {
-		modelMetric := &model.Metric{
-			MetricName: *cloudwatchMetric.MetricName,
-			Namespace:  *cloudwatchMetric.Namespace,
-			Dimensions: toModelDimensions(cloudwatchMetric.Dimensions),
+	if len(includeLinkedAccounts) > 0 {
+		for i := 0; i < len(page.Metrics); i++ {
+			linkedAccountId := *page.OwningAccounts[i]
+			if !slices.Contains(includeLinkedAccounts, "*") && !slices.Contains(includeLinkedAccounts, linkedAccountId) {
+				continue
+			}
+			modelMetric := &model.Metric{
+				MetricName:      *page.Metrics[i].MetricName,
+				Namespace:       *page.Metrics[i].Namespace,
+				Dimensions:      toModelDimensions(page.Metrics[i].Dimensions),
+				LinkedAccountId: linkedAccountId,
+			}
+			modelMetrics = append(modelMetrics, modelMetric)
 		}
-		modelMetrics = append(modelMetrics, modelMetric)
+	} else {
+		for _, cloudwatchMetric := range page.Metrics {
+			modelMetric := &model.Metric{
+				MetricName: *cloudwatchMetric.MetricName,
+				Namespace:  *cloudwatchMetric.Namespace,
+				Dimensions: toModelDimensions(cloudwatchMetric.Dimensions),
+			}
+			modelMetrics = append(modelMetrics, modelMetric)
+		}
 	}
 	return modelMetrics
 }
@@ -105,11 +125,15 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 			Period: &data.GetMetricDataProcessingParams.Period,
 			Stat:   &data.GetMetricDataProcessingParams.Statistic,
 		}
-		metricDataQueries = append(metricDataQueries, &cloudwatch.MetricDataQuery{
+		metricDataQuery := &cloudwatch.MetricDataQuery{
 			Id:         &data.GetMetricDataProcessingParams.QueryID,
 			MetricStat: metricStat,
 			ReturnData: aws.Bool(true),
-		})
+		}
+		if data.LinkedAccountId != "" {
+			metricDataQuery.AccountId = aws.String(data.LinkedAccountId)
+		}
+		metricDataQueries = append(metricDataQueries, metricDataQuery)
 	}
 	input := &cloudwatch.GetMetricDataInput{
 		EndTime:           &endTime,

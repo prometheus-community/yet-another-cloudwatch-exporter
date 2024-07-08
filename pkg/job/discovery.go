@@ -105,7 +105,7 @@ func getMetricDataForQueries(
 		go func(metric *model.MetricConfig) {
 			defer wg.Done()
 
-			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
+			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.IncludeLinkedAccounts, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
 				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
 
 				mux.Lock()
@@ -168,6 +168,7 @@ func getFilteredMetricDatas(
 			getMetricsData = append(getMetricsData, &model.CloudwatchData{
 				MetricName:   m.Name,
 				ResourceName: resource.ARN,
+				LinkedAccountId:    cwMetric.LinkedAccountId,
 				Namespace:    namespace,
 				Dimensions:   cwMetric.Dimensions,
 				GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
