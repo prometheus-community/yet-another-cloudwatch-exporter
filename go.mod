@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/common v0.59.1
 	github.com/r3labs/diff/v3 v3.0.1
 	github.com/stretchr/testify v1.9.0
-	github.com/urfave/cli/v2 v2.27.4
+	github.com/urfave/cli/v2 v2.27.5
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 	golang.org/x/sync v0.8.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -44,7 +44,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.27.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
