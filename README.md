@@ -63,6 +63,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/Cognito` - Cognito
   * `AWS/DataSync` - DataSync
   * `AWS/DDoSProtection` - Distributed Denial of Service (DDoS) protection service
+  * `AWS/DirectoryService` - Directory Services (MicrosoftAD)
   * `AWS/DMS` - Database Migration Service
   * `AWS/DocDB` - DocumentDB (with MongoDB compatibility)
   * `AWS/DX` - Direct Connect
