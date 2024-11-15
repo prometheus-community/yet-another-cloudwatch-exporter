@@ -729,10 +729,12 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("rds:db"),
 			aws.String("rds:cluster"),
+			aws.String("rds:db-proxy"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":cluster:(?P<DBClusterIdentifier>[^/]+)"),
 			regexp.MustCompile(":db:(?P<DBInstanceIdentifier>[^/]+)"),
+			regexp.MustCompile(":db-proxy:(?P<ProxyIdentifier>[^/]+)"),
 		},
 	},
 	{
