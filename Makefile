@@ -6,7 +6,7 @@ VERSION      ?= $(GIT_BRANCH)-$(GIT_REVISION)
 GO_LDFLAGS   := -X main.version=${VERSION}
 
 build:
-	go build -v -ldflags "$(GO_LDFLAGS)" -o yace ./cmd/yace
+	go build -v -ldflags '$(GO_LDFLAGS) -w -s -extldflags "-static"' -a -o yace ./cmd/yace
 
 test:
 	go test -v -bench=^$$ -race -count=1 ./...
