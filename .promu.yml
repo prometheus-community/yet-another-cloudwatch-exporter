@@ -1,0 +1,19 @@
+go:
+    # This must match .circle/config.yml.
+    version: 1.23
+repository:
+    path: github.com/prometheus-community/yet-another-cloudwatch-exporter
+build:
+    binaries:
+        - name: yace
+          path: ./cmd/yace
+    ldflags: |
+        -X github.com/prometheus/common/version.Version={{.Version}}
+        -X github.com/prometheus/common/version.Revision={{.Revision}}
+        -X github.com/prometheus/common/version.Branch={{.Branch}}
+        -X github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
+        -X github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
+tarball:
+    files:
+        - LICENSE
+        - NOTICE

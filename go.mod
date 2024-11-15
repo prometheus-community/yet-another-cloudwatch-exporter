@@ -1,4 +1,4 @@
-module github.com/nerdswords/yet-another-cloudwatch-exporter
+module github.com/prometheus-community/yet-another-cloudwatch-exporter
 
 go 1.23.0
 
