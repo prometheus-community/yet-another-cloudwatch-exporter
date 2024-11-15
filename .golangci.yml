@@ -37,4 +37,4 @@ linters-settings:
     exclude-functions:
       - (github.com/go-kit/log.Logger).Log
   goimports:
-    local-prefixes: "github.com/nerdswords/yet-another-cloudwatch-exporter"
+    local-prefixes: "github.com/prometheus-community/yet-another-cloudwatch-exporter"
