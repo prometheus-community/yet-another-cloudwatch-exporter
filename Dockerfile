@@ -1,29 +1,39 @@
-FROM golang:1.23 as builder
+FROM golang:1.23-alpine AS builder
+ARG VERSION
+
+RUN apk update && apk add --no-cache ca-certificates git make tzdata && update-ca-certificates
+
+ENV USER=exporter
+ENV UID=10001
 
 WORKDIR /opt/
 
-COPY go.mod go.sum ./
-RUN go mod download
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    "${USER}"
 
 COPY . ./
 
-ENV GOOS linux
-ENV CGO_ENABLED=0
+RUN go mod download && GOOS=linux CGO_ENABLED=0 go build -v -ldflags '-X main.version=$VERSION -w -s -extldflags "-static"' -a -o yace ./cmd/yace
 
-ARG VERSION
-RUN go build -v -ldflags "-X main.version=$VERSION" -o yace ./cmd/yace
+FROM scratch
 
-FROM alpine:3.20.3
-
-EXPOSE 5000
-ENTRYPOINT ["yace"]
-CMD ["--config.file=/tmp/config.yml"]
-RUN addgroup -g 1000 exporter && \
-    adduser -u 1000 -D -G exporter exporter -h /exporter
+# copy from builder docker container
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
 
 WORKDIR /exporter/
 
-
-RUN apk --no-cache add ca-certificates
 COPY --from=builder /opt/yace /usr/local/bin/yace
-USER exporter
+USER exporter:exporter
+
+EXPOSE 5000
+CMD ["--config.file=/tmp/config.yml"]
+ENTRYPOINT ["yace"]
