@@ -88,6 +88,8 @@ var replacer = strings.NewReplacer(
 	"@", "_",
 	"<", "_",
 	">", "_",
+	"(", "_",
+	")", "_",
 	"%", "_percent",
 )
 
@@ -190,7 +192,7 @@ func sanitize(text string) string {
 	b := []byte(text)
 	for i := 0; i < len(b); i++ {
 		switch b[i] {
-		case ' ', ',', '\t', '/', '\\', '.', '-', ':', '=', '@', '<', '>':
+		case ' ', ',', '\t', '/', '\\', '.', '-', ':', '=', '@', '<', '>', '(', ')':
 			b[i] = '_'
 		}
 	}
