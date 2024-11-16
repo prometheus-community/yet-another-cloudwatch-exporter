@@ -11,7 +11,7 @@ discovery:
           statistics: [Average, Maximum, p95, p99]
         - name: Count
           statistics: [SampleCount, Sum]
-        - name: 4xx
+        - name: 4XXError
           statistics: [Sum]
-        - name: 5xx
+        - name: 5XXError
           statistics: [Sum]
