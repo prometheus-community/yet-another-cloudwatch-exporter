@@ -614,6 +614,7 @@ var SupportedServices = serviceConfigs{
 		Alias:     "mediapackage",
 		ResourceFilters: []*string{
 			aws.String("mediapackage"),
+			aws.String("mediapackagev2"),
 			aws.String("mediapackage-vod"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
