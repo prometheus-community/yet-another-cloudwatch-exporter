@@ -3,7 +3,7 @@ name: Publish Docker image and binaries
 on:
   push:
     tags:
-    - 'v*'
+      - 'v*'
 
 jobs:
   buildDockerImage:

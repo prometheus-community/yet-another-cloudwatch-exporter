@@ -1,19 +1,19 @@
 apiVersion: v1alpha1
 discovery:
   jobs:
-  - type: AWS/S3
-    regions:
-    - eu-west-1
-    roles:
-    - roleArn:
-    metrics:
-      - name: NumberOfObjects
-        statistics:
-          - Average
-        period: 86400
-        length: 172800
-      - name: BucketSizeBytes
-        statistics:
-          - Average
-        period: 86400
-        length: 172800
+    - type: AWS/S3
+      regions:
+        - eu-west-1
+      roles:
+        - roleArn:
+      metrics:
+        - name: NumberOfObjects
+          statistics:
+            - Average
+          period: 86400
+          length: 172800
+        - name: BucketSizeBytes
+          statistics:
+            - Average
+          period: 86400
+          length: 172800

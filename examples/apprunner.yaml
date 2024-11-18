@@ -1,25 +1,35 @@
 apiVersion: v1alpha1
 discovery:
   jobs:
-  - regions:
-    - us-east-1
-    period: 300
-    length: 300
-    type: AWS/AppRunner
-    metrics:
-      - name: MemoryUtilization
-        statistics: [Average, Maximum]
-      - name: CPUUtilization
-        statistics: [Average, Maximum]
-      - name: 2xxStatusResponses
-        statistics: [Sum]
-      - name: Requests
-        statistics: [Sum]
-      - name: RequestLatency
-        statistics: [Average]
-      - name: ActiveInstances
-        statistics: [Maximum]
-      - name: 4xxStatusResponses
-        statistics: [Sum]
-      - name: Concurrency
-        statistics: [Maximum]
+    - regions:
+        - us-east-1
+      period: 300
+      length: 300
+      type: AWS/AppRunner
+      metrics:
+        - name: MemoryUtilization
+          statistics:
+            - Average
+            - Maximum
+        - name: CPUUtilization
+          statistics:
+            - Average
+            - Maximum
+        - name: 2xxStatusResponses
+          statistics:
+            - Sum
+        - name: Requests
+          statistics:
+            - Sum
+        - name: RequestLatency
+          statistics:
+            - Average
+        - name: ActiveInstances
+          statistics:
+            - Maximum
+        - name: 4xxStatusResponses
+          statistics:
+            - Sum
+        - name: Concurrency
+          statistics:
+            - Maximum

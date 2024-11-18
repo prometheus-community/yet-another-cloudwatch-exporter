@@ -3,7 +3,7 @@ version: '3.8'
 networks:
   monitoring:
     driver: bridge
-    
+
 volumes:
   prometheus_data: {}
 
@@ -43,14 +43,14 @@ services:
       - monitoring
 
   yace:
-    build: 
+    build:
       context: ../
       dockerfile: Dockerfile
     restart: always
     environment:
       AWS_REGION: ${AWS_REGION}
       AWS_PROFILE: ${AWS_PROFILE}
-    expose: 
+    expose:
       - 8080
     volumes:
       - ./yace-config.yaml:/tmp/config.yml

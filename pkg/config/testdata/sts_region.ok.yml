@@ -2,15 +2,15 @@ apiVersion: v1alpha1
 sts-region: eu-west-1
 discovery:
   jobs:
-  - type: AWS/S3
-    regions:
-    - eu-west-1
-    roles:
-    - externalId: something
-      roleArn: something
-    metrics:
-      - name: NumberOfObjects
-        statistics:
-          - Average
-        period: 86400
-        length: 172800
+    - type: AWS/S3
+      regions:
+        - eu-west-1
+      roles:
+        - externalId: something
+          roleArn: something
+      metrics:
+        - name: NumberOfObjects
+          statistics:
+            - Average
+          period: 86400
+          length: 172800

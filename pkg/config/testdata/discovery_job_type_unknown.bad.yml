@@ -1,10 +1,10 @@
 apiVersion: v1alpha1
 discovery:
   jobs:
-  - type: AWS/FancyNewNamespace
-    regions:
-      - eu-west-1
-    metrics:
-      - name: SomeMetric
-        statistics:
-          - Average
+    - type: AWS/FancyNewNamespace
+      regions:
+        - eu-west-1
+      metrics:
+        - name: SomeMetric
+          statistics:
+            - Average
