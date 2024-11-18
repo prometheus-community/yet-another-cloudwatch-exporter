@@ -1,29 +1,15 @@
-FROM golang:1.23 as builder
+ARG ARCH="amd64"
+ARG OS="linux"
+FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
 
-WORKDIR /opt/
+ARG ARCH="amd64"
+ARG OS="linux"
+COPY .build/${OS}-${ARCH}/yace /bin/yace
 
-COPY go.mod go.sum ./
-RUN go mod download
+COPY examples/ec2.yml /etc/yace/config.yml
 
-COPY . ./
-
-ENV GOOS linux
-ENV CGO_ENABLED=0
-
-ARG VERSION
-RUN go build -v -ldflags "-X main.version=$VERSION" -o yace ./cmd/yace
-
-FROM alpine:3.20.3
-
-EXPOSE 5000
-ENTRYPOINT ["yace"]
-CMD ["--config.file=/tmp/config.yml"]
-RUN addgroup -g 1000 exporter && \
-    adduser -u 1000 -D -G exporter exporter -h /exporter
-
-WORKDIR /exporter/
-
-
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /opt/yace /usr/local/bin/yace
-USER exporter
+EXPOSE     5000
+USER       nobody
+ENTRYPOINT [ "/bin/yace" ]
+CMD        [ "--config.file=/etc/yace/config.yml" ]
