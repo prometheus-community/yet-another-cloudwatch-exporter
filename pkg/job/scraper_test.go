@@ -540,7 +540,7 @@ func TestScrapeRunner_Run(t *testing.T) {
 				MetadataRunFunc:     tc.metadataRunFunc,
 				CloudwatchRunFunc:   tc.cloudwatchRunFunc,
 			}
-			sr := job.NewScraper(logging.NewLogger("", true), tc.jobsCfg, &rf)
+			sr := job.NewScraper(logging.NewLogger("", true, false), tc.jobsCfg, &rf)
 			resources, metrics, errs := sr.Scrape(context.Background())
 
 			changelog, err := diff.Diff(tc.expectedResources, resources)

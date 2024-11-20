@@ -26,14 +26,16 @@ type Logger interface {
 	Warn(message string, keyvals ...interface{})
 	With(keyvals ...interface{}) Logger
 	IsDebugEnabled() bool
+	ReduceInfoLogs() bool
 }
 
 type gokitLogger struct {
-	logger       log.Logger
-	debugEnabled bool
+	logger         log.Logger
+	debugEnabled   bool
+	reduceInfoLogs bool
 }
 
-func NewLogger(format string, debugEnabled bool, keyvals ...interface{}) Logger {
+func NewLogger(format string, debugEnabled bool, reduceInfoLogs bool, keyvals ...interface{}) Logger {
 	var logger log.Logger
 	if format == "json" {
 		logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
@@ -51,8 +53,9 @@ func NewLogger(format string, debugEnabled bool, keyvals ...interface{}) Logger 
 	logger = log.With(logger, keyvals...)
 
 	return gokitLogger{
-		logger:       logger,
-		debugEnabled: debugEnabled,
+		logger:         logger,
+		debugEnabled:   debugEnabled,
+		reduceInfoLogs: reduceInfoLogs,
 	}
 }
 
@@ -95,4 +98,8 @@ func (g gokitLogger) With(keyvals ...interface{}) Logger {
 
 func (g gokitLogger) IsDebugEnabled() bool {
 	return g.debugEnabled
+}
+
+func (g gokitLogger) ReduceInfoLogs() bool {
+	return g.reduceInfoLogs
 }

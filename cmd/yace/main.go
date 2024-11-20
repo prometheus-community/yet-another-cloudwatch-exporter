@@ -57,6 +57,7 @@ var (
 	addr                  string
 	configFile            string
 	debug                 bool
+	reduceInfoLogs        bool
 	logFormat             string
 	fips                  bool
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
@@ -74,7 +75,7 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		// if we exit very early we'll not have set up the logger yet
 		if logger == nil {
-			logger = logging.NewLogger(defaultLogFormat, debug, "version", version)
+			logger = logging.NewLogger(defaultLogFormat, debug, reduceInfoLogs, "version", version)
 		}
 		logger.Error(err, "Error running yace")
 		os.Exit(1)
@@ -201,6 +202,12 @@ func NewYACEApp() *cli.App {
 			Name:  enableFeatureFlag,
 			Usage: "Comma-separated list of enabled features",
 		},
+		&cli.BoolFlag{
+			Name:        "reduce-info-logs",
+			Value:       false,
+			Usage:       "Whether to reduce the amount of info-level logging",
+			Destination: &reduceInfoLogs,
+		},
 	}
 
 	yace.Commands = []*cli.Command{
@@ -212,7 +219,7 @@ func NewYACEApp() *cli.App {
 				&cli.StringFlag{Name: "config.file", Value: "config.yml", Usage: "Path to configuration file.", Destination: &configFile},
 			},
 			Action: func(_ *cli.Context) error {
-				logger = logging.NewLogger(logFormat, debug, "version", version)
+				logger = logging.NewLogger(logFormat, debug, reduceInfoLogs, "version", version)
 				logger.Info("Parsing config")
 				cfg := config.ScrapeConf{}
 				if _, err := cfg.Load(configFile, logger); err != nil {
@@ -242,7 +249,7 @@ func NewYACEApp() *cli.App {
 }
 
 func startScraper(c *cli.Context) error {
-	logger = logging.NewLogger(logFormat, debug, "version", version)
+	logger = logging.NewLogger(logFormat, debug, reduceInfoLogs, "version", version)
 
 	// log warning if the two concurrency limiting methods are configured via CLI
 	if c.IsSet("cloudwatch-concurrency") && c.IsSet("cloudwatch-concurrency.per-api-limit-enabled") {

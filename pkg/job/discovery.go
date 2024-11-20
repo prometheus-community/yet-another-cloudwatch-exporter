@@ -63,7 +63,11 @@ func runDiscoveryJob(
 	svc := config.SupportedServices.GetService(job.Type)
 	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
 	if len(getMetricDatas) == 0 {
-		logger.Info("No metrics data found")
+		if logger.ReduceInfoLogs() {
+			logger.Debug("No metrics data found")
+		} else {
+			logger.Info("No metrics data found")
+		}
 		return resources, nil
 	}
 
