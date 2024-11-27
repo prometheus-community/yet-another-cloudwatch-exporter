@@ -63,7 +63,7 @@ func getMetricDataForQueriesForCustomNamespace(
 
 		go func(metric *model.MetricConfig) {
 			defer wg.Done()
-			err := clientCloudwatch.ListMetrics(ctx, customNamespaceJob.Namespace, metric, customNamespaceJob.RecentlyActiveOnly, func(page []*model.Metric) {
+			err := clientCloudwatch.ListMetrics(ctx, customNamespaceJob.Namespace, metric, customNamespaceJob.IncludeLinkedAccounts, customNamespaceJob.RecentlyActiveOnly, func(page []*model.Metric) {
 				var data []*model.CloudwatchData
 
 				for _, cwMetric := range page {
@@ -75,6 +75,7 @@ func getMetricDataForQueriesForCustomNamespace(
 						data = append(data, &model.CloudwatchData{
 							MetricName:   metric.Name,
 							ResourceName: customNamespaceJob.Name,
+							LinkedAccountId:    cwMetric.LinkedAccountId,
 							Namespace:    customNamespaceJob.Namespace,
 							Dimensions:   cwMetric.Dimensions,
 							GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{

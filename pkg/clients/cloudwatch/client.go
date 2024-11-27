@@ -30,7 +30,7 @@ type Client interface {
 	// ListMetrics returns the list of metrics and dimensions for a given namespace
 	// and metric name. Results pagination is handled automatically: the caller can
 	// optionally pass a non-nil func in order to handle results pages.
-	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
+	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
 
 	// GetMetricData returns the output of the GetMetricData CloudWatch API.
 	// Results pagination is handled automatically.
@@ -87,9 +87,9 @@ func (c limitedConcurrencyClient) GetMetricData(ctx context.Context, getMetricDa
 	return res
 }
 
-func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
 	c.limiter.Acquire(listMetricsCall)
-	err := c.client.ListMetrics(ctx, namespace, metric, recentlyActiveOnly, fn)
+	err := c.client.ListMetrics(ctx, namespace, metric, includeLinkedAccounts, recentlyActiveOnly, fn)
 	c.limiter.Release(listMetricsCall)
 	return err
 }
