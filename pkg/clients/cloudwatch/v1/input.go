@@ -13,6 +13,7 @@
 package v1
 
 import (
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
@@ -38,7 +38,7 @@ func toCloudWatchDimensions(dimensions []model.Dimension) []*cloudwatch.Dimensio
 	return cwDim
 }
 
-func createGetMetricStatisticsInput(dimensions []model.Dimension, namespace *string, metric *model.MetricConfig, logger logging.Logger) *cloudwatch.GetMetricStatisticsInput {
+func createGetMetricStatisticsInput(dimensions []model.Dimension, namespace *string, metric *model.MetricConfig, logger *slog.Logger) *cloudwatch.GetMetricStatisticsInput {
 	period := metric.Period
 	length := metric.Length
 	delay := metric.Delay
@@ -66,17 +66,15 @@ func createGetMetricStatisticsInput(dimensions []model.Dimension, namespace *str
 		ExtendedStatistics: extendedStatistics,
 	}
 
-	if logger.IsDebugEnabled() {
-		logger.Debug("CLI helper - " +
-			"aws cloudwatch get-metric-statistics" +
-			" --metric-name " + metric.Name +
-			" --dimensions " + dimensionsToCliString(dimensions) +
-			" --namespace " + *namespace +
-			" --statistics " + *statistics[0] +
-			" --period " + strconv.FormatInt(period, 10) +
-			" --start-time " + startTime.Format(time.RFC3339) +
-			" --end-time " + endTime.Format(time.RFC3339))
-	}
+	logger.Debug("CLI helper - " +
+		"aws cloudwatch get-metric-statistics" +
+		" --metric-name " + metric.Name +
+		" --dimensions " + dimensionsToCliString(dimensions) +
+		" --namespace " + *namespace +
+		" --statistics " + *statistics[0] +
+		" --period " + strconv.FormatInt(period, 10) +
+		" --start-time " + startTime.Format(time.RFC3339) +
+		" --end-time " + endTime.Format(time.RFC3339))
 
 	return output
 }

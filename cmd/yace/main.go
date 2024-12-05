@@ -15,11 +15,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"slices"
 	"strings"
 
+	"github.com/prometheus/common/promslog"
+	promslogflag "github.com/prometheus/common/promslog/flag"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/semaphore"
 
@@ -28,7 +32,6 @@ import (
 	v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v1"
 	v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 )
 
 const (
@@ -56,7 +59,7 @@ const (
 var (
 	addr                  string
 	configFile            string
-	debug                 bool
+	logLevel              string
 	logFormat             string
 	fips                  bool
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
@@ -66,7 +69,7 @@ var (
 	labelsSnakeCase       bool
 	profilingEnabled      bool
 
-	logger logging.Logger
+	logger *slog.Logger
 )
 
 func main() {
@@ -74,9 +77,11 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		// if we exit very early we'll not have set up the logger yet
 		if logger == nil {
-			logger = logging.NewLogger(defaultLogFormat, debug, "version", version)
+			jsonFmt := &promslog.AllowedFormat{}
+			_ = jsonFmt.Set("json")
+			logger = promslog.New(&promslog.Config{Format: jsonFmt})
 		}
-		logger.Error(err, "Error running yace")
+		logger.Error("Error running yace", "err", err)
 		os.Exit(1)
 	}
 }
@@ -107,23 +112,25 @@ func NewYACEApp() *cli.App {
 			Destination: &configFile,
 			EnvVars:     []string{"config.file"},
 		},
-		&cli.BoolFlag{
-			Name:        "debug",
-			Value:       false,
-			Usage:       "Verbose logging",
-			Destination: &debug,
-			EnvVars:     []string{"debug"},
+		&cli.StringFlag{
+			Name:        "log.level",
+			Value:       "",
+			Usage:       promslogflag.LevelFlagHelp,
+			Destination: &logLevel,
+			Action: func(_ *cli.Context, s string) error {
+				if !slices.Contains(promslog.LevelFlagOptions, s) {
+					return fmt.Errorf("unrecognized log format %q", s)
+				}
+				return nil
+			},
 		},
 		&cli.StringFlag{
 			Name:        "log.format",
 			Value:       defaultLogFormat,
-			Usage:       "Output format of log messages. One of: [logfmt, json]. Default: [json].",
+			Usage:       promslogflag.FormatFlagHelp,
 			Destination: &logFormat,
 			Action: func(_ *cli.Context, s string) error {
-				switch s {
-				case "logfmt", "json":
-					break
-				default:
+				if !slices.Contains(promslog.FormatFlagOptions, s) {
 					return fmt.Errorf("unrecognized log format %q", s)
 				}
 				return nil
@@ -212,11 +219,11 @@ func NewYACEApp() *cli.App {
 				&cli.StringFlag{Name: "config.file", Value: "config.yml", Usage: "Path to configuration file.", Destination: &configFile},
 			},
 			Action: func(_ *cli.Context) error {
-				logger = logging.NewLogger(logFormat, debug, "version", version)
+				logger = newLogger(logFormat, logLevel).With("version", version)
 				logger.Info("Parsing config")
 				cfg := config.ScrapeConf{}
 				if _, err := cfg.Load(configFile, logger); err != nil {
-					logger.Error(err, "Couldn't read config file", "path", configFile)
+					logger.Error("Couldn't read config file", "err", err, "path", configFile)
 					os.Exit(1)
 				}
 				logger.Info("Config file is valid", "path", configFile)
@@ -242,7 +249,7 @@ func NewYACEApp() *cli.App {
 }
 
 func startScraper(c *cli.Context) error {
-	logger = logging.NewLogger(logFormat, debug, "version", version)
+	logger = newLogger(logFormat, logLevel).With("version", version)
 
 	// log warning if the two concurrency limiting methods are configured via CLI
 	if c.IsSet("cloudwatch-concurrency") && c.IsSet("cloudwatch-concurrency.per-api-limit-enabled") {
@@ -310,7 +317,7 @@ func startScraper(c *cli.Context) error {
 		newCfg := config.ScrapeConf{}
 		newJobsCfg, err := newCfg.Load(configFile, logger)
 		if err != nil {
-			logger.Error(err, "Couldn't read config file", "path", configFile)
+			logger.Error("Couldn't read config file", "err", err, "path", configFile)
 			return
 		}
 
@@ -323,7 +330,7 @@ func startScraper(c *cli.Context) error {
 				// Can't override cache while also creating err
 				cache, err = v2.NewFactory(logger, newJobsCfg, fips)
 				if err != nil {
-					logger.Error(err, "Failed to construct aws sdk v2 client cache", "path", configFile)
+					logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
 					return
 				}
 			}
@@ -338,4 +345,17 @@ func startScraper(c *cli.Context) error {
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
+}
+
+func newLogger(format, level string) *slog.Logger {
+	// If flag parsing was successful, then we know that format and level
+	// are both valid options; no need to error check their returns, just
+	// set their values.
+	f := &promslog.AllowedFormat{}
+	_ = f.Set(format)
+
+	lvl := &promslog.AllowedLevel{}
+	_ = lvl.Set(level)
+
+	return promslog.New(&promslog.Config{Format: f, Level: lvl})
 }

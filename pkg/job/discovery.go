@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -37,7 +37,7 @@ type getMetricDataProcessor interface {
 
 func runDiscoveryJob(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	job model.DiscoveryJob,
 	region string,
 	clientTag tagging.Client,
@@ -49,9 +49,9 @@ func runDiscoveryJob(
 	resources, err := clientTag.GetResources(ctx, job, region)
 	if err != nil {
 		if errors.Is(err, tagging.ErrExpectedToFindResources) {
-			logger.Error(err, "No tagged resources made it through filtering")
+			logger.Error("No tagged resources made it through filtering", "err", err)
 		} else {
-			logger.Error(err, "Couldn't describe resources")
+			logger.Error("Couldn't describe resources", "err", err)
 		}
 		return nil, nil
 	}
@@ -69,7 +69,7 @@ func runDiscoveryJob(
 
 	getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
 	if err != nil {
-		logger.Error(err, "Failed to get metric data")
+		logger.Error("Failed to get metric data", "err", err)
 		return nil, nil
 	}
 
@@ -78,7 +78,7 @@ func runDiscoveryJob(
 
 func getMetricDataForQueries(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	discoveryJob model.DiscoveryJob,
 	svc *config.ServiceConfig,
 	clientCloudwatch cloudwatch.Client,
@@ -113,7 +113,7 @@ func getMetricDataForQueries(
 				mux.Unlock()
 			})
 			if err != nil {
-				logger.Error(err, "Failed to get full metric list", "metric_name", metric.Name, "namespace", svc.Namespace)
+				logger.Error("Failed to get full metric list", "metric_name", metric.Name, "namespace", svc.Namespace, "err", err)
 				return
 			}
 		}(metric)
@@ -130,7 +130,7 @@ func (ns nopAssociator) AssociateMetricToResource(_ *model.Metric) (*model.Tagge
 }
 
 func getFilteredMetricDatas(
-	logger logging.Logger,
+	logger *slog.Logger,
 	namespace string,
 	tagsOnMetrics []string,
 	metricsList []*model.Metric,
@@ -146,13 +146,12 @@ func getFilteredMetricDatas(
 
 		matchedResource, skip := assoc.AssociateMetricToResource(cwMetric)
 		if skip {
-			if logger.IsDebugEnabled() {
-				dimensions := make([]string, 0, len(cwMetric.Dimensions))
-				for _, dim := range cwMetric.Dimensions {
-					dimensions = append(dimensions, fmt.Sprintf("%s=%s", dim.Name, dim.Value))
-				}
-				logger.Debug("skipping metric unmatched by associator", "metric", m.Name, "dimensions", strings.Join(dimensions, ","))
+			dimensions := make([]string, 0, len(cwMetric.Dimensions))
+			for _, dim := range cwMetric.Dimensions {
+				dimensions = append(dimensions, fmt.Sprintf("%s=%s", dim.Name, dim.Value))
 			}
+			logger.Debug("skipping metric unmatched by associator", "metric", m.Name, "dimensions", strings.Join(dimensions, ","))
+
 			continue
 		}
 

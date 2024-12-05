@@ -17,9 +17,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
-
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 )
 
 func TestConfLoad(t *testing.T) {
@@ -35,7 +34,7 @@ func TestConfLoad(t *testing.T) {
 	for _, tc := range testCases {
 		config := ScrapeConf{}
 		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
-		if _, err := config.Load(configFile, logging.NewNopLogger()); err != nil {
+		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
 			t.Error(err)
 			t.FailNow()
 		}
@@ -92,7 +91,7 @@ func TestBadConfigs(t *testing.T) {
 	for _, tc := range testCases {
 		config := ScrapeConf{}
 		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
-		if _, err := config.Load(configFile, logging.NewNopLogger()); err != nil {
+		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
 			if !strings.Contains(err.Error(), tc.errorMsg) {
 				t.Errorf("expecter error for config file %q to contain %q but got: %s", tc.configFile, tc.errorMsg, err)
 				t.FailNow()
@@ -131,7 +130,7 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			_, err := tc.config.Validate(logging.NewNopLogger())
+			_, err := tc.config.Validate(promslog.NewNopLogger())
 			require.Error(t, err, "Expected config validation to fail")
 			require.Equal(t, tc.errorMsg, err.Error())
 		})

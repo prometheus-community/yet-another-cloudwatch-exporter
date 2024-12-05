@@ -14,16 +14,16 @@ package job
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func runStaticJob(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	resource model.StaticJob,
 	clientCloudwatch cloudwatch.Client,
 ) []*model.CloudwatchData {

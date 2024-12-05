@@ -15,18 +15,19 @@ package job_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/prometheus/common/promslog"
 	"github.com/r3labs/diff/v3"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/cloudwatchrunner"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -53,11 +54,11 @@ func (t *testRunnerFactory) GetAccountClient(string, model.Role) account.Client 
 	return t
 }
 
-func (t *testRunnerFactory) NewResourceMetadataRunner(logging.Logger, string, model.Role) job.ResourceMetadataRunner {
+func (t *testRunnerFactory) NewResourceMetadataRunner(*slog.Logger, string, model.Role) job.ResourceMetadataRunner {
 	return &testMetadataRunner{RunFunc: t.MetadataRunFunc}
 }
 
-func (t *testRunnerFactory) NewCloudWatchRunner(_ logging.Logger, _ string, _ model.Role, job cloudwatchrunner.Job) job.CloudwatchRunner {
+func (t *testRunnerFactory) NewCloudWatchRunner(_ *slog.Logger, _ string, _ model.Role, job cloudwatchrunner.Job) job.CloudwatchRunner {
 	return &testCloudwatchRunner{Job: job, RunFunc: t.CloudwatchRunFunc}
 }
 
@@ -540,7 +541,9 @@ func TestScrapeRunner_Run(t *testing.T) {
 				MetadataRunFunc:     tc.metadataRunFunc,
 				CloudwatchRunFunc:   tc.cloudwatchRunFunc,
 			}
-			sr := job.NewScraper(logging.NewLogger("", true), tc.jobsCfg, &rf)
+			lvl := &promslog.AllowedLevel{}
+			_ = lvl.Set("debug")
+			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf)
 			resources, metrics, errs := sr.Scrape(context.Background())
 
 			changelog, err := diff.Diff(tc.expectedResources, resources)
