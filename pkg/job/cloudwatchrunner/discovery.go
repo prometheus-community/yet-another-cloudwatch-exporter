@@ -23,7 +23,7 @@ type DiscoveryJob struct {
 }
 
 func (d DiscoveryJob) Namespace() string {
-	return d.Job.Type
+	return d.Job.Namespace
 }
 
 func (d DiscoveryJob) CustomTags() []model.Tag {
@@ -32,7 +32,7 @@ func (d DiscoveryJob) CustomTags() []model.Tag {
 
 func (d DiscoveryJob) listMetricsParams() listmetrics.ProcessingParams {
 	return listmetrics.ProcessingParams{
-		Namespace:                 d.Job.Type,
+		Namespace:                 d.Job.Namespace,
 		Metrics:                   d.Job.Metrics,
 		RecentlyActiveOnly:        d.Job.RecentlyActiveOnly,
 		DimensionNameRequirements: d.Job.DimensionNameRequirements,

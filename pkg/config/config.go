@@ -412,7 +412,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 
 		job := model.DiscoveryJob{}
 		job.Regions = discoveryJob.Regions
-		job.Type = svc.Namespace
+		job.Namespace = svc.Namespace
 		job.DimensionNameRequirements = discoveryJob.DimensionNameRequirements
 		job.RecentlyActiveOnly = discoveryJob.RecentlyActiveOnly
 		job.RoundingPeriod = discoveryJob.RoundingPeriod

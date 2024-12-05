@@ -95,8 +95,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
@@ -201,8 +201,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
@@ -294,8 +294,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
@@ -325,8 +325,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
@@ -383,8 +383,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
@@ -452,8 +452,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
-						Regions: []string{"us-east-1"},
-						Type:    "aws-namespace",
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
 						Roles: []model.Role{
 							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
 						},
