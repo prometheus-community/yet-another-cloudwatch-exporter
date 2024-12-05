@@ -57,10 +57,10 @@ func runDiscoveryJob(
 	}
 
 	if len(resources) == 0 {
-		logger.Debug("No tagged resources", "region", region, "namespace", job.Type)
+		logger.Debug("No tagged resources", "region", region, "namespace", job.Namespace)
 	}
 
-	svc := config.SupportedServices.GetService(job.Type)
+	svc := config.SupportedServices.GetService(job.Namespace)
 	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
 	if len(getMetricDatas) == 0 {
 		logger.Info("No metrics data found")
@@ -106,7 +106,7 @@ func getMetricDataForQueries(
 			defer wg.Done()
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Type, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
