@@ -118,6 +118,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/QuickSight` - QuickSight (Business Intelligence)
   * `AWS/RDS` - Relational Database Service
   * `AWS/Redshift` - Redshift Database
+  * `AWS/Redshift-Serverless` - Redshift Serverless
   * `AWS/Route53` - Route53 Health Checks
   * `AWS/Route53Resolver` - Route53 Resolver
   * `AWS/RUM` - Real User Monitoring

@@ -761,6 +761,14 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/Redshift-Serverless",
+		Alias:     "redshift",
+		ResourceFilters: []*string{
+			aws.String("redshift-serverless:workgroup"),
+			aws.String("redshift-serverless:namespace"),
+		},
+	},
+	{
 		Namespace: "AWS/Route53Resolver",
 		Alias:     "route53-resolver",
 		ResourceFilters: []*string{
