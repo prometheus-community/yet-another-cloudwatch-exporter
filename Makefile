@@ -1,15 +1,22 @@
-.DEFAULT_GOAL := build
+# Copyright 2024 The Prometheus Authors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-GIT_BRANCH   ?= $(shell git rev-parse --abbrev-ref HEAD)
-GIT_REVISION ?= $(shell git rev-parse --short HEAD)
-VERSION      ?= $(GIT_BRANCH)-$(GIT_REVISION)
-GO_LDFLAGS   := -X main.version=${VERSION}
+# Needs to be defined before including Makefile.common to auto-generate targets
+DOCKER_ARCHS ?= amd64 armv7 arm64
+DOCKER_REPO  ?= prometheuscommunity
 
-build:
-	go build -v -ldflags "$(GO_LDFLAGS)" -o yace ./cmd/yace
+include Makefile.common
 
-test:
-	go test -v -bench=^$$ -race -count=1 ./...
+STATICCHECK_IGNORE =
 
-lint:
-	golangci-lint run -v -c .golangci.yml
+DOCKER_IMAGE_NAME ?= yet-another-cloudwatch-exporter

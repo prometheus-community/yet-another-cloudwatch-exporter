@@ -1,3 +1,15 @@
+// Copyright 2024 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package config
 
 import (
@@ -6,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
 
-	"github.com/nerdswords/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 // ServiceConfig defines a namespace supported by discovery jobs.
@@ -624,6 +636,7 @@ var SupportedServices = serviceConfigs{
 		Alias:     "mediapackage",
 		ResourceFilters: []*string{
 			aws.String("mediapackage"),
+			aws.String("mediapackagev2"),
 			aws.String("mediapackage-vod"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
@@ -739,10 +752,12 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("rds:db"),
 			aws.String("rds:cluster"),
+			aws.String("rds:db-proxy"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":cluster:(?P<DBClusterIdentifier>[^/]+)"),
 			regexp.MustCompile(":db:(?P<DBInstanceIdentifier>[^/]+)"),
+			regexp.MustCompile(":db-proxy:(?P<ProxyIdentifier>[^/]+)"),
 		},
 	},
 	{
@@ -1012,6 +1027,16 @@ var SupportedServices = serviceConfigs{
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":service/(?P<Service>[^/]+)$"),
+		},
+	},
+	{
+		Namespace: "AWS/Network Manager",
+		Alias:     "networkmanager",
+		ResourceFilters: []*string{
+			aws.String("networkmanager:core-network"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":core-network/(?P<CoreNetwork>[^/]+)$"),
 		},
 	},
 }

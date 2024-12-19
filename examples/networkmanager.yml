@@ -1,0 +1,28 @@
+# https://docs.aws.amazon.com/network-manager/latest/cloudwan/cloudwan-metrics.html
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Network Manager
+      regions:
+        - us-west-2
+      period: 60
+      length: 300
+      metrics:
+        - name: BytesDropCountBlackhole
+          statistics: [Sum]
+        - name: BytesDropCountNoRoute
+          statistics: [Sum]
+        - name: BytesIn
+          statistics: [Sum]
+        - name: BytesOut
+          statistics: [Sum]
+        - name: PacketsDropCountBlackhole
+          statistics: [Sum]
+        - name: PacketsDropCountNoRoute
+          statistics: [Sum]
+        - name: PacketDropCountTTLExpired
+          statistics: [Sum]
+        - name: PacketsIn
+          statistics: [Sum]
+        - name: PacketsOut
+          statistics: [Sum]

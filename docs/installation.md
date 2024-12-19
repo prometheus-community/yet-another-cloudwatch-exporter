@@ -4,11 +4,11 @@ There are various way to run YACE.
 
 ## Binaries
 
-See the [Releases](https://github.com/nerdswords/yet-another-cloudwatch-exporter/releases) page to download binaries for various OS and arch.
+See the [Releases](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/releases) page to download binaries for various OS and arch.
 
 ## Docker
 
-Docker images are available on GitHub Container Registry [here](https://github.com/nerdswords/yet-another-cloudwatch-exporter/pkgs/container/yet-another-cloudwatch-exporter).
+Docker images are available on GitHub Container Registry [here](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pkgs/container/yet-another-cloudwatch-exporter).
 
 The image name is `ghcr.io/nerdswords/yet-another-cloudwatch-exporter` and we only support tags of the form `vX.Y.Z`.
 

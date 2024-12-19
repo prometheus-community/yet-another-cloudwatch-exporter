@@ -2,7 +2,12 @@
 
 YACE, or `yet another cloudwatch exporter`, is a [Prometheus exporter](https://prometheus.io/docs/instrumenting/exporters/#exporters-and-integrations) for [AWS CloudWatch](http://aws.amazon.com/cloudwatch/) metrics. It is written in Go and uses the official AWS SDK.
 
-The project was originally created by Thomas Peitz while working at InVision.de, then later moved outside of the company repo. Read the full rebranding story [here](https://medium.com/@IT_Supertramp/reorganizing-yace-79d7149b9584).
+## News
+
+As of November 2024, YACE is part of [prometheus-community](https://github.com/prometheus-community). Read more about it in these announcement posts:
+
+* https://prometheus.io/blog/2024/11/19/yace-joining-prometheus-community/
+* https://grafana.com/blog/2024/11/19/yace-moves-to-prometheus-community/
 
 ## Alternatives
 
@@ -106,6 +111,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/Neptune` - Neptune
   * `AWS/NetworkELB` - Network Load Balancer
   * `AWS/NetworkFirewall` - Network Firewall
+  * `AWS/Network Manager` - Network Manager
   * `AWS/PrivateLinkEndpoints` - VPC Endpoint
   * `AWS/PrivateLinkServices` - VPC Endpoint Service
   * `AWS/Prometheus` - Managed Service for Prometheus

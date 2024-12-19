@@ -1,21 +1,16 @@
 version: 2
 updates:
-- package-ecosystem: gomod
-  directory: /
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-  groups:
-    aws-sdk-v2:
-      patterns:
-        - "github.com/aws/aws-sdk-go-v2*"
-- package-ecosystem: github-actions
-  directory: /
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-- package-ecosystem: docker
-  directory: /
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    groups:
+      aws-sdk-v2:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10

@@ -1,9 +1,6 @@
-# Security
+# Reporting a security issue
 
-## Reporting a Vulnerability
+The Prometheus security policy, including how to report vulnerabilities, can be
+found here:
 
-In case of a vulnerability please directly contact us via mail - `security@nerdswords.de`.
-
-Do not disclose any specifics in github issues! - Thank you.
-
-We will contact you as soon as possible.
+<https://prometheus.io/docs/operating/security/>
