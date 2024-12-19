@@ -108,7 +108,7 @@ func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []mo
 
 			var namespace string
 			jobAction(s.logger, job, func(job model.DiscoveryJob) {
-				namespace = job.Type
+				namespace = job.Namespace
 			}, func(job model.CustomNamespaceJob) {
 				namespace = job.Namespace
 			})

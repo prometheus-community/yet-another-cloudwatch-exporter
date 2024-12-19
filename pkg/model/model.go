@@ -32,7 +32,7 @@ type JobsConfig struct {
 
 type DiscoveryJob struct {
 	Regions                     []string
-	Type                        string
+	Namespace                   string
 	Roles                       []Role
 	SearchTags                  []SearchTag
 	CustomTags                  []Tag

@@ -44,7 +44,7 @@ func ScrapeAwsData(
 				wg.Add(1)
 				go func(discoveryJob model.DiscoveryJob, region string, role model.Role) {
 					defer wg.Done()
-					jobLogger := logger.With("job_type", discoveryJob.Type, "region", region, "arn", role.RoleArn)
+					jobLogger := logger.With("namespace", discoveryJob.Namespace, "region", region, "arn", role.RoleArn)
 					accountID, err := factory.GetAccountClient(region, role).GetAccount(ctx)
 					if err != nil {
 						jobLogger.Error(err, "Couldn't get account Id")

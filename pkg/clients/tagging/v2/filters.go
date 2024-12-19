@@ -116,7 +116,7 @@ var ServiceFilters = map[string]ServiceFilter{
 				for _, asg := range page.AutoScalingGroups {
 					resource := model.TaggedResource{
 						ARN:       *asg.AutoScalingGroupARN,
-						Namespace: job.Type,
+						Namespace: job.Namespace,
 						Region:    region,
 					}
 
@@ -209,7 +209,7 @@ var ServiceFilters = map[string]ServiceFilter{
 				for _, ec2Spot := range page.SpotFleetRequestConfigs {
 					resource := model.TaggedResource{
 						ARN:       *ec2Spot.SpotFleetRequestId,
-						Namespace: job.Type,
+						Namespace: job.Namespace,
 						Region:    region,
 					}
 
@@ -244,7 +244,7 @@ var ServiceFilters = map[string]ServiceFilter{
 				for _, ws := range page.Workspaces {
 					resource := model.TaggedResource{
 						ARN:       *ws.Arn,
-						Namespace: job.Type,
+						Namespace: job.Namespace,
 						Region:    region,
 					}
 
@@ -279,7 +279,7 @@ var ServiceFilters = map[string]ServiceFilter{
 				for _, gwa := range page.Gateways {
 					resource := model.TaggedResource{
 						ARN:       fmt.Sprintf("%s/%s", *gwa.GatewayId, *gwa.GatewayName),
-						Namespace: job.Type,
+						Namespace: job.Namespace,
 						Region:    region,
 					}
 
@@ -320,7 +320,7 @@ var ServiceFilters = map[string]ServiceFilter{
 				for _, tgwa := range page.TransitGatewayAttachments {
 					resource := model.TaggedResource{
 						ARN:       fmt.Sprintf("%s/%s", *tgwa.TransitGatewayId, *tgwa.TransitGatewayAttachmentId),
-						Namespace: job.Type,
+						Namespace: job.Namespace,
 						Region:    region,
 					}
 
@@ -379,7 +379,7 @@ var ServiceFilters = map[string]ServiceFilter{
 					if protectedResource.Region == region || (protectedResource.Region == "" && region == "us-east-1") {
 						taggedResource := &model.TaggedResource{
 							ARN:       protectedResourceArn,
-							Namespace: job.Type,
+							Namespace: job.Namespace,
 							Region:    region,
 							Tags:      []model.Tag{{Key: "ProtectionArn", Value: protectionArn}},
 						}
