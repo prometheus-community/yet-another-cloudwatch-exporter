@@ -13,6 +13,7 @@
 package v2
 
 import (
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -21,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
@@ -39,7 +39,7 @@ func toCloudWatchDimensions(dimensions []model.Dimension) []types.Dimension {
 	return cwDim
 }
 
-func createGetMetricStatisticsInput(logger logging.Logger, dimensions []model.Dimension, namespace *string, metric *model.MetricConfig) *cloudwatch.GetMetricStatisticsInput {
+func createGetMetricStatisticsInput(logger *slog.Logger, dimensions []model.Dimension, namespace *string, metric *model.MetricConfig) *cloudwatch.GetMetricStatisticsInput {
 	period := metric.Period
 	length := metric.Length
 	delay := metric.Delay
@@ -67,19 +67,17 @@ func createGetMetricStatisticsInput(logger logging.Logger, dimensions []model.Di
 		ExtendedStatistics: extendedStatistics,
 	}
 
-	if logger.IsDebugEnabled() {
-		logger.Debug("CLI helper - " +
-			"aws cloudwatch get-metric-statistics" +
-			" --metric-name " + metric.Name +
-			" --dimensions " + dimensionsToCliString(dimensions) +
-			" --namespace " + *namespace +
-			" --statistics " + string(statistics[0]) +
-			" --period " + strconv.FormatInt(period, 10) +
-			" --start-time " + startTime.Format(time.RFC3339) +
-			" --end-time " + endTime.Format(time.RFC3339))
+	logger.Debug("CLI helper - " +
+		"aws cloudwatch get-metric-statistics" +
+		" --metric-name " + metric.Name +
+		" --dimensions " + dimensionsToCliString(dimensions) +
+		" --namespace " + *namespace +
+		" --statistics " + string(statistics[0]) +
+		" --period " + strconv.FormatInt(period, 10) +
+		" --start-time " + startTime.Format(time.RFC3339) +
+		" --end-time " + endTime.Format(time.RFC3339))
 
-		logger.Debug("createGetMetricStatisticsInput", "output", *output)
-	}
+	logger.Debug("createGetMetricStatisticsInput", "output", *output)
 
 	return output
 }

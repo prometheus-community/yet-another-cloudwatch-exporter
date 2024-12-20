@@ -14,6 +14,7 @@ package v1
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,17 +22,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type client struct {
-	logger        logging.Logger
+	logger        *slog.Logger
 	cloudwatchAPI cloudwatchiface.CloudWatchAPI
 }
 
-func NewClient(logger logging.Logger, cloudwatchAPI cloudwatchiface.CloudWatchAPI) cloudwatch_client.Client {
+func NewClient(logger *slog.Logger, cloudwatchAPI cloudwatchiface.CloudWatchAPI) cloudwatch_client.Client {
 	return &client{
 		logger:        logger,
 		cloudwatchAPI: cloudwatchAPI,
@@ -47,25 +47,21 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 		filter.RecentlyActive = aws.String("PT3H")
 	}
 
-	if c.logger.IsDebugEnabled() {
-		c.logger.Debug("ListMetrics", "input", filter)
-	}
+	c.logger.Debug("ListMetrics", "input", filter)
 
 	err := c.cloudwatchAPI.ListMetricsPagesWithContext(ctx, filter, func(page *cloudwatch.ListMetricsOutput, lastPage bool) bool {
 		promutil.CloudwatchAPICounter.WithLabelValues("ListMetrics").Inc()
 
 		metricsPage := toModelMetric(page)
 
-		if c.logger.IsDebugEnabled() {
-			c.logger.Debug("ListMetrics", "output", metricsPage, "last_page", lastPage)
-		}
+		c.logger.Debug("ListMetrics", "output", metricsPage, "last_page", lastPage)
 
 		fn(metricsPage)
 		return !lastPage
 	})
 	if err != nil {
 		promutil.CloudwatchAPIErrorCounter.WithLabelValues("ListMetrics").Inc()
-		c.logger.Error(err, "ListMetrics error")
+		c.logger.Error("ListMetrics error", "err", err)
 		return err
 	}
 
@@ -122,9 +118,7 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		ScanBy:            aws.String("TimestampDescending"),
 	}
 	promutil.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
-	if c.logger.IsDebugEnabled() {
-		c.logger.Debug("GetMetricData", "input", input)
-	}
+	c.logger.Debug("GetMetricData", "input", input)
 
 	var resp cloudwatch.GetMetricDataOutput
 	// Using the paged version of the function
@@ -136,13 +130,11 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 			return !lastPage
 		})
 
-	if c.logger.IsDebugEnabled() {
-		c.logger.Debug("GetMetricData", "output", resp)
-	}
+	c.logger.Debug("GetMetricData", "output", resp)
 
 	if err != nil {
 		promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricData").Inc()
-		c.logger.Error(err, "GetMetricData error")
+		c.logger.Error("GetMetricData error", "err", err)
 		return nil
 	}
 	return toMetricDataResult(resp)
@@ -161,25 +153,21 @@ func toMetricDataResult(resp cloudwatch.GetMetricDataOutput) []cloudwatch_client
 	return output
 }
 
-func (c client) GetMetricStatistics(ctx context.Context, logger logging.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
+func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
 	filter := createGetMetricStatisticsInput(dimensions, &namespace, metric, logger)
 
-	if c.logger.IsDebugEnabled() {
-		c.logger.Debug("GetMetricStatistics", "input", filter)
-	}
+	c.logger.Debug("GetMetricStatistics", "input", filter)
 
 	resp, err := c.cloudwatchAPI.GetMetricStatisticsWithContext(ctx, filter)
 
-	if c.logger.IsDebugEnabled() {
-		c.logger.Debug("GetMetricStatistics", "output", resp)
-	}
+	c.logger.Debug("GetMetricStatistics", "output", resp)
 
 	promutil.CloudwatchGetMetricStatisticsAPICounter.Inc()
 	promutil.CloudwatchAPICounter.WithLabelValues("GetMetricStatistics").Inc()
 
 	if err != nil {
 		promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricStatistics").Inc()
-		c.logger.Error(err, "Failed to get metric statistics")
+		c.logger.Error("Failed to get metric statistics", "err", err)
 		return nil
 	}
 
