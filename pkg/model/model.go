@@ -42,6 +42,7 @@ type DiscoveryJob struct {
 	RecentlyActiveOnly          bool
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
+	IncludeLinkedAccounts       []string
 	DimensionsRegexps           []DimensionsRegexp
 }
 
@@ -65,6 +66,17 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	IncludeLinkedAccounts     []string
+	JobLevelMetricFields
+}
+
+type JobLevelMetricFields struct {
+	Statistics             []string
+	Period                 int64
+	Length                 int64
+	Delay                  int64
+	NilToZero              *bool
+	AddCloudwatchTimestamp *bool
 }
 
 type Role struct {
@@ -106,9 +118,10 @@ type Dimension struct {
 
 type Metric struct {
 	// The dimensions for the metric.
-	Dimensions []Dimension
-	MetricName string
-	Namespace  string
+	Dimensions      []Dimension
+	MetricName      string
+	Namespace       string
+	LinkedAccountId string
 }
 
 type Datapoint struct {
@@ -160,10 +173,11 @@ type CloudwatchData struct {
 	// DiscoveryJob = Resource ARN associated with the metric or global when it could not be associated but shouldn't be dropped
 	// StaticJob = Resource Name from static job config
 	// CustomNamespace = Custom Namespace job name
-	ResourceName string
-	Namespace    string
-	Tags         []Tag
-	Dimensions   []Dimension
+	ResourceName    string
+	Namespace       string
+	Tags            []Tag
+	Dimensions      []Dimension
+	LinkedAccountId string
 	// GetMetricDataProcessingParams includes necessary fields to run GetMetricData
 	GetMetricDataProcessingParams *GetMetricDataProcessingParams
 

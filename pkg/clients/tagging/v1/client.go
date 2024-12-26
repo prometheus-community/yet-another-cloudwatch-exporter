@@ -79,6 +79,13 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 	var resources []*model.TaggedResource
 	shouldHaveDiscoveredResources := false
 
+	if len(job.IncludeLinkedAccounts) > 0 {
+		// when setting `includeLinkedAccounts`, don't get resources in cross accounts (because we need more permissions in cross accounts)
+		c.logger.Debug("Return empty resources when enable includeLinkedAccounts")
+		resources = []*model.TaggedResource{}
+		return  resources, nil
+	}
+
 	if len(svc.ResourceFilters) > 0 {
 		shouldHaveDiscoveredResources = true
 
