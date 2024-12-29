@@ -75,7 +75,7 @@ func NewClient(
 }
 
 func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-	svc := config.SupportedServices.GetService(job.Type)
+	svc := config.SupportedServices.GetService(job.Namespace)
 	var resources []*model.TaggedResource
 	shouldHaveDiscoveredResources := false
 
@@ -112,7 +112,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			for _, resourceTagMapping := range page.ResourceTagMappingList {
 				resource := model.TaggedResource{
 					ARN:       aws.StringValue(resourceTagMapping.ResourceARN),
-					Namespace: job.Type,
+					Namespace: job.Namespace,
 					Region:    region,
 					Tags:      make([]model.Tag, 0, len(resourceTagMapping.Tags)),
 				}
