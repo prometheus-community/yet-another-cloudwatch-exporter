@@ -7,6 +7,22 @@
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
 
+## 0.62.1 / 2025-01-03
+
+**Important news and breaking changes**
+
+Bugfix release to address artifacts build error. The most important news is the same as 0.62.0: as of November 2024, YACE is part of prometheus-community. Read more about it in these announcement posts:
+- https://prometheus.io/blog/2024/11/19/yace-joining-prometheus-community/
+- https://grafana.com/blog/2024/11/19/yace-moves-to-prometheus-community/
+
+* [ENHANCEMENT] Adopt log/slog, drop custom logging pkg by @tjhop
+* [ENHANCEMENT] Bump github.com/prometheus/common from 0.60.1 to 0.61.0
+* [ENHANCEMENT] Bump golang.org/x/sync from 0.9.0 to 0.10.0
+* [ENHANCEMENT] Bump the aws-sdk-v2 group
+* [ENHANCEMENT] Synchronize common files from prometheus/prometheus
+* [ENHANCEMENT] Update CHANGELOG format by @SuperQ
+* [BUGFIX] Fix artifact publishing by @SuperQ
+
 ## 0.62.0 / 2024-12-19
 
 **Important news and breaking changes**
