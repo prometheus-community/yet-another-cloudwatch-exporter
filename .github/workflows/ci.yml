@@ -18,6 +18,7 @@ jobs:
       - uses: prometheus/promci@52c7012f5f0070d7281b8db4a119e21341d43c91 # v0.4.5
       - uses: ./.github/promci/actions/setup_environment
       - run: make
+      - run: mkdir .build
       - uses: ./.github/promci/actions/save_artifacts
         with:
           directory: .build
