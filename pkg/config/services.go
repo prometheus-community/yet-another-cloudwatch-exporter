@@ -867,6 +867,10 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/Transfer",
+		Alias:     "transfer",
+	},
+	{
 		Namespace: "AWS/TransitGateway",
 		Alias:     "tgw",
 		ResourceFilters: []*string{

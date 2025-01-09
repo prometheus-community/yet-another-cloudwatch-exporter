@@ -15,13 +15,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
 	"gopkg.in/yaml.v2"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -119,7 +119,7 @@ func (r *Role) ValidateRole(roleIdx int, parent string) error {
 	return nil
 }
 
-func (c *ScrapeConf) Load(file string, logger logging.Logger) (model.JobsConfig, error) {
+func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, error) {
 	yamlFile, err := os.ReadFile(file)
 	if err != nil {
 		return model.JobsConfig{}, err
@@ -152,7 +152,7 @@ func (c *ScrapeConf) Load(file string, logger logging.Logger) (model.JobsConfig,
 	return c.Validate(logger)
 }
 
-func (c *ScrapeConf) Validate(logger logging.Logger) (model.JobsConfig, error) {
+func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 	if c.Discovery.Jobs == nil && c.Static == nil && c.CustomNamespace == nil {
 		return model.JobsConfig{}, fmt.Errorf("At least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
 	}
@@ -212,7 +212,7 @@ func (c *ScrapeConf) Validate(logger logging.Logger) (model.JobsConfig, error) {
 	return c.toModelConfig(), nil
 }
 
-func (j *Job) validateDiscoveryJob(logger logging.Logger, jobIdx int) error {
+func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 	if j.Type != "" {
 		if svc := SupportedServices.GetService(j.Type); svc == nil {
 			if svc = SupportedServices.getServiceByAlias(j.Type); svc != nil {
@@ -259,7 +259,7 @@ func (j *Job) validateDiscoveryJob(logger logging.Logger, jobIdx int) error {
 	return nil
 }
 
-func (j *CustomNamespace) validateCustomNamespaceJob(logger logging.Logger, jobIdx int) error {
+func (j *CustomNamespace) validateCustomNamespaceJob(logger *slog.Logger, jobIdx int) error {
 	if j.Name == "" {
 		return fmt.Errorf("CustomNamespace job [%v]: Name should not be empty", jobIdx)
 	}
@@ -295,7 +295,7 @@ func (j *CustomNamespace) validateCustomNamespaceJob(logger logging.Logger, jobI
 	return nil
 }
 
-func (j *Static) validateStaticJob(logger logging.Logger, jobIdx int) error {
+func (j *Static) validateStaticJob(logger *slog.Logger, jobIdx int) error {
 	if j.Name == "" {
 		return fmt.Errorf("Static job [%v]: Name should not be empty", jobIdx)
 	}
@@ -325,7 +325,7 @@ func (j *Static) validateStaticJob(logger logging.Logger, jobIdx int) error {
 	return nil
 }
 
-func (m *Metric) validateMetric(logger logging.Logger, metricIdx int, parent string, discovery *JobLevelMetricFields) error {
+func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent string, discovery *JobLevelMetricFields) error {
 	if m.Name == "" {
 		return fmt.Errorf("Metric [%s/%d] in %v: Name should not be empty", m.Name, metricIdx, parent)
 	}
@@ -525,7 +525,7 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 }
 
 // logConfigErrors logs as warning any config unmarshalling error.
-func logConfigErrors(cfg []byte, logger logging.Logger) {
+func logConfigErrors(cfg []byte, logger *slog.Logger) {
 	var sc ScrapeConf
 	var errMsgs []string
 	if err := yaml.UnmarshalStrict(cfg, &sc); err != nil {

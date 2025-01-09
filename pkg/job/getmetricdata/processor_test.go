@@ -19,11 +19,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -200,7 +200,7 @@ func TestProcessor_Run(t *testing.T) {
 			if tt.metricsPerBatch != 0 {
 				metricsPerQuery = tt.metricsPerBatch
 			}
-			r := NewDefaultProcessor(logging.NewNopLogger(), testClient{GetMetricDataResultForMetrics: tt.metricDataResultForMetrics}, metricsPerQuery, 1)
+			r := NewDefaultProcessor(promslog.NewNopLogger(), testClient{GetMetricDataResultForMetrics: tt.metricDataResultForMetrics}, metricsPerQuery, 1)
 			cloudwatchData, err := r.Run(context.Background(), "anything_is_fine", ToCloudwatchData(tt.requests))
 			require.NoError(t, err)
 			require.Len(t, cloudwatchData, len(tt.want))
@@ -334,7 +334,7 @@ func doBench(b *testing.B, metricsPerQuery, testResourcesCount int, concurrency 
 		for i := 0; i < testResourcesCount; i++ {
 			datas = append(datas, getSampleMetricDatas(testResourceIDs[i]))
 		}
-		r := NewDefaultProcessor(logging.NewNopLogger(), client, metricsPerQuery, concurrency)
+		r := NewDefaultProcessor(promslog.NewNopLogger(), client, metricsPerQuery, concurrency)
 		// re-start timer
 		b.ReportAllocs()
 		b.StartTimer()

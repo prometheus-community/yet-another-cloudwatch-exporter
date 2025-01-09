@@ -14,6 +14,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -23,7 +24,6 @@ import (
 
 	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -56,7 +56,7 @@ func (s *scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func (s *scraper) decoupled(ctx context.Context, logger logging.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
+func (s *scraper) decoupled(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
 	logger.Debug("Starting scraping async")
 	s.scrape(ctx, logger, jobsCfg, cache)
 
@@ -75,7 +75,7 @@ func (s *scraper) decoupled(ctx context.Context, logger logging.Logger, jobsCfg 
 	}
 }
 
-func (s *scraper) scrape(ctx context.Context, logger logging.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
+func (s *scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
 	if !sem.TryAcquire(1) {
 		// This shouldn't happen under normal use, users should adjust their configuration when this occurs.
 		// Let them know by logging a warning.
@@ -120,7 +120,7 @@ func (s *scraper) scrape(ctx context.Context, logger logging.Logger, jobsCfg mod
 		options...,
 	)
 	if err != nil {
-		logger.Error(err, "error updating metrics")
+		logger.Error("error updating metrics", "err", err)
 	}
 
 	s.registry.Store(newRegistry)

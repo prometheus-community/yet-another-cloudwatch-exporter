@@ -14,16 +14,16 @@ package job
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func runCustomNamespaceJob(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	job model.CustomNamespaceJob,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
@@ -37,7 +37,7 @@ func runCustomNamespaceJob(
 	var err error
 	cloudwatchDatas, err = gmdProcessor.Run(ctx, job.Namespace, cloudwatchDatas)
 	if err != nil {
-		logger.Error(err, "Failed to get metric data")
+		logger.Error("Failed to get metric data", "err", err)
 		return nil
 	}
 
@@ -48,7 +48,7 @@ func getMetricDataForQueriesForCustomNamespace(
 	ctx context.Context,
 	customNamespaceJob model.CustomNamespaceJob,
 	clientCloudwatch cloudwatch.Client,
-	logger logging.Logger,
+	logger *slog.Logger,
 ) []*model.CloudwatchData {
 	mux := &sync.Mutex{}
 	var getMetricDatas []*model.CloudwatchData
@@ -99,7 +99,7 @@ func getMetricDataForQueriesForCustomNamespace(
 				mux.Unlock()
 			})
 			if err != nil {
-				logger.Error(err, "Failed to get full metric list", "metric_name", metric.Name, "namespace", customNamespaceJob.Namespace)
+				logger.Error("Failed to get full metric list", "metric_name", metric.Name, "namespace", customNamespaceJob.Namespace, "err", err)
 				return
 			}
 		}(metric)

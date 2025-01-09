@@ -14,6 +14,7 @@ package promutil
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"math"
 	"sort"
@@ -23,7 +24,6 @@ import (
 	"github.com/grafana/regexp"
 	prom_model "github.com/prometheus/common/model"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -56,7 +56,7 @@ func BuildMetricName(namespace, metricName, statistic string) string {
 	return sb.String()
 }
 
-func BuildNamespaceInfoMetrics(tagData []model.TaggedResourceResult, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, labelsSnakeCase bool, logger logging.Logger) ([]*PrometheusMetric, map[string]model.LabelSet) {
+func BuildNamespaceInfoMetrics(tagData []model.TaggedResourceResult, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, labelsSnakeCase bool, logger *slog.Logger) ([]*PrometheusMetric, map[string]model.LabelSet) {
 	for _, tagResult := range tagData {
 		contextLabels := contextToLabels(tagResult.Context, labelsSnakeCase, logger)
 		for _, d := range tagResult.Data {
@@ -88,7 +88,7 @@ func BuildNamespaceInfoMetrics(tagData []model.TaggedResourceResult, metrics []*
 	return metrics, observedMetricLabels
 }
 
-func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, logger logging.Logger) ([]*PrometheusMetric, map[string]model.LabelSet, error) {
+func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, logger *slog.Logger) ([]*PrometheusMetric, map[string]model.LabelSet, error) {
 	output := make([]*PrometheusMetric, 0)
 	observedMetricLabels := make(map[string]model.LabelSet)
 
@@ -221,7 +221,7 @@ func sortByTimestamp(datapoints []*model.Datapoint) []*model.Datapoint {
 	return datapoints
 }
 
-func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, contextLabels map[string]string, logger logging.Logger) map[string]string {
+func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, contextLabels map[string]string, logger *slog.Logger) map[string]string {
 	labels := make(map[string]string, len(cwd.Dimensions)+len(cwd.Tags)+len(contextLabels))
 	labels["name"] = cwd.ResourceName
 
@@ -249,7 +249,7 @@ func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, con
 	return labels
 }
 
-func contextToLabels(context *model.ScrapeContext, labelsSnakeCase bool, logger logging.Logger) map[string]string {
+func contextToLabels(context *model.ScrapeContext, labelsSnakeCase bool, logger *slog.Logger) map[string]string {
 	if context == nil {
 		return map[string]string{}
 	}

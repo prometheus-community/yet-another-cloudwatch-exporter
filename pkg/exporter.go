@@ -15,6 +15,7 @@ package exporter
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
@@ -165,7 +165,7 @@ func defaultOptions() options {
 // Parameters are:
 // - `ctx`: a context for the request
 // - `config`: this is the struct representation of the configuration defined in top-level configuration
-// - `logger`: any implementation of the `logging.Logger` interface
+// - `logger`: an *slog.Logger
 // - `registry`: any prometheus compatible registry where scraped AWS metrics will be written
 // - `factory`: any implementation of the `clients.Factory` interface
 // - `optFuncs`: (optional) any number of options funcs
@@ -176,7 +176,7 @@ func defaultOptions() options {
 // track them over the lifetime of the application.
 func UpdateMetrics(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	jobsCfg model.JobsConfig,
 	registry *prometheus.Registry,
 	factory clients.Factory,
@@ -204,7 +204,7 @@ func UpdateMetrics(
 
 	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
 	if err != nil {
-		logger.Error(err, "Error migrating cloudwatch metrics to prometheus metrics")
+		logger.Error("Error migrating cloudwatch metrics to prometheus metrics", "err", err)
 		return nil
 	}
 	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
