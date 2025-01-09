@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -278,7 +278,7 @@ func TestBuildNamespaceInfoMetrics(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			metrics, labels := BuildNamespaceInfoMetrics(tc.resources, tc.metrics, tc.observedMetricLabels, tc.labelsSnakeCase, logging.NewNopLogger())
+			metrics, labels := BuildNamespaceInfoMetrics(tc.resources, tc.metrics, tc.observedMetricLabels, tc.labelsSnakeCase, promslog.NewNopLogger())
 			require.Equal(t, tc.expectedMetrics, metrics)
 			require.Equal(t, tc.expectedLabels, labels)
 		})
@@ -959,7 +959,7 @@ func TestBuildMetrics(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, labels, err := BuildMetrics(tc.data, tc.labelsSnakeCase, logging.NewNopLogger())
+			res, labels, err := BuildMetrics(tc.data, tc.labelsSnakeCase, promslog.NewNopLogger())
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
 			} else {
@@ -1086,7 +1086,7 @@ func Benchmark_BuildMetrics(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, labels, err = BuildMetrics(data, false, logging.NewNopLogger())
+		_, labels, err = BuildMetrics(data, false, promslog.NewNopLogger())
 	}
 
 	expectedLabels := map[string]model.LabelSet{

@@ -31,10 +31,8 @@ linters:
     - typecheck
     - unconvert
     - unused
+    - sloglint
 
 linters-settings:
-  errcheck:
-    exclude-functions:
-      - (github.com/go-kit/log.Logger).Log
   goimports:
     local-prefixes: "github.com/prometheus-community/yet-another-cloudwatch-exporter"

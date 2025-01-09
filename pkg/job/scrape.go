@@ -14,19 +14,19 @@ package job
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func ScrapeAwsData(
 	ctx context.Context,
-	logger logging.Logger,
+	logger *slog.Logger,
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
 	metricsPerQuery int,
@@ -47,7 +47,7 @@ func ScrapeAwsData(
 					jobLogger := logger.With("job_type", discoveryJob.Type, "region", region, "arn", role.RoleArn)
 					accountID, err := factory.GetAccountClient(region, role).GetAccount(ctx)
 					if err != nil {
-						jobLogger.Error(err, "Couldn't get account Id")
+						jobLogger.Error("Couldn't get account Id", "err", err)
 						return
 					}
 					jobLogger = jobLogger.With("account", accountID)
@@ -101,7 +101,7 @@ func ScrapeAwsData(
 					jobLogger := logger.With("static_job_name", staticJob.Name, "region", region, "arn", role.RoleArn)
 					accountID, err := factory.GetAccountClient(region, role).GetAccount(ctx)
 					if err != nil {
-						jobLogger.Error(err, "Couldn't get account Id")
+						jobLogger.Error("Couldn't get account Id", "err", err)
 						return
 					}
 					jobLogger = jobLogger.With("account", accountID)
@@ -138,7 +138,7 @@ func ScrapeAwsData(
 					jobLogger := logger.With("custom_metric_namespace", customNamespaceJob.Namespace, "region", region, "arn", role.RoleArn)
 					accountID, err := factory.GetAccountClient(region, role).GetAccount(ctx)
 					if err != nil {
-						jobLogger.Error(err, "Couldn't get account Id")
+						jobLogger.Error("Couldn't get account Id", "err", err)
 						return
 					}
 					jobLogger = jobLogger.With("account", accountID)

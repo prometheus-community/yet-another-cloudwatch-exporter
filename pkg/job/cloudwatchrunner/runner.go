@@ -13,14 +13,15 @@
 package cloudwatchrunner
 
 import (
+	"log/slog"
+
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/listmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/resourcemetadata"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 type ResourceEnrichment interface {
-	Create(logger logging.Logger) resourcemetadata.MetricResourceEnricher
+	Create(logger *slog.Logger) resourcemetadata.MetricResourceEnricher
 }
 
 type Job interface {

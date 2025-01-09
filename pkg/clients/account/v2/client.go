@@ -15,21 +15,21 @@ package v2
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 )
 
 type client struct {
-	logger    logging.Logger
+	logger    *slog.Logger
 	stsClient *sts.Client
 	iamClient *iam.Client
 }
 
-func NewClient(logger logging.Logger, stsClient *sts.Client, iamClient *iam.Client) account.Client {
+func NewClient(logger *slog.Logger, stsClient *sts.Client, iamClient *iam.Client) account.Client {
 	return &client{
 		logger:    logger,
 		stsClient: stsClient,
