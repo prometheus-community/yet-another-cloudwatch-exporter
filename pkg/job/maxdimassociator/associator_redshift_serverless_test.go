@@ -15,10 +15,10 @@ package maxdimassociator
 import (
 	"testing"
 
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
