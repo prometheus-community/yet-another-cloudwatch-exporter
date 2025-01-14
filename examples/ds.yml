@@ -1,0 +1,19 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/DirectoryService
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: "Bytes Sent/sec"
+          statistics: [Average]
+        - name: "% Processor Time"
+          statistics: [Average]
+        - name: "DS Directory Searches/Sec"
+          statistics: [Average]
+        - name: "Database Cache % Hit"
+          statistics: [Average]
+        - name: "% Free Space"
+          statistics: [Sum]

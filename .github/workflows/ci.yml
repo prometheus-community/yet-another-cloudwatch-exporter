@@ -1,24 +1,54 @@
-name: Go
+name: CI
 
 on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
   pull_request:
   workflow_call:
 
 jobs:
   build:
-    name: Build
+    name: Build for common architectures
     runs-on: ubuntu-latest
-    container:
-      image: quay.io/prometheus/golang-builder:1.23-base
+    if: |
+      !(github.event_name == 'push' && github.event.ref == 'refs/heads/master')
+      &&
+      !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    strategy:
+      matrix:
+        thread: [ 0, 1, 2 ]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: prometheus/promci@52c7012f5f0070d7281b8db4a119e21341d43c91 # v0.4.5
-      - uses: ./.github/promci/actions/setup_environment
-      - run: make
-      - run: git diff --exit-code
+      - uses: ./.github/promci/actions/build
+        with:
+          promu_opts: "-p linux/amd64 -p windows/amd64 -p darwin/amd64 -p linux/arm64 -p windows/arm64 -p darwin/arm64"
+          parallelism: 3
+          thread: ${{ matrix.thread }}
+
+  build_all:
+    name: Build for all architectures
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && github.event.ref == 'refs/heads/master')
+      ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    strategy:
+      matrix:
+        thread: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: prometheus/promci@52c7012f5f0070d7281b8db4a119e21341d43c91 # v0.4.5
+      - uses: ./.github/promci/actions/build
+        with:
+          parallelism: 12
+          thread: ${{ matrix.thread }}
 
   verify-example-configs:
-    name: verify
+    name: Verify
     runs-on: ubuntu-latest
     container:
       image: quay.io/prometheus/golang-builder:1.23-base
@@ -27,3 +57,44 @@ jobs:
       - run: make build
       - name: Verify example configs
         run: find ./examples -name "*.yml" -print0 | xargs -0 -I % ./yace verify-config -config.file %
+
+  publish_master:
+    name: Publish master branch artifacts
+    runs-on: ubuntu-latest
+    needs: [build_all, verify-example-configs]
+    if: |
+      (github.repository == 'prometheus-community/yet-another-cloudwatch-exporter')
+      &&
+      (github.event_name == 'push' && github.event.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: prometheus/promci@52c7012f5f0070d7281b8db4a119e21341d43c91 # v0.4.5
+      - uses: ./.github/promci/actions/publish_main
+        with:
+          docker_hub_organization: prometheuscommunity
+          docker_hub_login: ${{ secrets.docker_hub_login }}
+          docker_hub_password: ${{ secrets.docker_hub_password }}
+          quay_io_organization: prometheuscommunity
+          quay_io_login: ${{ secrets.quay_io_login }}
+          quay_io_password: ${{ secrets.quay_io_password }}
+
+  publish_release:
+    name: Publish release artifacts
+    runs-on: ubuntu-latest
+    needs: [build_all, verify-example-configs]
+    if: |
+      (github.repository == 'prometheus-community/yet-another-cloudwatch-exporter')
+      &&
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v0.'))
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: prometheus/promci@52c7012f5f0070d7281b8db4a119e21341d43c91 # v0.4.5
+      - uses: ./.github/promci/actions/publish_release
+        with:
+          docker_hub_organization: prometheuscommunity
+          docker_hub_login: ${{ secrets.docker_hub_login }}
+          docker_hub_password: ${{ secrets.docker_hub_password }}
+          quay_io_organization: prometheuscommunity
+          quay_io_login: ${{ secrets.quay_io_login }}
+          quay_io_password: ${{ secrets.quay_io_password }}
+          github_token: ${{ secrets.PROMBOT_GITHUB_TOKEN }}

@@ -22,21 +22,12 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-var eventRule0 = &model.TaggedResource{
-	ARN:       "arn:aws:events:eu-central-1:112246171613:rule/event-bus-name/rule-name",
-	Namespace: "AWS/Events",
+var directory = &model.TaggedResource{
+	ARN:       "arn:aws:ds::012345678901:directory/d-abc123",
+	Namespace: "AWS/DirectoryService",
 }
 
-var eventRule1 = &model.TaggedResource{
-	ARN:       "arn:aws:events:eu-central-1:123456789012:rule/aws.partner/partner.name/123456/rule-name",
-	Namespace: "AWS/Events",
-}
-
-var eventRuleResources = []*model.TaggedResource{
-	eventRule0, eventRule1,
-}
-
-func TestAssociatorEventRule(t *testing.T) {
+func TestAssociatorDirectoryService(t *testing.T) {
 	type args struct {
 		dimensionRegexps []model.DimensionsRegexp
 		resources        []*model.TaggedResource
@@ -52,21 +43,22 @@ func TestAssociatorEventRule(t *testing.T) {
 
 	testcases := []testCase{
 		{
-			name: "2 dimensions should match",
+			name: "should match directory id with Directory ID dimension",
 			args: args{
-				dimensionRegexps: config.SupportedServices.GetService("AWS/Events").ToModelDimensionsRegexp(),
-				resources:        eventRuleResources,
+				dimensionRegexps: config.SupportedServices.GetService("AWS/DirectoryService").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{directory},
 				metric: &model.Metric{
-					MetricName: "Invocations",
-					Namespace:  "AWS/Events",
+					MetricName: "Current Bandwidth",
+					Namespace:  "AWS/DirectoryService",
 					Dimensions: []model.Dimension{
-						{Name: "EventBusName", Value: "event-bus-name"},
-						{Name: "RuleName", Value: "rule-name"},
+						{Name: "Metric Category", Value: "NTDS"},
+						{Name: "Domain Controller IP", Value: "123.123.123.123"},
+						{Name: "Directory ID", Value: "d-abc123"},
 					},
 				},
 			},
 			expectedSkip:     false,
-			expectedResource: eventRule0,
+			expectedResource: directory,
 		},
 	}
 

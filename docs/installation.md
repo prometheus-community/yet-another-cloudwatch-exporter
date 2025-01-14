@@ -10,7 +10,7 @@ See the [Releases](https://github.com/prometheus-community/yet-another-cloudwatc
 
 Docker images are available on GitHub Container Registry [here](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pkgs/container/yet-another-cloudwatch-exporter).
 
-The image name is `ghcr.io/nerdswords/yet-another-cloudwatch-exporter` and we only support tags of the form `vX.Y.Z`.
+The image name is `quay.io/prometheuscommunity/yet-another-cloudwatch-exporter` and we support tags of the form `vX.Y.Z`.
 
 To pull and run the image locally use:
 
@@ -19,7 +19,7 @@ docker run -d --rm \
   -v $PWD/credentials:/exporter/.aws/credentials \
   -v $PWD/config.yml:/tmp/config.yml \
   -p 5000:5000 \
-  --name yace ghcr.io/nerdswords/yet-another-cloudwatch-exporter:vX.Y.Z
+  --name yace quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:latest
 ```
 
 Do not forget the `v` prefix in the image version tag.
@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
       - name: yace
-        image: ghcr.io/nerdswords/yet-another-cloudwatch-exporter:vX.Y.Z # release version as tag - Do not forget the version 'v'
+        image: quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:vX.Y.Z # release version as tag - Do not forget the version 'v'
         imagePullPolicy: IfNotPresent
         args:
           - "--config.file=/tmp/config.yml"

@@ -23,10 +23,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/mock"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -82,7 +82,7 @@ func TestNewClientCache(t *testing.T) {
 			"an empty config gives an empty cache",
 			model.JobsConfig{},
 			false,
-			&CachingFactory{logger: logging.NewNopLogger()},
+			&CachingFactory{logger: promslog.NewNopLogger()},
 		},
 		{
 			"if fips is set then the clients has fips",
@@ -90,7 +90,7 @@ func TestNewClientCache(t *testing.T) {
 			true,
 			&CachingFactory{
 				fips:   true,
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-3": &cachedClients{},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 		{
@@ -239,7 +239,7 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-1": &cachedClients{onlyStatic: true},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 		{
@@ -362,7 +362,7 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-3": &cachedClients{},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 		{
@@ -451,7 +451,7 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-1": &cachedClients{onlyStatic: true},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 	}
@@ -460,7 +460,7 @@ func TestNewClientCache(t *testing.T) {
 		test := l
 		t.Run(test.descrip, func(t *testing.T) {
 			t.Parallel()
-			cache := NewFactory(logging.NewNopLogger(), test.jobsCfg, test.fips)
+			cache := NewFactory(promslog.NewNopLogger(), test.jobsCfg, test.fips)
 			t.Logf("the cache is: %v", cache)
 
 			if test.cache.cleared != cache.cleared {
@@ -505,14 +505,14 @@ func TestClear(t *testing.T) {
 				clients: map[model.Role]map[string]*cachedClients{
 					{}: {
 						"us-east-1": &cachedClients{
-							cloudwatch: createCloudWatchClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							tagging:    createTaggingClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							account:    createAccountClient(logging.NewNopLogger(), nil, nil),
+							cloudwatch: createCloudWatchClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							tagging:    createTaggingClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							account:    createAccountClient(promslog.NewNopLogger(), nil, nil),
 							onlyStatic: true,
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 		{
@@ -533,7 +533,7 @@ func TestClear(t *testing.T) {
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 		},
 	}
@@ -605,7 +605,7 @@ func TestRefresh(t *testing.T) {
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			false,
 		},
@@ -628,7 +628,7 @@ func TestRefresh(t *testing.T) {
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			true,
 		},
@@ -639,18 +639,18 @@ func TestRefresh(t *testing.T) {
 				mu:        sync.Mutex{},
 				session:   mock.Session,
 				stscache: map[model.Role]stsiface.STSAPI{
-					{}: createStsSession(mock.Session, role, "", false, false),
+					{}: createStsSession(mock.Session, role, "", false, nil),
 				},
 				clients: map[model.Role]map[string]*cachedClients{
 					{}: {
 						"us-east-1": &cachedClients{
-							cloudwatch: createCloudWatchClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							tagging:    createTaggingClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							account:    createAccountClient(logging.NewNopLogger(), createStsSession(mock.Session, role, "", false, false), createIamSession(mock.Session, role, false, false)),
+							cloudwatch: createCloudWatchClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							tagging:    createTaggingClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							account:    createAccountClient(promslog.NewNopLogger(), createStsSession(mock.Session, role, "", false, nil), createIamSession(mock.Session, role, false, nil)),
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			false,
 		},
@@ -762,13 +762,13 @@ func testGetAWSClient(
 				clients: map[model.Role]map[string]*cachedClients{
 					{}: {
 						"us-east-1": &cachedClients{
-							cloudwatch: createCloudWatchClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							tagging:    createTaggingClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							account:    createAccountClient(logging.NewNopLogger(), createStsSession(mock.Session, role, "", false, false), createIamSession(mock.Session, role, false, false)),
+							cloudwatch: createCloudWatchClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							tagging:    createTaggingClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							account:    createAccountClient(promslog.NewNopLogger(), createStsSession(mock.Session, role, "", false, nil), createIamSession(mock.Session, role, false, nil)),
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			true,
 		},
@@ -784,13 +784,13 @@ func testGetAWSClient(
 				clients: map[model.Role]map[string]*cachedClients{
 					{}: {
 						"us-east-1": &cachedClients{
-							cloudwatch: createCloudWatchClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							tagging:    createTaggingClient(logging.NewNopLogger(), mock.Session, &region, role, false),
-							account:    createAccountClient(logging.NewNopLogger(), createStsSession(mock.Session, role, "", false, false), createIamSession(mock.Session, role, false, false)),
+							cloudwatch: createCloudWatchClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							tagging:    createTaggingClient(promslog.NewNopLogger(), mock.Session, &region, role, false),
+							account:    createAccountClient(promslog.NewNopLogger(), createStsSession(mock.Session, role, "", false, nil), createIamSession(mock.Session, role, false, nil)),
 						},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			false,
 		},
@@ -808,7 +808,7 @@ func testGetAWSClient(
 						"us-east-1": &cachedClients{},
 					},
 				},
-				logger: logging.NewNopLogger(),
+				logger: promslog.NewNopLogger(),
 			},
 			false,
 		},
@@ -925,7 +925,7 @@ func TestCreateAWSSession(t *testing.T) {
 	for _, l := range tests {
 		test := l
 		t.Run(test.descrip, func(t *testing.T) {
-			s := createAWSSession(endpoints.DefaultResolver().EndpointFor, false)
+			s := createAWSSession(endpoints.DefaultResolver().EndpointFor, nil)
 			if s == nil {
 				t.Fail()
 			}
@@ -978,7 +978,7 @@ func TestCreateStsSession(t *testing.T) {
 		t.Run(test.descrip, func(t *testing.T) {
 			t.Parallel()
 			// just exercise the code path
-			iface := createStsSession(mock.Session, test.role, test.stsRegion, false, false)
+			iface := createStsSession(mock.Session, test.role, test.stsRegion, false, nil)
 			if iface == nil {
 				t.Fail()
 			}
@@ -991,7 +991,7 @@ func TestCreateCloudwatchSession(t *testing.T) {
 		t,
 		"Cloudwatch",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createCloudwatchSession(s, region, role, fips, false)
+			iface := createCloudwatchSession(s, region, role, fips, nil)
 			if iface == nil {
 				t.Fail()
 			}
@@ -1002,8 +1002,8 @@ func TestCreateTagSession(t *testing.T) {
 	testAWSClient(
 		t,
 		"Tag",
-		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createTagSession(s, region, role, fips)
+		func(t *testing.T, s *session.Session, region *string, role model.Role, _ bool) {
+			iface := createTagSession(s, region, role, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1015,7 +1015,7 @@ func TestCreateAPIGatewaySession(t *testing.T) {
 		t,
 		"APIGateway",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createAPIGatewaySession(s, region, role, fips, false)
+			iface := createAPIGatewaySession(s, region, role, fips, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1027,7 +1027,7 @@ func TestCreateAPIGatewayV2Session(t *testing.T) {
 		t,
 		"APIGatewayV2",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createAPIGatewayV2Session(s, region, role, fips, false)
+			iface := createAPIGatewayV2Session(s, region, role, fips, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1038,8 +1038,8 @@ func TestCreateASGSession(t *testing.T) {
 	testAWSClient(
 		t,
 		"ASG",
-		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createASGSession(s, region, role, fips)
+		func(t *testing.T, s *session.Session, region *string, role model.Role, _ bool) {
+			iface := createASGSession(s, region, role, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1051,7 +1051,7 @@ func TestCreateEC2Session(t *testing.T) {
 		t,
 		"EC2",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createEC2Session(s, region, role, fips, false)
+			iface := createEC2Session(s, region, role, fips, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1063,7 +1063,7 @@ func TestCreatePrometheusSession(t *testing.T) {
 		t,
 		"Prometheus",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, _ bool) {
-			iface := createPrometheusSession(s, region, role, false)
+			iface := createPrometheusSession(s, region, role, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1075,7 +1075,7 @@ func TestCreateDMSSession(t *testing.T) {
 		t,
 		"DMS",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createDMSSession(s, region, role, fips, false)
+			iface := createDMSSession(s, region, role, fips, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1087,7 +1087,7 @@ func TestCreateStorageGatewaySession(t *testing.T) {
 		t,
 		"StorageGateway",
 		func(t *testing.T, s *session.Session, region *string, role model.Role, fips bool) {
-			iface := createStorageGatewaySession(s, region, role, fips, false)
+			iface := createStorageGatewaySession(s, region, role, fips, promslog.NewNopLogger())
 			if iface == nil {
 				t.Fail()
 			}
@@ -1140,7 +1140,7 @@ func TestSTSResolvesFIPSEnabledEndpoints(t *testing.T) {
 
 			mockSession.Config.Endpoint = nil
 
-			sess := createStsSession(mock.Session, model.Role{}, tc.region, true, false)
+			sess := createStsSession(mock.Session, model.Role{}, tc.region, true, promslog.NewNopLogger())
 			require.NotNil(t, sess)
 
 			require.True(t, called, "expected endpoint resolver to be called")

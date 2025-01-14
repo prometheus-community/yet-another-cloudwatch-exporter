@@ -15,6 +15,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/apigateway/apigatewayiface"
@@ -30,13 +31,12 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type client struct {
-	logger            logging.Logger
+	logger            *slog.Logger
 	taggingAPI        resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 	autoscalingAPI    autoscalingiface.AutoScalingAPI
 	apiGatewayAPI     apigatewayiface.APIGatewayAPI
@@ -49,7 +49,7 @@ type client struct {
 }
 
 func NewClient(
-	logger logging.Logger,
+	logger *slog.Logger,
 	taggingAPI resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI,
 	autoscalingAPI autoscalingiface.AutoScalingAPI,
 	apiGatewayAPI apigatewayiface.APIGatewayAPI,

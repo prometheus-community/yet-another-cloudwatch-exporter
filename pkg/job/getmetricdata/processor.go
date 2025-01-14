@@ -15,6 +15,7 @@ package getmetricdata
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -56,15 +56,15 @@ type Processor struct {
 	client           Client
 	concurrency      int
 	windowCalculator MetricWindowCalculator
-	logger           logging.Logger
+	logger           *slog.Logger
 	factory          IteratorFactory
 }
 
-func NewDefaultProcessor(logger logging.Logger, client Client, metricsPerQuery int, concurrency int) Processor {
+func NewDefaultProcessor(logger *slog.Logger, client Client, metricsPerQuery int, concurrency int) Processor {
 	return NewProcessor(logger, client, concurrency, MetricWindowCalculator{clock: TimeClock{}}, &iteratorFactory{metricsPerQuery: metricsPerQuery})
 }
 
-func NewProcessor(logger logging.Logger, client Client, concurrency int, windowCalculator MetricWindowCalculator, factory IteratorFactory) Processor {
+func NewProcessor(logger *slog.Logger, client Client, concurrency int, windowCalculator MetricWindowCalculator, factory IteratorFactory) Processor {
 	return Processor{
 		logger:           logger,
 		client:           client,
@@ -88,9 +88,7 @@ func (p Processor) Run(ctx context.Context, namespace string, requests []*model.
 		g.Go(func() error {
 			batch = addQueryIDsToBatch(batch)
 			startTime, endTime := p.windowCalculator.Calculate(toSecondDuration(batchParams.Period), toSecondDuration(batchParams.Length), toSecondDuration(batchParams.Delay))
-			if p.logger.IsDebugEnabled() {
-				p.logger.Debug("GetMetricData Window", "start_time", startTime.Format(TimeFormat), "end_time", endTime.Format(TimeFormat))
-			}
+			p.logger.Debug("GetMetricData Window", "start_time", startTime.Format(TimeFormat), "end_time", endTime.Format(TimeFormat))
 
 			data := p.client.GetMetricData(gCtx, batch, namespace, startTime, endTime)
 			if data != nil {
@@ -124,7 +122,7 @@ func addQueryIDsToBatch(batch []*model.CloudwatchData) []*model.CloudwatchData {
 	return batch
 }
 
-func mapResultsToBatch(logger logging.Logger, results []cloudwatch.MetricDataResult, batch []*model.CloudwatchData) {
+func mapResultsToBatch(logger *slog.Logger, results []cloudwatch.MetricDataResult, batch []*model.CloudwatchData) {
 	for _, entry := range results {
 		id, err := queryIDToIndex(entry.ID)
 		if err != nil {

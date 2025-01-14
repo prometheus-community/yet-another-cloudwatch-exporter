@@ -15,10 +15,10 @@ package maxdimassociator
 import (
 	"testing"
 
+	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -72,7 +72,7 @@ func TestAssociatorDDoSProtection(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			associator := NewAssociator(logging.NewNopLogger(), tc.args.dimensionRegexps, tc.args.resources)
+			associator := NewAssociator(promslog.NewNopLogger(), tc.args.dimensionRegexps, tc.args.resources)
 			res, skip := associator.AssociateMetricToResource(tc.args.metric)
 			assert.Equal(t, tc.expectedSkip, skip)
 			assert.Equal(t, tc.expectedResource, res)

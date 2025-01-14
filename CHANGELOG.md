@@ -1,46 +1,108 @@
-# main (unreleased)
+## main / (unreleased)
 
 **Important news and breaking changes**
 
-* ...
+* [CHANGE] ...
+* [FEATURE] ...
+* [ENHANCEMENT] ...
+* [BUGFIX] ...
+
+## 0.62.1 / 2025-01-03
+
+**Important news and breaking changes**
+
+Bugfix release to address artifacts build error. The most important news is the same as 0.62.0: as of November 2024, YACE is part of prometheus-community. Read more about it in these announcement posts:
+- https://prometheus.io/blog/2024/11/19/yace-joining-prometheus-community/
+- https://grafana.com/blog/2024/11/19/yace-moves-to-prometheus-community/
+
+* [ENHANCEMENT] Adopt log/slog, drop custom logging pkg by @tjhop
+* [ENHANCEMENT] Bump github.com/prometheus/common from 0.60.1 to 0.61.0
+* [ENHANCEMENT] Bump golang.org/x/sync from 0.9.0 to 0.10.0
+* [ENHANCEMENT] Bump the aws-sdk-v2 group
+* [ENHANCEMENT] Synchronize common files from prometheus/prometheus
+* [ENHANCEMENT] Update CHANGELOG format by @SuperQ
+* [BUGFIX] Fix artifact publishing by @SuperQ
+
+## 0.62.0 / 2024-12-19
+
+**Important news and breaking changes**
+
+* As of November 2024, YACE is part of prometheus-community. Read more about it in these announcement posts:
+- https://prometheus.io/blog/2024/11/19/yace-joining-prometheus-community/
+- https://grafana.com/blog/2024/11/19/yace-moves-to-prometheus-community/
 
 **Bugfixes and features**
 
 Features:
-* ...
+* Add ContainerInsights service by @JetSquirrel
+* Add AWS/Scheduler and AWS/ECR services by @andriikushch
+* Add AWS/VpcLattice service by @greymd
+* Add AWS/QuickSight service by @choppedpork
+* Add AWS/Timestream service by @andriikushch
+* Add Network Manager / Cloud WAN support by @kylehodgetts
+* RDS: include RDS Proxy metrics within the RDS namespace by @vitaliyf
+* Mediapackage: include mediapackagev2 namespace by @henrylaiBrightcove
 
 Bugs:
-* ...
+* Add parentheses to sanitize list to prevent invalid metric name generation by @nixargh
 
 Docs:
-* ...
+* Review and update supported services in README by @cristiangreco
+* Mention support for AWS/MediaPackage by @prathamesh-sonpatki
+* Update README and MAINTAINERS files to mention the move to prometheus-community by @cristiangreco
 
 Refactoring:
-* ...
+* Start a unified scraper by @kgeckhart
+* Refactor prom metric creation by @kgeckhart
+* Update for Prometheus Community by @SuperQ
+* Update Docker build by @SuperQ
+* Fix linting issues detected by golangci-lint 1.60.3 by @cristiangreco
+* Update build tools and CI to Go 1.23 by @cristiangreco
 
 **Dependencies**
 
-* ...
+* Bump actions/checkout from 4.2.0 to 4.2.2
+* Bump alpine from 3.20.1 to 3.20.3
+* Bump github.com/aws/aws-sdk-go from 1.54.7 to 1.55.5
+* Bump github.com/aws/smithy-go from 1.22.0 to 1.22.1
+* Bump github.com/prometheus/client_golang from 1.19.1 to 1.20.5
+* Bump github.com/prometheus/common from 0.54.0 to 0.60.1
+* Bump github.com/stretchr/testify from 1.9.0 to 1.10.0
+* Bump github.com/urfave/cli/v2 from 2.27.2 to 2.27.5
+* Bump golang from 1.22 to 1.23
+* Bump golang.org/x/sync from 0.7.0 to 0.9.0
+* Bump golangci/golangci-lint-action from 6.0.1 to 6.1.1
+* Bump grafana/regexp to `20240607082908-2cb410fa05da`
+* Bump the aws-sdk-v2 group
 
 **New contributors**
 
-* ...
+* @prathamesh-sonpatki made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1465
+* @JetSquirrel made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1463
+* @greymd made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1506
+* @choppedpork made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1477
+* @SuperQ made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1568
+* @prombot made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1570
+* @nixargh made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1563
+* @kylehodgetts made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1580
+* @vitaliyf made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1501
+* @henrylaiBrightcove made their first contribution in https://github.com/prometheus-community/yet-another-cloudwatch-exporter/pull/1544
 
-**Full Changelog**: https://github.com/...
+**Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.61.2...v0.62.0
 
-# 0.61.2
+## 0.61.2 / 2024-06-25
 
 Bugfix release to update the `goreleaser` configuration (again!), please refer to the release notes for `0.61.0` for actual code changes.
 
 https://github.com/prometheus-community/yet-another-cloudwatch-exporter/releases/tag/v0.61.0
 
-# 0.61.1
+## 0.61.1 / 2024-06-25
 
 Bugfix release to update the `goreleaser` configuration, please refer to the release notes for `0.61.0` for actual code changes.
 
 https://github.com/prometheus-community/yet-another-cloudwatch-exporter/releases/tag/v0.61.0
 
-# 0.61.0
+## 0.61.0 / 2024-06-25
 
 **Important news and breaking changes**
 
@@ -76,7 +138,7 @@ Refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.60.0...v0.61.0
 
-# 0.60.0
+## 0.60.0 / 2024-05-14
 
 **Bugfixes and features**
 
@@ -111,7 +173,7 @@ Refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.59.0...v0.60.0
 
-# 0.59.0
+## 0.59.0 / 2024-04-18
 
 **Important news and breaking changes**
 
@@ -158,7 +220,7 @@ Refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.58.0...v0.59.0
 
-# 0.58.0
+## 0.58.0 / 2024-04-06
 
 **Bugfixes and features**
 
@@ -188,7 +250,7 @@ Refactoring:
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.57.1...v0.58.0
 
 
-# 0.57.1
+## 0.57.1 / 2024-03-07
 
 **Important news and breaking changes**
 
@@ -640,7 +702,7 @@ Internal refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.46.0-alpha...v0.47.0-alpha
 
-# 0.46.0-alpha
+## 0.46.0-alpha / 2023-02-02
 
 **Breaking changes**:
 - If you use Yace as a library: this release changes the package
@@ -655,7 +717,7 @@ Internal refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/helm-chart-0.11.0...v0.46.0-alpha
 
-# 0.45.0-alpha
+## 0.45.0-alpha / 2023-01-30
 
 **Breaking changes**:
 - Note if you use Yace as a library: this release changes the signature
@@ -676,7 +738,7 @@ Internal refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.44.0-alpha...v0.45.0-alpha
 
-# 0.44.0-alpha
+## 0.44.0-alpha / 2023-01-23
 
 **Breaking changes**:
 - Note if you use Yace as a library: this release changes the packages
@@ -704,7 +766,7 @@ Internal refactoring:
 
 **Full Changelog**: https://github.com/prometheus-community/yet-another-cloudwatch-exporter/compare/v0.43.0-alpha...v0.44.0-alpha
 
-# 0.43.0-alpha
+## 0.43.0-alpha / 2023-01-02
 
 * add support to custom namespaces with their dimensions (by @arielly-parussulo)
 * Optimise support for custom namespaces to use GetMetricData API (by @code-haven)
@@ -716,7 +778,7 @@ Internal refactoring:
 * Bump golangci/golangci-lint-action from 3.3.0 to 3.3.1
 * Bump github.com/urfave/cli/v2 from 2.23.0 to 2.23.7
 
-# 0.42.0-alpha
+## 0.42.0-alpha / 2022-11-03
 
 * Resolve logging issue (@datsabk)
 * MediaTailor - Correct dimension regex for MT (@scott-mccracken)
@@ -725,7 +787,7 @@ Internal refactoring:
 * Bump github.com/aws/aws-sdk-go from 1.44.122 to 1.44.127
 * Bump github.com/urfave/cli/v2 from 2.20.3 to 2.23.0
 
-# 0.41.0-alpha
+## 0.41.0-alpha / 2022-10-27
 
 * Clean up unused variables. (@cristiangreco)
 * Fix typo: sts-endpoint should be sts-region. (@cristiangreco)
@@ -735,7 +797,7 @@ Internal refactoring:
 * main.go refactoring: define cmd action as a separate func. (@cristiangreco)
 * Add support for EMR Serverless (@cgowthaman)
 
-# 0.40.0-alpha
+## 0.40.0-alpha / 2022-09-15
 * Fix typo in Charts.yml (@yasharne)
 * Subcommand `verify-config` actually validates the config file. (@cristiangreco)
 * Add dimensions regex for AmazonMQ. (@cristiangreco)
@@ -746,7 +808,7 @@ Internal refactoring:
 * Bump github.com/aws/aws-sdk-go
 * Bump actions/setup-python
 
-# 0.39.0-alpha
+## 0.39.0-alpha / 2022-09-08
 * Improve code quality and unblock this release (cristiangreco)
 * Add helm chart (vkobets)
 * Fix DX metrics (paulojmdias)
@@ -757,37 +819,37 @@ Internal refactoring:
 * Filter api gateway resources to skip "stages" (ch4rms)
 * Bump aws-sdk, urfave/cli, prometheus/client_golang
 
-# 0.38.0-alpha
+## 0.38.0-alpha / 2022-07-13
 
 * Set max page size for tagging API requests (#617)
 * Build with Go 1.18
 
-# 0.37.0-alpha
+## 0.37.0-alpha / 2022-07-05
 * New config `dimensionNameRequirements` allows autodiscovery jobs to only
   fetch metrics that include specified dimensions (jutley)
 * Update deps
 
-# 0.36.2-alpha
+## 0.36.2-alpha / 2022-06-29
 * Cost Reduction - Use less API requests if no tagged resources are found (cristiangreco)
 * Update deps
 
-# 0.36.1-alpha
+## 0.36.1-alpha / 2022-06-22
 * Use structured logs for logging interface (kgeckhart)
 
-# 0.36.0-alpha
+## 0.36.0-alpha / 2022-06-20
 
 * *BREAKING CHANGE FOR LIBRARY USERS* Major refactoring of usage of logging library (kgeckhart)
 * Minor update of deps and security patches (urfave/cli/v2, golangci/golangci-lint-action, github.com/prometheus/client_golang, github.com/stretchr/testify, github.com/aws/aws-sdk-go
 * Updates of Readme (markwallsgrove)
 
-# 0.35.0-alpha
+## 0.35.0-alpha / 2022-04-26
 * Update dependencies
 * Improve / Document way how to use the exporter as external library (kgeckhart)
 * Refactor label consistency (kgeckhart)
 * Add suppot for vpc-endpoint (AWS/PrivateLinkEndpoints) (aleslash)
 * Add support for vpc-endpoint-service (AWS/PrivateLinkServices) (aleslash)
 
-# 0.34.0-alpha
+## 0.34.0-alpha / 2022-03-26
 * Update dependencies
 * Add weekly dependabot updates (jylitalo)
 * Add support for regional sts endpoints (matt-mercer)
@@ -808,11 +870,11 @@ Bug Fixes
 Docs
 * Added help for new contributors (aleslash)
 
-# 0.33.0-alpha
+## 0.33.0-alpha / 2021-12-10
 * Add /healthz route which allows to deploy more secure with helm (aleslash)
 * Read DMS replication instance identifier from the DMS API (nhinds)
 
-# 0.32.0-alpha
+## 0.32.0-alpha / 2021-11-19
 * [BREAKING] Fix the calculation of start and end times for GetMetricData (csquire)
 ```
 floating-time-window is now replaced with roundingPeriod
@@ -840,7 +902,7 @@ things.
 
 Love to all of you, Thomas!
 
-# 0.31.0-alpha
+## 0.31.0-alpha / 2021-09-23
 * [BREAKING] Decoupled scraping is now default. Removed code which allowed to use scraper without it.
 ```
 # Those flags are just ignored
@@ -860,11 +922,11 @@ Love to all of you, Thomas!
 * Add support for Database Migration Service metrics
 * Allow to hotreload config via /reload (antoniomerlin)
 
-# 0.30.1-alpha
+## 0.30.1-alpha / 2021-09-13
 * *SECURITY* Fix issue with building binaries. Please update to mitigate (https://nvd.nist.gov/vuln/detail/CVE-2020-14039)
 * Thanks jeason81 for reporting this security incident!
 
-# 0.30.0-alpha
+## 0.30.0-alpha / 2021-09-07
 * *BREAKING* Introduce new version field to config file (jylitalo)
 ```
 # Before
@@ -884,7 +946,7 @@ discovery:
 * Upgrade golang to 1.17
 * Upgrade golang libraries to newest versions
 
-# 0.29.0-alpha
+## 0.29.0-alpha / 2021-09-01
 Okay, private things settled. We have a new organisation for
 the project. Lets boost it and get the open PRs merged!
 This version is like 0.28.0-alpha but docker images hosted on ghcr.io
@@ -901,7 +963,7 @@ quay.io/invisionag/yet-another-cloudwatch-exporter:v0.29.0-alpha
 ghcr.io/nerdswords/yet-another-cloudwatch-exporter:v0.29.0-alpha
 ```
 
-# 0.28.0-alpha
+## 0.28.0-alpha / 2021-07-09
 Sorry folks, I currently struggle a little bit
 to get things merged fast due to a lot of private
 stuff. Really appreciate all your PRs and
@@ -943,7 +1005,7 @@ Freshly shipped new integrations:
 - WorkSpaces (kl4w)
 - DDoSProtection / Shield (arvidsnet)
 
-# 0.27.0-alpha
+## 0.27.0-alpha / 2021-05-07
 
 - Make exporter a library. (jeschkies)
 - Add CLI option to validate config file (zswanson)
@@ -962,11 +1024,12 @@ Freshly integrated:
 
 Thanks to doc fixes: calvinbui
 
-# 0.26.1-alpha / 0.26.2-alpha / 0.26.3-alpha
+## 0.26.3-alpha / 2021-03-15
+## 0.26.2-alpha / 2021-03-15
 
 - Fix CI issue
 
-# 0.26.0-alpha
+## 0.26.0-alpha / 2021-03-15
 
 - *BREAKING CHANGE* Removed a need to use static dimensions in dynamic jobs in cases, when they cannot be parsed from ARNs (AndrewChubatiuk)
     ```
@@ -1010,7 +1073,7 @@ Thanks to doc fixes: calvinbui
 - Fixed multidimensional static metric (nmiculinic)
 - Tidy up code (jylitalo)
 
-# 0.25.0-alpha
+## 0.25.0-alpha / 2021-01-05
 
 - *BREAKING CHANGE* Use NaN as default if AWS returns nil (arnitolog)
 - Add autodiscovery for AWS/EC2Spot (singhjagmohan1000)
@@ -1019,7 +1082,7 @@ Thanks to doc fixes: calvinbui
 - Added support for fips compliant endpoints (smcavallo)
 - Update deps and build with golang 1.15 (smcavallo)
 
-# 0.24.0-alpha
+## 0.24.0-alpha / 2020-12-07
 
 - Add API Gateway IAM info to README (Botono)
 - Fix sorting of datapoints, add test util functions (Botono)
@@ -1029,34 +1092,34 @@ Thanks to doc fixes: calvinbui
 - Add rds db clusters (goya)
 - Fix missing labels (goya)
 
-# 0.23.0-alpha
+## 0.23.0-alpha / 2020-10-02
 
 - Add sampleCount statistics (udhos)
 - Add WAFv2 support (mksh)
 
-# 0.22.0-alpha
+## 0.22.0-alpha / 2020-10-02
 
 - Fix alb issues (reddoggad)
 - Add nlb support (reddoggad)
 
-# 0.21.0-alpha
+## 0.21.0-alpha / 2020-09-21
 
 - Big tidy up of code, remove old methods and refactor used ones (jylitalo)
 - Fix crashes where labels are not collected correctly (rrusso1982)
 - Fix pointer bug causing metrics to be missing (jylitalo)
 - Allow more then 25 apigateways to be discovered (udhos)
 
-# 0.20.0-alpha
+## 0.20.0-alpha / 2020-07-31
 
 - Add api-gateway support (smcavallo)
 - Improve metrics validation (jylitalo)
 - Fix metrics with '<', '>' chars
 
-# 0.19.1-alpha
+## 0.19.1-alpha / 2020-07-17
 
 - Remove error during build
 
-# 0.19.0-alpha
+## 0.19.0-alpha / 2020-07-17
 Wow what a release. Thanks to all contributors. This is
 our biggest release and it made me a lot of fun to see all those
 contributions. From small doc changes (love those) to major rewrites
@@ -1095,7 +1158,7 @@ discovery:
 * Set up correct partition for ASG for AWS China and GovCloud Regions (smcavallo)
 * Add ability to set custom tags to discovery job metrics (goya)
 
-# 0.18.0-alpha
+## 0.18.0-alpha / 2020-06-15
 * *BREAKING CHANGE* Add support for multiple regions (goya)
 ```yaml
 # Before
@@ -1114,11 +1177,11 @@ discovery:
 * Fix missing alb target group metrics (abhi4890 )
 * Added support for step functions (smcavallo)
 
-# 0.17.0-alpha
+## 0.17.0-alpha / 2020-05-14
 * Added support for sns / firehose (rhys-evans)
 * Added support for fsx / appsync (arnitolog)
 
-# 0.16.0-alpha
+## 0.16.0-alpha / 2020-04-06
 * Hugh rewrite: Decouple scraping and serving metrics. Thanks so much daviddetorres!
 * *BREAKING CHANGE* Decoupled scraping and set scraping interval to 5 minutes.
 ```
@@ -1131,43 +1194,43 @@ If the flag 'decoupled-scraping' is activated, the flag 'scraping-interval' defi
 * Detect and fix bug after merge (deanrock)
 * Add cloudfront support (mentos1386)
 
-# 0.15.0-alpha
+## 0.15.0-alpha / 2020-02-21
 * Fixed docker run command in README.md (daviddetorres)
 * Added support for Nat Gateway / Transit Gateway / Route 53 Resolver (j-nix)
 * Added support for ECS/ContainerInsights (daviddetorres)
 * Fix pagination for getMetricList (eminugurkenar)
 
-# 0.14.7-alpha
+## 0.14.7-alpha / 2020-01-09
 * Change logging to json format (bheight-Zymergen)
 
-# 0.14.6-alpha
+## 0.14.6-alpha / 2020-01-03
 * Add support for kafka (eminugurkenar)
 * Add structured json logging (bheight-Zymergen)
 * Increase code readability (bheight-Zymergen)
 * Fix ecs scraping bug (rabunkosar-dd)
 * Fix aws cloudwatch period bug (rabunkosar-dd)
 
-# 0.14.5-alpha
+## 0.14.5-alpha / 2019-10-29
 * Fix sts api calls without specifying a region (nhinds)
 * Update aws-sdk to v1.25.21 (nhinds)
 
-# 0.14.4-alpha
+## 0.14.4-alpha / 2019-10-25
 * Fix github actions (nhinds)
 * Update aws-sdk-go (deanrock)
 * Avoid appending to a shared dimensions variable from inside a loop (nhinds)
 * Remove hardcoded StorageType dimension from S3 metric (nhinds)
 
-# 0.14.3-alpha
+## 0.14.3-alpha / 2019-10-11
 * Fix problems and crashes with ALBs and ELBs (Deepak1100)
 
-# 0.14.2-alpha
+## 0.14.2-alpha / 2019-10-04
 * **BREAKING** Changing user in Docker image to be non root to adhere to potential security requirements. (whitlekx)
 * Fix prometheus metric bug with new services with '-' e.g. ecs-svc.
 
-# 0.14.1-alpha
+## 0.14.1-alpha / 2019-09-06
 * Was accidentally with code from 01.14.0-alpha released.
 
-# 0.14.0-alpha
+## 0.14.0-alpha / 2019-08-24
 * **BREAKING** Default command in Dockerfile is changed to yace. This removes the need to add yace as command.
 ```yaml
 # Before
@@ -1185,31 +1248,31 @@ If the flag 'decoupled-scraping' is activated, the flag 'scraping-interval' defi
 * Add retries to cloudwatch api calls (Deepak1100)
 * Fix dimension labels for static jobs (alext)
 
-# 0.13.7
+## 0.13.7 / 2019-07-09
 * Add region as exported label to metrics
 
-# 0.13.6
+## 0.13.6 / 2019-06-24
 * Fix errors with "=" in tags (cdchris12)
 * Add curl to container for easy debugging (cdchris12)
 
-# 0.13.5-alpha
+## 0.13.5-alpha / 2019-06-09
 * Limit concurrency of aws calls
 
-# 0.13.4
+## 0.13.4 / 2019-06-03
 * Add Autoscaling group support (wjam)
 * Fix strange AWS namespace bug for static exports (AWS/EC2/API)
 * Add warning if metric length of less than 300s is configured / Interminent metrics
 
-# 0.13.3
+## 0.13.3 / 2019-04-26
 * Fix ALB problems. Target Group metrics are now exported as aws_albtg
 ```
 aws_albtg_request_count_sum{dimension_LoadBalancer="app/Test-ALB/fec38de4cf0cacb1",dimension_TargetGroup="targetgroup/Test/708ecba11979327b",name="arn:aws:elasticloadbalancing:eu-west-1:237935892384916:targetgroup/Test/708dcba119793234"} 0
 ```
 
-# 0.13.2
+## 0.13.2 / 2019-04-26
 * CI problem
 
-# 0.13.1-alpha
+## 0.13.1-alpha / 2019-04-03
 * **BREAKING** For some metrics `cloudwatch:ListMetrics` iam permissions are needed. Please update your role!
 * **BREAKING** Add 'v' to indicate it is a version number in docker tag / version output
 ```
@@ -1224,7 +1287,7 @@ aws_albtg_request_count_sum{dimension_LoadBalancer="app/Test-ALB/fec38de4cf0cacb
 * Use github actions as CI
 * Migrate dependency management to golang modules
 
-# 0.13.0-alpha
+## 0.13.0-alpha / 2019-03-18
 * **BREAKING** For some metrics `cloudwatch:ListMetrics` iam permissions are needed. Please update your role!
 * **BREAKING** As adding cloudwatch timestamp breaks some metrics I decided to not set it as default anymore.
 This should make it easier for new users to have fun with this project.
@@ -1251,12 +1314,12 @@ It fixes for some users `non-histogram and non-summary metrics should not have "
 * Add CLI command to debug output
 * Add DynamoDB support
 
-# 0.12.0 / 0.12.0-alpha
+## 0.12.0 / 2019-02-04
 * **BREAKING** Add the exact timestamps from CloudWatch to the exporter Prometheus metrics (LeePorte)
 * Add a new option `disableTimestamp` to not include a timestamp for a specific metric (it can be useful for sparse metrics, e.g. from S3) (LeePorte)
 * Add support for kinesis (AndrewChubatiuk)
 
-# 0.11.0
+## 0.11.0 / 2018-12-28
 * **BREAKING** Add snake_case to prometheus metrics (sanchezpaco)
 ```yaml
 # Before
@@ -1272,7 +1335,7 @@ length: 900
 delay: 300
 ```
 
-# 0.10.0
+## 0.10.0 / 2018-12-03
 * Reduce usage of listMetrics calls (nhinds)
 * Add support of iam roles (nhinds)
 * Add optional roleArn setting, which allows scraping with different roles e.g. pull data from mulitple AWS accounts using cross-acount roles (nhinds)
@@ -1286,7 +1349,7 @@ delay: 300
         length: 60
 ```
 
-# 0.9.0
+## 0.9.0 / 2018-11-16
 * Add lambda support (nhinds)
 * Fix support for listing multiple statistics per metric (nhinds)
 * Add tag labels on metrics for easy querying (nhinds)
@@ -1336,12 +1399,12 @@ discovery:
           length: 60
 ```
 
-# 0.8.0
+## 0.8.0 / 2018-11-02
 * Added VPN connection metrics (AndrewChubatiuk)
 * Added ExtendedStatistics / percentiles (linefeedse)
 * Added Average Statistic (AndrewChubatiuk)
 
-# 0.7.0-alpha
+## 0.7.0-alpha / 2018-10-19
 * ALB Support (linefeedse)
 * Custom lables for static metrics
 
@@ -1364,10 +1427,10 @@ static:
         length: 300
 ```
 
-# 0.6.1
+## 0.6.1 / 2018-10-09
 * Sanitize colons in tags (linefeedse)
 
-# 0.6.0 / 0.6.0-alpha
+## 0.6.0 / 2018-09-20
 * **BREAKING**: Period/length uses now seconds instead of minutes
 * **BREAKING**: Config file uses new syntax to support static
 * Support of --debug flag which outputs some dev debug informations
@@ -1414,11 +1477,11 @@ static:
         length: 300
 ```
 
-# 0.5.0
+## 0.5.0 / 2018-08-07
 * Support of EFS - Elastic File System
 * Support of EBS - Elastic Block Storage
 
-# 0.4.0
+## 0.4.0 / 2018-08-07
 * **BREAKING**: Config file uses list as statistics config option,
 this should reduce api calls for more than one statistics.
 

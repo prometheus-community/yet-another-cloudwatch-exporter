@@ -1,5 +1,8 @@
 # YACE - yet another cloudwatch exporter
 
+[![Container on Quay](https://quay.io/repository/prometheuscommunity/yet-another-cloudwatch-exporter/status)][quay]
+[![Container on Docker Hub](https://img.shields.io/docker/pulls/prometheuscommunity/yet-another-cloudwatch-exporter.svg?maxAge=604800)][docker]
+
 YACE, or `yet another cloudwatch exporter`, is a [Prometheus exporter](https://prometheus.io/docs/instrumenting/exporters/#exporters-and-integrations) for [AWS CloudWatch](http://aws.amazon.com/cloudwatch/) metrics. It is written in Go and uses the official AWS SDK.
 
 ## News
@@ -68,6 +71,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/Cognito` - Cognito
   * `AWS/DataSync` - DataSync
   * `AWS/DDoSProtection` - Distributed Denial of Service (DDoS) protection service
+  * `AWS/DirectoryService` - Directory Services (MicrosoftAD)
   * `AWS/DMS` - Database Migration Service
   * `AWS/DocDB` - DocumentDB (with MongoDB compatibility)
   * `AWS/DX` - Direct Connect
@@ -294,7 +298,7 @@ predict_linear(aws_es_free_storage_space_minimum[2d], 86400 * 7) + on (name) gro
 to support local testing all AWS urls can be overridden with by setting an environment variable `AWS_ENDPOINT_URL`
 ```shell
 docker run -d --rm -v $PWD/credentials:/exporter/.aws/credentials -v $PWD/config.yml:/tmp/config.yml \
--e AWS_ENDPOINT_URL=http://localhost:4766 -p 5000:5000 --name yace ghcr.io/nerdswords/yet-another-cloudwatch-exporter:vx.xx.x # release version as tag - Do not forget the version 'v'
+-e AWS_ENDPOINT_URL=http://localhost:4766 -p 5000:5000 --name yace quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:latest
 ```
 
 ## Options
@@ -366,3 +370,6 @@ go without losing data. ELB metrics on AWS are written every 5 minutes (300) in 
 
 * [Justin Santa Barbara](https://github.com/justinsb) - For telling me about AWS tags api which simplified a lot - Thanks!
 * [Brian Brazil](https://github.com/brian-brazil) - Who gave a lot of feedback regarding UX and prometheus lib - Thanks!
+
+[quay]: https://quay.io/repository/prometheuscommunity/yet-another-cloudwatch-exporter
+[docker]: https://hub.docker.com/r/prometheuscommunity/yet-another-cloudwatch-exporter

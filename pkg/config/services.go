@@ -256,6 +256,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/DirectoryService",
+		Alias:     "ds",
+		ResourceFilters: []*string{
+			aws.String("ds:directory"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":directory/(?P<Directory_ID>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/DMS",
 		Alias:     "dms",
 		ResourceFilters: []*string{
@@ -863,6 +873,10 @@ var SupportedServices = serviceConfigs{
 			regexp.MustCompile(":share/(?P<ShareId>[^:]+)$"),
 			regexp.MustCompile("^(?P<GatewayId>[^:/]+)/(?P<GatewayName>[^:]+)$"),
 		},
+	},
+	{
+		Namespace: "AWS/Transfer",
+		Alias:     "transfer",
 	},
 	{
 		Namespace: "AWS/TransitGateway",
