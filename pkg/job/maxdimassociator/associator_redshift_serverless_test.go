@@ -22,21 +22,22 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-var eventRule0 = &model.TaggedResource{
-	ARN:       "arn:aws:events:eu-central-1:112246171613:rule/event-bus-name/rule-name",
-	Namespace: "AWS/Events",
+var workgroup = &model.TaggedResource{
+	ARN:       "arn:aws:redshift-serverless:us-east-1:123456789012:workgroup/my-workgroup1",
+	Namespace: "AWS/Redshift-Serverless",
 }
 
-var eventRule1 = &model.TaggedResource{
-	ARN:       "arn:aws:events:eu-central-1:123456789012:rule/aws.partner/partner.name/123456/rule-name",
-	Namespace: "AWS/Events",
+var namespace = &model.TaggedResource{
+	ARN:       "arn:aws:redshift-serverless:us-east-1:123456789012:namespace/my-namespace1",
+	Namespace: "AWS/Redshift-Serverless",
 }
 
-var eventRuleResources = []*model.TaggedResource{
-	eventRule0, eventRule1,
+var redshiftResources = []*model.TaggedResource{
+	workgroup,
+	namespace,
 }
 
-func TestAssociatorEventRule(t *testing.T) {
+func TestAssociatorRedshiftServerless(t *testing.T) {
 	type args struct {
 		dimensionRegexps []model.DimensionsRegexp
 		resources        []*model.TaggedResource
@@ -52,21 +53,20 @@ func TestAssociatorEventRule(t *testing.T) {
 
 	testcases := []testCase{
 		{
-			name: "2 dimensions should match",
+			name: "should not match nor skip with any workgroup none ARN dimension",
 			args: args{
-				dimensionRegexps: config.SupportedServices.GetService("AWS/Events").ToModelDimensionsRegexp(),
-				resources:        eventRuleResources,
+				dimensionRegexps: config.SupportedServices.GetService("AWS/Redshift-Serverless").ToModelDimensionsRegexp(),
+				resources:        redshiftResources,
 				metric: &model.Metric{
-					MetricName: "Invocations",
-					Namespace:  "AWS/Events",
+					MetricName: "ComputeSeconds",
+					Namespace:  "AWS/Redshift-Serverless",
 					Dimensions: []model.Dimension{
-						{Name: "EventBusName", Value: "event-bus-name"},
-						{Name: "RuleName", Value: "rule-name"},
+						{Name: "Workgroup", Value: "my-nonexistant-workgroup-test1"},
 					},
 				},
 			},
 			expectedSkip:     false,
-			expectedResource: eventRule0,
+			expectedResource: nil,
 		},
 	}
 

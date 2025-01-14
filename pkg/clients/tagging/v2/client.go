@@ -15,6 +15,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/amp"
@@ -30,13 +31,12 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type client struct {
-	logger            logging.Logger
+	logger            *slog.Logger
 	taggingAPI        *resourcegroupstaggingapi.Client
 	autoscalingAPI    *autoscaling.Client
 	apiGatewayAPI     *apigateway.Client
@@ -49,7 +49,7 @@ type client struct {
 }
 
 func NewClient(
-	logger logging.Logger,
+	logger *slog.Logger,
 	taggingAPI *resourcegroupstaggingapi.Client,
 	autoscalingAPI *autoscaling.Client,
 	apiGatewayAPI *apigateway.Client,

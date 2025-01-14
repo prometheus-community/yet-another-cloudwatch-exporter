@@ -1,0 +1,21 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Redshift-Serverless
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: DatabaseConnections
+          statistics: [Average]
+        - name: ComputeCapacity
+          statistics: [Average]
+        - name: QueryRuntimeBreakdown
+          statistics: [Average]
+        - name: QueriesRunning
+          statistics: [Average]
+        - name: QueriesQueued
+          statistics: [Average]
+        - name: QueryDuration
+          statistics: [Average]

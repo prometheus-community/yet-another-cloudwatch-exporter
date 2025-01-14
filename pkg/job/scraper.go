@@ -15,25 +15,25 @@ package job
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/cloudwatchrunner"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 type Scraper struct {
 	jobsCfg       model.JobsConfig
-	logger        logging.Logger
+	logger        *slog.Logger
 	runnerFactory runnerFactory
 }
 
 type runnerFactory interface {
 	GetAccountClient(region string, role model.Role) account.Client
-	NewResourceMetadataRunner(logger logging.Logger, region string, role model.Role) ResourceMetadataRunner
-	NewCloudWatchRunner(logger logging.Logger, region string, role model.Role, job cloudwatchrunner.Job) CloudwatchRunner
+	NewResourceMetadataRunner(logger *slog.Logger, region string, role model.Role) ResourceMetadataRunner
+	NewCloudWatchRunner(logger *slog.Logger, region string, role model.Role, job cloudwatchrunner.Job) CloudwatchRunner
 }
 
 type ResourceMetadataRunner interface {
@@ -44,7 +44,7 @@ type CloudwatchRunner interface {
 	Run(ctx context.Context) ([]*model.CloudwatchData, error)
 }
 
-func NewScraper(logger logging.Logger,
+func NewScraper(logger *slog.Logger,
 	jobsCfg model.JobsConfig,
 	runnerFactory runnerFactory,
 ) *Scraper {
@@ -221,7 +221,7 @@ func jobConfigVisitor(jobsCfg model.JobsConfig, action func(job any, role model.
 }
 
 // Take an action depending on the job type, only supports discovery and custom job types
-func jobAction(logger logging.Logger, job any, discovery func(job model.DiscoveryJob), custom func(job model.CustomNamespaceJob)) {
+func jobAction(logger *slog.Logger, job any, discovery func(job model.DiscoveryJob), custom func(job model.CustomNamespaceJob)) {
 	// Type switches are free https://stackoverflow.com/a/28027945
 	switch typedJob := job.(type) {
 	case model.DiscoveryJob:
@@ -229,7 +229,7 @@ func jobAction(logger logging.Logger, job any, discovery func(job model.Discover
 	case model.CustomNamespaceJob:
 		custom(typedJob)
 	default:
-		logger.Error(fmt.Errorf("config type of %T is not supported", typedJob), "Unexpected job type")
+		logger.Error("Unexpected job type", "err", fmt.Errorf("config type of %T is not supported", typedJob))
 		return
 	}
 }

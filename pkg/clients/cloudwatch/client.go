@@ -14,9 +14,9 @@ package cloudwatch
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/logging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -37,7 +37,7 @@ type Client interface {
 	GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult
 
 	// GetMetricStatistics returns the output of the GetMetricStatistics CloudWatch API.
-	GetMetricStatistics(ctx context.Context, logger logging.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint
+	GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint
 }
 
 // ConcurrencyLimiter limits the concurrency when calling AWS CloudWatch APIs. The functions implemented
@@ -73,7 +73,7 @@ func NewLimitedConcurrencyClient(client Client, limiter ConcurrencyLimiter) Clie
 	}
 }
 
-func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger logging.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
+func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
 	c.limiter.Acquire(getMetricStatisticsCall)
 	res := c.client.GetMetricStatistics(ctx, logger, dimensions, namespace, metric)
 	c.limiter.Release(getMetricStatisticsCall)
