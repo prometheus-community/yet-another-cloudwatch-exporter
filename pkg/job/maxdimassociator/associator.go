@@ -14,6 +14,7 @@ package maxdimassociator
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -36,7 +37,8 @@ type Associator struct {
 	// mappings is a slice of dimensions-based mappings, one for each regex of a given namespace
 	mappings []*dimensionsRegexpMapping
 
-	logger *slog.Logger
+	logger       *slog.Logger
+	debugEnabled bool
 }
 
 type dimensionsRegexpMapping struct {
@@ -70,8 +72,9 @@ func (rm dimensionsRegexpMapping) toString() string {
 // NewAssociator builds all mappings for the given dimensions regexps and list of resources.
 func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRegexp, resources []*model.TaggedResource) Associator {
 	assoc := Associator{
-		mappings: []*dimensionsRegexpMapping{},
-		logger:   logger,
+		mappings:     []*dimensionsRegexpMapping{},
+		logger:       logger,
+		debugEnabled: logger.Handler().Enabled(context.Background(), slog.LevelDebug), // caching if debug is enabled
 	}
 
 	// Keep track of resources that have already been mapped.
@@ -114,7 +117,9 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 		// example when we define multiple regexps (to capture sibling
 		// or sub-resources) and one of them doesn't match any resource.
 		// This behaviour is ok, we just want to debug log to keep track of it.
-		logger.Debug("unable to define a regex mapping", "regex", dr.Regexp.String())
+		if assoc.debugEnabled {
+			logger.Debug("unable to define a regex mapping", "regex", dr.Regexp.String())
+		}
 	}
 
 	// sort all mappings by decreasing number of dimensions names
@@ -124,8 +129,10 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 		return -1 * cmp.Compare(len(a.dimensions), len(b.dimensions))
 	})
 
-	for idx, regexpMapping := range assoc.mappings {
-		logger.Debug("associator mapping", "mapping_idx", idx, "mapping", regexpMapping.toString())
+	if assoc.debugEnabled {
+		for idx, regexpMapping := range assoc.mappings {
+			logger.Debug("associator mapping", "mapping_idx", idx, "mapping", regexpMapping.toString())
+		}
 	}
 
 	return assoc
@@ -150,7 +157,9 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 		dimensions = append(dimensions, dimension.Name)
 	}
 
-	logger.Debug("associate loop start", "dimensions", strings.Join(dimensions, ","))
+	if assoc.debugEnabled {
+		logger.Debug("associate loop start", "dimensions", strings.Join(dimensions, ","))
+	}
 
 	// Attempt to find the regex mapping which contains the most
 	// (but not necessarily all) the metric's dimensions names.
@@ -159,7 +168,9 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 	mappingFound := false
 	for idx, regexpMapping := range assoc.mappings {
 		if containsAll(dimensions, regexpMapping.dimensions) {
-			logger.Debug("found mapping", "mapping_idx", idx, "mapping", regexpMapping.toString())
+			if assoc.debugEnabled {
+				logger.Debug("found mapping", "mapping_idx", idx, "mapping", regexpMapping.toString())
+			}
 
 			// A regex mapping has been found. The metric has all (and possibly more)
 			// the dimensions computed for the mapping. Now compute a signature
