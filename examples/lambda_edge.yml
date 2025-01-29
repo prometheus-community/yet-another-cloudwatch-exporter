@@ -1,5 +1,5 @@
   # We can't configure discovery job for edge lambda function but static works.,he region is always us-east-1. 
-  # Other regions can be added in use as edge locations. 
+  # Other regions can be added in use as edge locations 
   apiVersion: v1alpha1
   static:
     - name: us-east-1.<edge_lambda_function_name>
