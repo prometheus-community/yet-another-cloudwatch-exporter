@@ -16,8 +16,8 @@ import "context"
 
 type flagsCtxKey struct{}
 
-// AwsSdkV2 is a feature flag used to enable the use of aws sdk v2 which is expected to come with performance benefits
-const AwsSdkV2 = "aws-sdk-v2"
+// AwsSdkV1 is a feature flag used to enable the use of aws sdk v1 (v2 is the default)
+const AwsSdkV1 = "aws-sdk-v1"
 
 // AlwaysReturnInfoMetrics is a feature flag used to enable the return of info metrics even when there are no corresponding CloudWatch metrics
 const AlwaysReturnInfoMetrics = "always-return-info-metrics"
