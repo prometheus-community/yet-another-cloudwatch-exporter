@@ -265,15 +265,18 @@ func startScraper(c *cli.Context) error {
 
 	featureFlags := c.StringSlice(enableFeatureFlag)
 	s := NewScraper(featureFlags)
-	var cache cachingFactory = v1.NewFactory(logger, jobsCfg, fips)
+
+	var cache cachingFactory
+	cache, err = v2.NewFactory(logger, jobsCfg, fips)
+	if err != nil {
+		return fmt.Errorf("Failed to construct aws sdk v2 client cache: %w", err)
+	}
+
+	// Switch to v1 SDK if feature flag is enabled
 	for _, featureFlag := range featureFlags {
-		if featureFlag == config.AwsSdkV2 {
-			var err error
-			// Can't override cache while also creating err
-			cache, err = v2.NewFactory(logger, jobsCfg, fips)
-			if err != nil {
-				return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
-			}
+		if featureFlag == config.AwsSdkV1 {
+			cache = v1.NewFactory(logger, jobsCfg, fips)
+			logger.Info("Using aws sdk v1")
 		}
 	}
 
@@ -321,17 +324,18 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		cache = v1.NewFactory(logger, newJobsCfg, fips)
+		var cache cachingFactory
+		cache, err = v2.NewFactory(logger, newJobsCfg, fips)
+		if err != nil {
+			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
+			return
+		}
+
+		// Switch to v1 SDK if feature flag is enabled
 		for _, featureFlag := range featureFlags {
-			if featureFlag == config.AwsSdkV2 {
-				logger.Info("Using aws sdk v2")
-				var err error
-				// Can't override cache while also creating err
-				cache, err = v2.NewFactory(logger, newJobsCfg, fips)
-				if err != nil {
-					logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
-					return
-				}
+			if featureFlag == config.AwsSdkV1 {
+				cache = v1.NewFactory(logger, newJobsCfg, fips)
+				logger.Info("Using aws sdk v1")
 			}
 		}
 
