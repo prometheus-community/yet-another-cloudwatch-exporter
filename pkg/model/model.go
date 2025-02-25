@@ -80,6 +80,7 @@ type MetricConfig struct {
 	Delay                  int64
 	NilToZero              bool
 	AddCloudwatchTimestamp bool
+	AddHistoricalMetrics   bool
 }
 
 type DimensionsRegexp struct {
@@ -198,12 +199,28 @@ type GetMetricDataProcessingParams struct {
 type MetricMigrationParams struct {
 	NilToZero              bool
 	AddCloudwatchTimestamp bool
+	AddHistoricalMetrics   bool
 }
 
 type GetMetricDataResult struct {
-	Statistic string
-	Datapoint *float64
+	Statistic  string
+	Datapoints []*DatapointWithTimestamp
+}
+
+type DatapointWithTimestamp struct {
 	Timestamp time.Time
+	Datapoint *float64
+}
+
+func NewDataPoint(datapoint *float64, timestamp time.Time) *DatapointWithTimestamp {
+	return &DatapointWithTimestamp{
+		Timestamp: timestamp,
+		Datapoint: datapoint,
+	}
+}
+
+func SingleDataPoint(datapoint *float64, timestamp time.Time) []*DatapointWithTimestamp {
+	return []*DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 // TaggedResource is an AWS resource with tags

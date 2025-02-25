@@ -55,10 +55,24 @@ type ConcurrencyLimiter interface {
 }
 
 type MetricDataResult struct {
-	ID string
-	// A nil datapoint is a marker for no datapoint being found
+	ID         string
+	Datapoints []*DatapointWithTimestamp
+}
+
+type DatapointWithTimestamp struct {
 	Datapoint *float64
 	Timestamp time.Time
+}
+
+func NewDataPoint(datapoint *float64, timestamp time.Time) *DatapointWithTimestamp {
+	return &DatapointWithTimestamp{
+		Timestamp: timestamp,
+		Datapoint: datapoint,
+	}
+}
+
+func SingleDataPoint(datapoint *float64, timestamp time.Time) []*DatapointWithTimestamp {
+	return []*DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 type limitedConcurrencyClient struct {

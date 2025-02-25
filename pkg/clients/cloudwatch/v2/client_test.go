@@ -52,8 +52,13 @@ func Test_toMetricDataResult(t *testing.T) {
 				},
 			},
 			expectedMetricDataResults: []cloudwatch_client.MetricDataResult{
-				{ID: "metric-1", Datapoint: aws.Float64(1.0), Timestamp: ts.Add(10 * time.Minute)},
-				{ID: "metric-2", Datapoint: aws.Float64(2.0), Timestamp: ts},
+				{ID: "metric-1", Datapoints: []*cloudwatch_client.DatapointWithTimestamp{
+					cloudwatch_client.NewDataPoint(aws.Float64(1.0), ts.Add(10*time.Minute)),
+					cloudwatch_client.NewDataPoint(aws.Float64(2.0), ts.Add(5*time.Minute)),
+					cloudwatch_client.NewDataPoint(aws.Float64(3.0), ts),
+				},
+				},
+				{ID: "metric-2", Datapoints: cloudwatch_client.SingleDataPoint(aws.Float64(2.0), ts)},
 			},
 		},
 		{
@@ -73,8 +78,12 @@ func Test_toMetricDataResult(t *testing.T) {
 				},
 			},
 			expectedMetricDataResults: []cloudwatch_client.MetricDataResult{
-				{ID: "metric-1", Datapoint: aws.Float64(1.0), Timestamp: ts.Add(10 * time.Minute)},
-				{ID: "metric-2", Datapoint: nil, Timestamp: time.Time{}},
+				{ID: "metric-1", Datapoints: []*cloudwatch_client.DatapointWithTimestamp{
+					cloudwatch_client.NewDataPoint(aws.Float64(1.0), ts.Add(10*time.Minute)),
+					cloudwatch_client.NewDataPoint(aws.Float64(2.0), ts.Add(5*time.Minute)),
+					cloudwatch_client.NewDataPoint(aws.Float64(3.0), ts),
+				}},
+				{ID: "metric-2", Datapoints: []*cloudwatch_client.DatapointWithTimestamp{}},
 			},
 		},
 	}
