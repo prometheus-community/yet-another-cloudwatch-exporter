@@ -204,7 +204,7 @@ type MetricMigrationParams struct {
 
 type GetMetricDataResult struct {
 	Statistic  string
-	Datapoints []*DatapointWithTimestamp
+	Datapoints []DatapointWithTimestamp
 }
 
 type DatapointWithTimestamp struct {
@@ -212,15 +212,15 @@ type DatapointWithTimestamp struct {
 	Datapoint *float64
 }
 
-func NewDataPoint(datapoint *float64, timestamp time.Time) *DatapointWithTimestamp {
-	return &DatapointWithTimestamp{
+func NewDataPoint(datapoint *float64, timestamp time.Time) DatapointWithTimestamp {
+	return DatapointWithTimestamp{
 		Timestamp: timestamp,
 		Datapoint: datapoint,
 	}
 }
 
-func SingleDataPoint(datapoint *float64, timestamp time.Time) []*DatapointWithTimestamp {
-	return []*DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
+func SingleDataPoint(datapoint *float64, timestamp time.Time) []DatapointWithTimestamp {
+	return []DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 // TaggedResource is an AWS resource with tags

@@ -135,7 +135,7 @@ func TestProcessor_Run(t *testing.T) {
 					MetricName: "MetricTwo",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Max",
-						Datapoints: []*model.DatapointWithTimestamp{},
+						Datapoints: []model.DatapointWithTimestamp{},
 					},
 				},
 			},

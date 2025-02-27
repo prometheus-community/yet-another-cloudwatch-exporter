@@ -56,7 +56,7 @@ type ConcurrencyLimiter interface {
 
 type MetricDataResult struct {
 	ID         string
-	Datapoints []*DatapointWithTimestamp
+	Datapoints []DatapointWithTimestamp
 }
 
 type DatapointWithTimestamp struct {
@@ -64,15 +64,15 @@ type DatapointWithTimestamp struct {
 	Timestamp time.Time
 }
 
-func NewDataPoint(datapoint *float64, timestamp time.Time) *DatapointWithTimestamp {
-	return &DatapointWithTimestamp{
+func NewDataPoint(datapoint *float64, timestamp time.Time) DatapointWithTimestamp {
+	return DatapointWithTimestamp{
 		Timestamp: timestamp,
 		Datapoint: datapoint,
 	}
 }
 
-func SingleDataPoint(datapoint *float64, timestamp time.Time) []*DatapointWithTimestamp {
-	return []*DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
+func SingleDataPoint(datapoint *float64, timestamp time.Time) []DatapointWithTimestamp {
+	return []DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 type limitedConcurrencyClient struct {

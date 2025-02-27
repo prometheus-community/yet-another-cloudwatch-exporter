@@ -401,7 +401,7 @@ func TestBuildMetrics(t *testing.T) {
 						},
 						GetMetricDataResult: &model.GetMetricDataResult{
 							Statistic: "Average",
-							Datapoints: []*model.DatapointWithTimestamp{
+							Datapoints: []model.DatapointWithTimestamp{
 								model.NewDataPoint(aws.Float64(4), ts),
 								model.NewDataPoint(aws.Float64(5), ts.Add(-1*time.Minute)),
 								model.NewDataPoint(aws.Float64(6), ts.Add(-2*time.Minute)),

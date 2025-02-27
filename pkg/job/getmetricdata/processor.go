@@ -132,7 +132,7 @@ func mapResultsToBatch(logger *slog.Logger, results []cloudwatch.MetricDataResul
 		if batch[id].GetMetricDataResult == nil {
 			cloudwatchData := batch[id]
 
-			mappedDataPoints := make([]*model.DatapointWithTimestamp, 0, len(entry.Datapoints))
+			mappedDataPoints := make([]model.DatapointWithTimestamp, 0, len(entry.Datapoints))
 			for i := 0; i < len(entry.Datapoints); i++ {
 				mappedDataPoints = append(mappedDataPoints, model.NewDataPoint(entry.Datapoints[i].Datapoint, entry.Datapoints[i].Timestamp))
 			}

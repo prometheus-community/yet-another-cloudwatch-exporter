@@ -151,10 +151,10 @@ func toMetricDataResult(resp cloudwatch.GetMetricDataOutput) []cloudwatch_client
 	for _, metricDataResult := range resp.MetricDataResults {
 		mappedResult := cloudwatch_client.MetricDataResult{
 			ID:         *metricDataResult.Id,
-			Datapoints: make([]*cloudwatch_client.DatapointWithTimestamp, 0, len(metricDataResult.Timestamps)),
+			Datapoints: make([]cloudwatch_client.DatapointWithTimestamp, 0, len(metricDataResult.Timestamps)),
 		}
 		for i := 0; i < len(metricDataResult.Timestamps); i++ {
-			mappedResult.Datapoints = append(mappedResult.Datapoints, &cloudwatch_client.DatapointWithTimestamp{
+			mappedResult.Datapoints = append(mappedResult.Datapoints, cloudwatch_client.DatapointWithTimestamp{
 				Datapoint: &metricDataResult.Values[i],
 				Timestamp: metricDataResult.Timestamps[i],
 			})

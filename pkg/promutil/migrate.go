@@ -165,7 +165,7 @@ func statisticsInCloudwatchData(d *model.CloudwatchData) []string {
 	return []string{}
 }
 
-func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]*model.DatapointWithTimestamp, error) {
+func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]model.DatapointWithTimestamp, error) {
 	// Not possible but for sanity
 	if cwd.GetMetricStatisticsResult == nil && cwd.GetMetricDataResult == nil {
 		return nil, fmt.Errorf("cannot map a data point with no results on %s", cwd.MetricName)
@@ -174,7 +174,7 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]*model.Datapo
 	if cwd.GetMetricDataResult != nil {
 		// If we have no datapoints, we should return a single nil datapoint, which is then either dropped or converted to 0
 		if len(cwd.GetMetricDataResult.Datapoints) == 0 && !cwd.MetricMigrationParams.AddCloudwatchTimestamp {
-			return []*model.DatapointWithTimestamp{{
+			return []model.DatapointWithTimestamp{{
 				Datapoint: nil,
 				Timestamp: time.Time{},
 			}}, nil
@@ -191,19 +191,19 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]*model.Datapo
 		switch {
 		case statistic == "Maximum":
 			if datapoint.Maximum != nil {
-				return []*model.DatapointWithTimestamp{{Datapoint: datapoint.Maximum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Maximum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Minimum":
 			if datapoint.Minimum != nil {
-				return []*model.DatapointWithTimestamp{{Datapoint: datapoint.Minimum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Minimum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Sum":
 			if datapoint.Sum != nil {
-				return []*model.DatapointWithTimestamp{{Datapoint: datapoint.Sum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Sum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "SampleCount":
 			if datapoint.SampleCount != nil {
-				return []*model.DatapointWithTimestamp{{Datapoint: datapoint.SampleCount, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DatapointWithTimestamp{{Datapoint: datapoint.SampleCount, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Average":
 			if datapoint.Average != nil {
@@ -211,7 +211,7 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]*model.Datapo
 			}
 		case Percentile.MatchString(statistic):
 			if data, ok := datapoint.ExtendedStatistics[statistic]; ok {
-				return []*model.DatapointWithTimestamp{{Datapoint: data, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DatapointWithTimestamp{{Datapoint: data, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		default:
 			return nil, fmt.Errorf("invalid statistic requested on metric %s: %s", cwd.MetricName, statistic)
@@ -229,7 +229,7 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]*model.Datapo
 			total += *p.Average
 		}
 		average := total / float64(len(averageDataPoints))
-		return []*model.DatapointWithTimestamp{{Datapoint: &average, Timestamp: timestamp}}, nil
+		return []model.DatapointWithTimestamp{{Datapoint: &average, Timestamp: timestamp}}, nil
 	}
 	return nil, nil
 }
