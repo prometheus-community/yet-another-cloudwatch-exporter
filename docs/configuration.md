@@ -137,8 +137,10 @@ statistics:
 # Export the metric with the original CloudWatch timestamp (General Setting for all metrics in this job)
 [ addCloudwatchTimestamp: <boolean> ]
 
-# Include any metrics in the past if they are present in the CloudWatch metric response. This is useful, for example, if a metric is setup with
-# period 60s and length 300s so all the 5 data points are exposed in the metrics endpoint and not just the last one
+# Enables the inclusion of past metric data points from the CloudWatch response if available.
+# This is useful when a metric is configured with a 60-second period and a 300-second duration, ensuring that all
+# five data points are exposed at the metrics endpoint instead of only the latest one.
+# Note: This option requires `addCloudwatchTimestamp` to be enabled
 # (General Setting for all metrics in this job)
 [ addHistoricalMetrics: <boolean> ]
 
@@ -277,8 +279,10 @@ statistics:
 # Export the metric with the original CloudWatch timestamp (General Setting for all metrics in this job)
 [ addCloudwatchTimestamp: <boolean> ]
 
-# Include any metrics in the past if they are present in the CloudWatch metric response. This is useful, for example, if a metric is setup with
-# period 60s and length 300s so all the 5 data points are exposed in the metrics endpoint and not just the last one
+# Enables the inclusion of past metric data points from the CloudWatch response if available.
+# This is useful when a metric is configured with a 60-second period and a 300-second duration, ensuring that all
+# five data points are exposed at the metrics endpoint instead of only the latest one.
+# Note: This option requires `addCloudwatchTimestamp` to be enabled
 # (General Setting for all metrics in this job)
 [ addHistoricalMetrics: <boolean> ]
 
