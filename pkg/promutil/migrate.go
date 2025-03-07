@@ -112,8 +112,14 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 					if dataPoint == nil && metric.MetricMigrationParams.AddCloudwatchTimestamp {
 						// If we did not get a datapoint then the timestamp is a default value making it unusable in the
 						// exported metric. Attempting to put a fake timestamp on the metric will likely conflict with
-						// future CloudWatch timestamps which are always in the past. It's safer to skip here than guess
-						continue
+						// future CloudWatch timestamps which are always in the past.
+						if metric.MetricMigrationParams.ExportAllDataPoints {
+							// If we're exporting all data points, we can skip this one and check for a historical datapoint
+							continue
+						} else {
+							// If we are not exporting all data points, we better have nothing exported
+							break
+						}
 					}
 					if dataPoint == nil {
 						exportedDatapoint = math.NaN()
