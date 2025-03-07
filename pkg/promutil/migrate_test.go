@@ -316,8 +316,7 @@ func TestBuildMetrics(t *testing.T) {
 						},
 						Namespace: "AWS/ElastiCache",
 						GetMetricDataResult: &model.GetMetricDataResult{
-							Statistic: "Average",
-
+							Statistic:  "Average",
 							Datapoints: model.SingleDataPoint(aws.Float64(1), ts),
 						},
 						Dimensions: []model.Dimension{
@@ -390,7 +389,7 @@ func TestBuildMetrics(t *testing.T) {
 						MetricMigrationParams: model.MetricMigrationParams{
 							NilToZero:              true,
 							AddCloudwatchTimestamp: true,
-							AddHistoricalMetrics:   true,
+							ExportAllDataPoints:    true,
 						},
 						Namespace: "AWS/ElastiCache",
 						Dimensions: []model.Dimension{
@@ -403,6 +402,31 @@ func TestBuildMetrics(t *testing.T) {
 							Statistic: "Average",
 							Datapoints: []model.DatapointWithTimestamp{
 								model.NewDataPoint(aws.Float64(4), ts),
+								model.NewDataPoint(aws.Float64(5), ts.Add(-1*time.Minute)),
+								model.NewDataPoint(aws.Float64(6), ts.Add(-2*time.Minute)),
+							},
+						},
+						ResourceName: "arn:aws:elasticache:us-east-1:123456789012:cluster:redis-cluster",
+					},
+					{
+						//Check that if there is no data point for the latest timestamp it exports the previous one
+						MetricName: "NetworkPacketsOut",
+						MetricMigrationParams: model.MetricMigrationParams{
+							NilToZero:              true,
+							AddCloudwatchTimestamp: true,
+							ExportAllDataPoints:    false,
+						},
+						Namespace: "AWS/ElastiCache",
+						Dimensions: []model.Dimension{
+							{
+								Name:  "CacheClusterId",
+								Value: "redis-cluster",
+							},
+						},
+						GetMetricDataResult: &model.GetMetricDataResult{
+							Statistic: "Average",
+							Datapoints: []model.DatapointWithTimestamp{
+								model.NewDataPoint(nil, ts),
 								model.NewDataPoint(aws.Float64(5), ts.Add(-1*time.Minute)),
 								model.NewDataPoint(aws.Float64(6), ts.Add(-2*time.Minute)),
 							},
@@ -494,6 +518,18 @@ func TestBuildMetrics(t *testing.T) {
 						"dimension_CacheClusterId": "redis-cluster",
 					},
 				},
+				{
+					Name:             "aws_elasticache_network_packets_out_average",
+					Value:            5,
+					Timestamp:        ts.Add(-1 * time.Minute),
+					IncludeTimestamp: true,
+					Labels: map[string]string{
+						"account_id":               "123456789012",
+						"name":                     "arn:aws:elasticache:us-east-1:123456789012:cluster:redis-cluster",
+						"region":                   "us-east-1",
+						"dimension_CacheClusterId": "redis-cluster",
+					},
+				},
 			},
 			expectedLabels: map[string]model.LabelSet{
 				"aws_elasticache_cpuutilization_average": {
@@ -521,6 +557,12 @@ func TestBuildMetrics(t *testing.T) {
 					"dimension_CacheClusterId": {},
 				},
 				"aws_elasticache_network_packets_in_average": {
+					"account_id":               {},
+					"name":                     {},
+					"region":                   {},
+					"dimension_CacheClusterId": {},
+				},
+				"aws_elasticache_network_packets_out_average": {
 					"account_id":               {},
 					"name":                     {},
 					"region":                   {},

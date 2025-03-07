@@ -179,7 +179,7 @@ func getFilteredMetricDatas(
 				MetricMigrationParams: model.MetricMigrationParams{
 					NilToZero:              m.NilToZero,
 					AddCloudwatchTimestamp: m.AddCloudwatchTimestamp,
-					AddHistoricalMetrics:   m.AddHistoricalMetrics,
+					ExportAllDataPoints:    m.ExportAllDataPoints,
 				},
 				Tags:                      metricTags,
 				GetMetricDataResult:       nil,

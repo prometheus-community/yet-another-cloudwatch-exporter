@@ -52,7 +52,7 @@ type JobLevelMetricFields struct {
 	Delay                  int64    `yaml:"delay"`
 	NilToZero              *bool    `yaml:"nilToZero"`
 	AddCloudwatchTimestamp *bool    `yaml:"addCloudwatchTimestamp"`
-	AddHistoricalMetrics   *bool    `yaml:"addHistoricalMetrics"`
+	ExportAllDataPoints    *bool    `yaml:"exportAllDataPoints"`
 }
 
 type Job struct {
@@ -100,7 +100,7 @@ type Metric struct {
 	Delay                  int64    `yaml:"delay"`
 	NilToZero              *bool    `yaml:"nilToZero"`
 	AddCloudwatchTimestamp *bool    `yaml:"addCloudwatchTimestamp"`
-	AddHistoricalMetrics   *bool    `yaml:"addHistoricalMetrics"`
+	ExportAllDataPoints    *bool    `yaml:"exportAllDataPoints"`
 }
 
 type Dimension struct {
@@ -389,17 +389,17 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 		}
 	}
 
-	mAddHistoricalMetrics := m.AddHistoricalMetrics
-	if mAddHistoricalMetrics == nil {
-		if discovery != nil && discovery.AddHistoricalMetrics != nil {
-			mAddHistoricalMetrics = discovery.AddHistoricalMetrics
+	mExportAllDataPoints := m.ExportAllDataPoints
+	if mExportAllDataPoints == nil {
+		if discovery != nil && discovery.ExportAllDataPoints != nil {
+			mExportAllDataPoints = discovery.ExportAllDataPoints
 		} else {
-			mAddHistoricalMetrics = aws.Bool(false)
+			mExportAllDataPoints = aws.Bool(false)
 		}
 	}
 
-	if aws.BoolValue(mAddHistoricalMetrics) && !aws.BoolValue(mAddCloudwatchTimestamp) {
-		return fmt.Errorf("Metric [%s/%d] in %v: AddHistoricalMetrics can only be enabled if AddCloudwatchTimestamp is enabled", m.Name, metricIdx, parent)
+	if aws.BoolValue(mExportAllDataPoints) && !aws.BoolValue(mAddCloudwatchTimestamp) {
+		return fmt.Errorf("Metric [%s/%d] in %v: ExportAllDataPoints can only be enabled if AddCloudwatchTimestamp is enabled", m.Name, metricIdx, parent)
 	}
 
 	if mLength < mPeriod {
@@ -413,7 +413,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 	m.Delay = mDelay
 	m.NilToZero = mNilToZero
 	m.AddCloudwatchTimestamp = mAddCloudwatchTimestamp
-	m.AddHistoricalMetrics = mAddHistoricalMetrics
+	m.ExportAllDataPoints = mExportAllDataPoints
 	m.Statistics = mStatistics
 
 	return nil
@@ -535,7 +535,7 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 			Delay:                  m.Delay,
 			NilToZero:              aws.BoolValue(m.NilToZero),
 			AddCloudwatchTimestamp: aws.BoolValue(m.AddCloudwatchTimestamp),
-			AddHistoricalMetrics:   aws.BoolValue(m.AddHistoricalMetrics),
+			ExportAllDataPoints:    aws.BoolValue(m.ExportAllDataPoints),
 		})
 	}
 	return ret

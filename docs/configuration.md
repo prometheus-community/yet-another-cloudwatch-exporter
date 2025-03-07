@@ -140,9 +140,10 @@ statistics:
 # Enables the inclusion of past metric data points from the CloudWatch response if available.
 # This is useful when a metric is configured with a 60-second period and a 300-second duration, ensuring that all
 # five data points are exposed at the metrics endpoint instead of only the latest one.
-# Note: This option requires `addCloudwatchTimestamp` to be enabled
+# Note: This option requires `addCloudwatchTimestamp` to be enabled.
+# The metric destination must support out of order timestamps, see https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb
 # (General Setting for all metrics in this job)
-[ addHistoricalMetrics: <boolean> ]
+[ exportAllDataPoints: <boolean> ]
 
 # List of metric definitions
 metrics:
@@ -282,9 +283,10 @@ statistics:
 # Enables the inclusion of past metric data points from the CloudWatch response if available.
 # This is useful when a metric is configured with a 60-second period and a 300-second duration, ensuring that all
 # five data points are exposed at the metrics endpoint instead of only the latest one.
-# Note: This option requires `addCloudwatchTimestamp` to be enabled
+# Note: This option requires `addCloudwatchTimestamp` to be enabled.
+# The metric destination must support out of order timestamps, see https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb
 # (General Setting for all metrics in this job)
-[ addHistoricalMetrics: <boolean> ]
+[ exportAllDataPoints: <boolean> ]
 
 # List of metric definitions
 metrics:
@@ -349,7 +351,7 @@ Notes:
 
 - Available statistics: `Maximum`, `Minimum`, `Sum`, `SampleCount`, `Average`, `pXX` (e.g. `p90`).
 
-- Watch out using `addCloudwatchTimestamp` for sparse metrics, e.g from S3, since Prometheus won't scrape metrics containing timestamps older than 2-3 hours. Also the same applies when enabling `addHistoricalMetrics` in any metric
+- Watch out using `addCloudwatchTimestamp` for sparse metrics, e.g from S3, since Prometheus won't scrape metrics containing timestamps older than 2-3 hours. Also the same applies when enabling `exportAllDataPoints` in any metric
 
 ### `exported_tags_config`
 

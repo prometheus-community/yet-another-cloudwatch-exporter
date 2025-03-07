@@ -80,7 +80,7 @@ type MetricConfig struct {
 	Delay                  int64
 	NilToZero              bool
 	AddCloudwatchTimestamp bool
-	AddHistoricalMetrics   bool
+	ExportAllDataPoints    bool
 }
 
 type DimensionsRegexp struct {
@@ -199,7 +199,7 @@ type GetMetricDataProcessingParams struct {
 type MetricMigrationParams struct {
 	NilToZero              bool
 	AddCloudwatchTimestamp bool
-	AddHistoricalMetrics   bool
+	ExportAllDataPoints    bool
 }
 
 type GetMetricDataResult struct {

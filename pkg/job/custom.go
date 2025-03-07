@@ -86,7 +86,7 @@ func getMetricDataForQueriesForCustomNamespace(
 							MetricMigrationParams: model.MetricMigrationParams{
 								NilToZero:              metric.NilToZero,
 								AddCloudwatchTimestamp: metric.AddCloudwatchTimestamp,
-								AddHistoricalMetrics:   metric.AddHistoricalMetrics,
+								ExportAllDataPoints:    metric.ExportAllDataPoints,
 							},
 							Tags:                      nil,
 							GetMetricDataResult:       nil,

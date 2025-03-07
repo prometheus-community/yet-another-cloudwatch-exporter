@@ -259,7 +259,7 @@ func getSampleMetricDatas(id string) *model.CloudwatchData {
 		MetricMigrationParams: model.MetricMigrationParams{
 			NilToZero:              false,
 			AddCloudwatchTimestamp: false,
-			AddHistoricalMetrics:   false,
+			ExportAllDataPoints:    false,
 		},
 		GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 			Period:    60,

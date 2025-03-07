@@ -143,8 +143,8 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 						IncludeTimestamp: metric.MetricMigrationParams.AddCloudwatchTimestamp,
 					})
 
-					if !metric.MetricMigrationParams.AddHistoricalMetrics {
-						// If we're not adding historical metrics, we can skip the rest of the statistics for this metric
+					if !metric.MetricMigrationParams.ExportAllDataPoints {
+						// If we're not adding historical metrics, we can skip the rest of the datapoints for this metric
 						break
 					}
 				}
@@ -326,7 +326,7 @@ func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, obse
 
 		// We are including the timestamp in the metric key to ensure that we don't have duplicate metrics
 		// if we have AddCloudwatchTimestamp enabled its the real timestamp, otherwise its a zero value
-		// the timestamp is needed to ensure valid date created by AddHistoricalMetrics
+		// the timestamp is needed to ensure valid date created by ExportAllDataPoints
 		metricKey := fmt.Sprintf("%s-%d-%d", metric.Name, prom_model.LabelsToSignature(metric.Labels), metric.Timestamp.Unix())
 		if _, exists := metricKeys[metricKey]; !exists {
 			metricKeys[metricKey] = struct{}{}

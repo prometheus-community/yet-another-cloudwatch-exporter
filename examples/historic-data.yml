@@ -7,7 +7,7 @@ discovery:
       period: 60
       length: 300
       addCloudwatchTimestamp: true
-      addHistoricalMetrics: true
+      exportAllDataPoints: true
       metrics:
         - name: NumberOfMessagesSent
           statistics: [Sum]
