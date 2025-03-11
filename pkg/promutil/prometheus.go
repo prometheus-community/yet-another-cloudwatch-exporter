@@ -194,6 +194,12 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 
 // sanitize replaces some invalid chars with an underscore
 func sanitize(text string) string {
+
+	// metrics starting with a digit violate the prometheus metric naming convention, so we add an underscore
+	if len(text) > 0 && text[0] >= '0' && text[0] <= '9' {
+		text = "_" + text
+	}
+
 	if strings.ContainsAny(text, "“%") {
 		// fallback to the replacer for complex cases:
 		// - '“' is non-ascii rune
