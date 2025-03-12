@@ -106,6 +106,8 @@ var replacer = strings.NewReplacer(
 	"%", "_percent",
 )
 
+var metricNumberPrefixRE = regexp.MustCompile(`^\d`)
+
 type PrometheusMetric struct {
 	Name             string
 	Labels           map[string]string
@@ -197,7 +199,7 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 func sanitize(text string) string {
 
 	// metrics starting with a digit violate the prometheus metric naming convention, so we add an underscore
-	if matched, _ := regexp.MatchString(`^\d`, text); matched {
+	if metricNumberPrefixRE.MatchString(text) {
 		text = "_" + text
 	}
 
