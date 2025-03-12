@@ -13,6 +13,7 @@
 package promutil
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -196,7 +197,7 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 func sanitize(text string) string {
 
 	// metrics starting with a digit violate the prometheus metric naming convention, so we add an underscore
-	if len(text) > 0 && text[0] >= '0' && text[0] <= '9' {
+	if matched, _ := regexp.MatchString(`^\d`, text); matched {
 		text = "_" + text
 	}
 
