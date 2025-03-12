@@ -197,7 +197,6 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 
 // sanitize replaces some invalid chars with an underscore
 func sanitize(text string) string {
-
 	// metrics starting with a digit violate the prometheus metric naming convention, so we add an underscore
 	if metricNumberPrefixRE.MatchString(text) {
 		text = "_" + text
