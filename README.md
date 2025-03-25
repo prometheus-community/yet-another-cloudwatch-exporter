@@ -115,6 +115,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/NetworkELB` - Network Load Balancer
   * `AWS/NetworkFirewall` - Network Firewall
   * `AWS/Network Manager` - Network Manager
+  * `AWS/NetworkMonitor` - Network Monitor
   * `AWS/PrivateLinkEndpoints` - VPC Endpoint
   * `AWS/PrivateLinkServices` - VPC Endpoint Service
   * `AWS/Prometheus` - Managed Service for Prometheus
