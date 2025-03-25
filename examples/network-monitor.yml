@@ -1,0 +1,15 @@
+apiVersion: v1alpha1
+ discovery:
+   jobs:
+     - type: AWS/NetworkMonitor
+       regions:
+         - us-east-1
+       period: 300
+       length: 300
+       metrics:
+         - name: HealthIndicator
+           statistics: [Minimum]
+         - name: PacketLoss
+           statistics: [Average]
+         - name: RTT
+           statistics: [Maximum]
