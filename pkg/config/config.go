@@ -52,6 +52,7 @@ type JobLevelMetricFields struct {
 	Delay                  int64    `yaml:"delay"`
 	NilToZero              *bool    `yaml:"nilToZero"`
 	AddCloudwatchTimestamp *bool    `yaml:"addCloudwatchTimestamp"`
+	ExportAllDataPoints    *bool    `yaml:"exportAllDataPoints"`
 }
 
 type Job struct {
@@ -99,6 +100,7 @@ type Metric struct {
 	Delay                  int64    `yaml:"delay"`
 	NilToZero              *bool    `yaml:"nilToZero"`
 	AddCloudwatchTimestamp *bool    `yaml:"addCloudwatchTimestamp"`
+	ExportAllDataPoints    *bool    `yaml:"exportAllDataPoints"`
 }
 
 type Dimension struct {
@@ -154,7 +156,7 @@ func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, e
 
 func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 	if c.Discovery.Jobs == nil && c.Static == nil && c.CustomNamespace == nil {
-		return model.JobsConfig{}, fmt.Errorf("At least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
+		return model.JobsConfig{}, fmt.Errorf("at least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
 	}
 
 	if c.Discovery.Jobs != nil {
@@ -387,6 +389,19 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 		}
 	}
 
+	mExportAllDataPoints := m.ExportAllDataPoints
+	if mExportAllDataPoints == nil {
+		if discovery != nil && discovery.ExportAllDataPoints != nil {
+			mExportAllDataPoints = discovery.ExportAllDataPoints
+		} else {
+			mExportAllDataPoints = aws.Bool(false)
+		}
+	}
+
+	if aws.BoolValue(mExportAllDataPoints) && !aws.BoolValue(mAddCloudwatchTimestamp) {
+		return fmt.Errorf("Metric [%s/%d] in %v: ExportAllDataPoints can only be enabled if AddCloudwatchTimestamp is enabled", m.Name, metricIdx, parent)
+	}
+
 	if mLength < mPeriod {
 		return fmt.Errorf(
 			"Metric [%s/%d] in %v: length(%d) is smaller than period(%d). This can cause that the data requested is not ready and generate data gaps",
@@ -398,6 +413,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 	m.Delay = mDelay
 	m.NilToZero = mNilToZero
 	m.AddCloudwatchTimestamp = mAddCloudwatchTimestamp
+	m.ExportAllDataPoints = mExportAllDataPoints
 	m.Statistics = mStatistics
 
 	return nil
@@ -519,6 +535,7 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 			Delay:                  m.Delay,
 			NilToZero:              aws.BoolValue(m.NilToZero),
 			AddCloudwatchTimestamp: aws.BoolValue(m.AddCloudwatchTimestamp),
+			ExportAllDataPoints:    aws.BoolValue(m.ExportAllDataPoints),
 		})
 	}
 	return ret

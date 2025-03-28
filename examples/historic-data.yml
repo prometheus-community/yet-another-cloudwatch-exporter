@@ -1,0 +1,29 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/SQS
+      regions:
+        - us-east-1
+      period: 60
+      length: 300
+      addCloudwatchTimestamp: true
+      exportAllDataPoints: true
+      metrics:
+        - name: NumberOfMessagesSent
+          statistics: [Sum]
+        - name: NumberOfMessagesReceived
+          statistics: [Sum]
+        - name: NumberOfMessagesDeleted
+          statistics: [Sum]
+        - name: ApproximateAgeOfOldestMessage
+          statistics: [Average]
+        - name: NumberOfEmptyReceives
+          statistics: [Sum]
+        - name: SentMessageSize
+          statistics: [Average]
+        - name: ApproximateNumberOfMessagesNotVisible
+          statistics: [Sum]
+        - name: ApproximateNumberOfMessagesDelayed
+          statistics: [Sum]
+        - name: ApproximateNumberOfMessagesVisible
+          statistics: [Sum]
