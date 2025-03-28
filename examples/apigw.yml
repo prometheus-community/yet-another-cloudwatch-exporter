@@ -11,7 +11,9 @@ discovery:
           statistics: [Average, Maximum, p95, p99]
         - name: Count
           statistics: [SampleCount, Sum]
-        - name: 4xx
+        - name: 4XXError
+          # Creates metric: `aws_apigateway_4_xxerror_sum`
           statistics: [Sum]
-        - name: 5xx
+        - name: 5XXError
+          # Creates metric: `aws_apigateway_5_xxerror_sum`
           statistics: [Sum]
