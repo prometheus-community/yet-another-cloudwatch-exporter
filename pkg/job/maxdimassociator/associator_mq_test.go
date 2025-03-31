@@ -27,6 +27,11 @@ var rabbitMQBroker = &model.TaggedResource{
 	Namespace: "AWS/AmazonMQ",
 }
 
+var rabbitMQBrokerWithActiveStyleName = &model.TaggedResource{
+	ARN:       "arn:aws:mq:us-east-2:123456789012:broker:rabbitmq-broker-0:b-000-111-222-333",
+	Namespace: "AWS/AmazonMQ",
+}
+
 var activeMQBroker = &model.TaggedResource{
 	ARN:       "arn:aws:mq:us-east-2:123456789012:broker:activemq-broker:b-000-111-222-333",
 	Namespace: "AWS/AmazonMQ",
@@ -64,10 +69,26 @@ func TestAssociatorMQ(t *testing.T) {
 			expectedResource: rabbitMQBroker,
 		},
 		{
+			name: "should match with Broker dimension when broker name has a number suffix and does match ARN",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/AmazonMQ").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{rabbitMQBrokerWithActiveStyleName},
+				metric: &model.Metric{
+					MetricName: "ProducerCount",
+					Namespace:  "AWS/AmazonMQ",
+					Dimensions: []model.Dimension{
+						{Name: "Broker", Value: "rabbitmq-broker-0"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: rabbitMQBrokerWithActiveStyleName,
+		},
+		{
 			// ActiveMQ allows active/standby modes where the `Broker` dimension has values
 			// like `brokername-1` and `brokername-2` which don't match the ARN (the dimension
 			// regex will extract `Broker` as `brokername` from ARN)
-			name: "should match with Broker dimension when broker name has a number suffix",
+			name: "should match with Broker dimension when broker name has a number suffix and doesn't match ARN",
 			args: args{
 				dimensionRegexps: config.SupportedServices.GetService("AWS/AmazonMQ").ToModelDimensionsRegexp(),
 				resources:        []*model.TaggedResource{activeMQBroker},
