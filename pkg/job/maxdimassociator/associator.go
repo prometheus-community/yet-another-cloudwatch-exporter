@@ -176,19 +176,31 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 			// the dimensions computed for the mapping. Now compute a signature
 			// of the labels (names and values) of the dimensions of this mapping.
 			mappingFound = true
-			labels := buildLabelsMap(cwMetric, regexpMapping)
-			signature := prom_model.LabelsToSignature(labels)
+			dimFixApplied := false
+			for _, fun := range []func(string, model.Dimension) (model.Dimension, bool){fixDimension, nil} {
+				if !dimFixApplied && fun == nil {
+					// If no dimension fixes were applied, no need to try running again without the fixer
+					break
+				}
 
-			// Check if there's an entry for the labels (names and values) of the metric,
-			// and return the resource in case.
-			if resource, ok := regexpMapping.dimensionsMapping[signature]; ok {
-				logger.Debug("resource matched", "signature", signature)
-				return resource, false
+				var labels map[string]string
+				labels, dimFixApplied = buildLabelsMap(cwMetric, regexpMapping, fun)
+				signature := prom_model.LabelsToSignature(labels)
+
+				// Check if there's an entry for the labels (names and values) of the metric,
+				// and return the resource in case.
+				if resource, ok := regexpMapping.dimensionsMapping[signature]; ok {
+					logger.Debug("resource matched", "signature", signature)
+					return resource, false
+				}
+
+				// No resource was matched for the current signature.
+				logger.Debug("resource signature attempt not matched", "signature", signature)
 			}
 
-			// Otherwise, continue iterating across the rest of regex mappings
-			// to attempt to find another one with fewer dimensions.
-			logger.Debug("resource not matched", "signature", signature)
+			// No resource was matched for any signature, continue iterating across the
+			// rest of regex mappings to attempt to find another one with fewer dimensions.
+			logger.Debug("resource not matched")
 		}
 	}
 
@@ -204,38 +216,46 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 	return nil, mappingFound
 }
 
-// buildLabelsMap returns a map of labels names and values.
+// buildLabelsMap returns a map of labels names and values, as well as whether the dimension fixer was applied.
 // For some namespaces, values might need to be modified in order
 // to match the dimension value extracted from ARN.
-func buildLabelsMap(cwMetric *model.Metric, regexpMapping *dimensionsRegexpMapping) map[string]string {
+func buildLabelsMap(cwMetric *model.Metric, regexpMapping *dimensionsRegexpMapping, dimFixer func(string, model.Dimension) (model.Dimension, bool)) (map[string]string, bool) {
 	labels := make(map[string]string, len(cwMetric.Dimensions))
+	dimFixApplied := false
 	for _, rDimension := range regexpMapping.dimensions {
 		for _, mDimension := range cwMetric.Dimensions {
-			name := mDimension.Name
-			value := mDimension.Value
-
-			// AmazonMQ is special - for active/standby ActiveMQ brokers,
-			// the value of the "Broker" dimension contains a number suffix
-			// that is not part of the resource ARN
-			if cwMetric.Namespace == "AWS/AmazonMQ" && name == "Broker" {
-				if amazonMQBrokerSuffix.MatchString(value) {
-					value = amazonMQBrokerSuffix.ReplaceAllString(value, "")
-				}
-			}
-
-			// AWS Sagemaker endpoint name may have upper case characters
-			// Resource ARN is only in lower case, hence transforming
-			// endpoint name value to be able to match the resource ARN
-			if cwMetric.Namespace == "AWS/SageMaker" && name == "EndpointName" {
-				value = strings.ToLower(value)
+			if dimFixer != nil {
+				mDimension, dimFixApplied = dimFixer(cwMetric.Namespace, mDimension)
 			}
 
 			if rDimension == mDimension.Name {
-				labels[name] = value
+				labels[mDimension.Name] = mDimension.Value
 			}
 		}
 	}
-	return labels
+	return labels, dimFixApplied
+}
+
+func fixDimension(namespace string, dim model.Dimension) (model.Dimension, bool) {
+	// AmazonMQ is special - for active/standby ActiveMQ brokers,
+	// the value of the "Broker" dimension contains a number suffix
+	// that is not part of the resource ARN
+	if namespace == "AWS/AmazonMQ" && dim.Name == "Broker" {
+		if amazonMQBrokerSuffix.MatchString(dim.Value) {
+			dim.Value = amazonMQBrokerSuffix.ReplaceAllString(dim.Value, "")
+			return dim, true
+		}
+	}
+
+	// AWS Sagemaker endpoint name may have upper case characters
+	// Resource ARN is only in lower case, hence transforming
+	// endpoint name value to be able to match the resource ARN
+	if namespace == "AWS/SageMaker" && dim.Name == "EndpointName" {
+		dim.Value = strings.ToLower(dim.Value)
+		return dim, true
+	}
+
+	return dim, false
 }
 
 // containsAll returns true if a contains all elements of b
