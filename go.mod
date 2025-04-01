@@ -2,6 +2,8 @@ module github.com/prometheus-community/yet-another-cloudwatch-exporter
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/aws/aws-sdk-go-v2 v1.36.0
@@ -26,7 +28,7 @@ require (
 	github.com/prometheus/common v0.62.0
 	github.com/r3labs/diff/v3 v3.0.1
 	github.com/stretchr/testify v1.10.0
-	github.com/urfave/cli/v2 v2.27.5
+	github.com/urfave/cli/v2 v2.27.6
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 	golang.org/x/sync v0.12.0
 	gopkg.in/yaml.v2 v2.4.0
