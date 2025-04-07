@@ -18,6 +18,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,6 +72,12 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestPromStringTag(t *testing.T) {
+	originalValidationScheme := model.NameValidationScheme
+	model.NameValidationScheme = model.LegacyValidation
+	defer func() {
+		model.NameValidationScheme = originalValidationScheme
+	}()
+
 	testCases := []struct {
 		name        string
 		label       string
@@ -134,6 +141,12 @@ func TestPromStringTag(t *testing.T) {
 }
 
 func TestNewPrometheusCollector_CanReportMetricsAndErrors(t *testing.T) {
+	originalValidationScheme := model.NameValidationScheme
+	model.NameValidationScheme = model.LegacyValidation
+	defer func() {
+		model.NameValidationScheme = originalValidationScheme
+	}()
+
 	metrics := []*PrometheusMetric{
 		{
 			Name:             "this*is*not*valid",
