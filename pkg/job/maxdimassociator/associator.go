@@ -174,17 +174,25 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 
 			// A regex mapping has been found. The metric has all (and possibly more)
 			// the dimensions computed for the mapping. Now compute a signature
-			// of the labels (names and values) of the dimensions of this mapping.
+			// of the labels (names and values) of the dimensions of this mapping, and try to
+			// find a resource match.
+			// This loop can run up to two times:
+			//   On the first iteration, special-case dimension value
+			// fixes to match the value up with the resource ARN are applied to particular namespaces.
+			// 	  The second iteration will only run if a fix was applied for one of the special-case
+			// namespaces and no match was found. It will try to find a match without applying the fixes.
+			// This covers cases where the dimension value does line up with the resource ARN.
 			mappingFound = true
 			dimFixApplied := false
-			for _, fun := range []func(string, model.Dimension) (model.Dimension, bool){fixDimension, nil} {
-				if !dimFixApplied && fun == nil {
+			shouldTryFixDimension := true
+			for {
+				if !dimFixApplied && !shouldTryFixDimension {
 					// If no dimension fixes were applied, no need to try running again without the fixer
 					break
 				}
 
 				var labels map[string]string
-				labels, dimFixApplied = buildLabelsMap(cwMetric, regexpMapping, fun)
+				labels, dimFixApplied = buildLabelsMap(cwMetric, regexpMapping, shouldTryFixDimension)
 				signature := prom_model.LabelsToSignature(labels)
 
 				// Check if there's an entry for the labels (names and values) of the metric,
@@ -196,6 +204,7 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 
 				// No resource was matched for the current signature.
 				logger.Debug("resource signature attempt not matched", "signature", signature)
+				shouldTryFixDimension = false
 			}
 
 			// No resource was matched for any signature, continue iterating across the
@@ -219,13 +228,13 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 // buildLabelsMap returns a map of labels names and values, as well as whether the dimension fixer was applied.
 // For some namespaces, values might need to be modified in order
 // to match the dimension value extracted from ARN.
-func buildLabelsMap(cwMetric *model.Metric, regexpMapping *dimensionsRegexpMapping, dimFixer func(string, model.Dimension) (model.Dimension, bool)) (map[string]string, bool) {
+func buildLabelsMap(cwMetric *model.Metric, regexpMapping *dimensionsRegexpMapping, shouldTryFixDimension bool) (map[string]string, bool) {
 	labels := make(map[string]string, len(cwMetric.Dimensions))
 	dimFixApplied := false
 	for _, rDimension := range regexpMapping.dimensions {
 		for _, mDimension := range cwMetric.Dimensions {
-			if dimFixer != nil {
-				mDimension, dimFixApplied = dimFixer(cwMetric.Namespace, mDimension)
+			if shouldTryFixDimension {
+				mDimension, dimFixApplied = fixDimension(cwMetric.Namespace, mDimension)
 			}
 
 			if rDimension == mDimension.Name {
@@ -236,6 +245,8 @@ func buildLabelsMap(cwMetric *model.Metric, regexpMapping *dimensionsRegexpMappi
 	return labels, dimFixApplied
 }
 
+// fixDimension modifies the dimension value to accommodate special cases where
+// the dimension value doesn't match the resource ARN.
 func fixDimension(namespace string, dim model.Dimension) (model.Dimension, bool) {
 	// AmazonMQ is special - for active/standby ActiveMQ brokers,
 	// the value of the "Broker" dimension contains a number suffix
