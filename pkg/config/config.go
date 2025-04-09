@@ -154,7 +154,7 @@ func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, e
 
 func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 	if c.Discovery.Jobs == nil && c.Static == nil && c.CustomNamespace == nil {
-		return model.JobsConfig{}, fmt.Errorf("At least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
+		return model.JobsConfig{}, fmt.Errorf("at least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
 	}
 
 	if c.Discovery.Jobs != nil {

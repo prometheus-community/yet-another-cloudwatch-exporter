@@ -185,11 +185,8 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 			mappingFound = true
 			dimFixApplied := false
 			shouldTryFixDimension := true
-			for {
-				if !dimFixApplied && !shouldTryFixDimension {
-					// If no dimension fixes were applied, no need to try running again without the fixer
-					break
-				}
+			// If no dimension fixes were applied, no need to try running again without the fixer.
+			for dimFixApplied || shouldTryFixDimension {
 
 				var labels map[string]string
 				labels, dimFixApplied = buildLabelsMap(cwMetric, regexpMapping, shouldTryFixDimension)

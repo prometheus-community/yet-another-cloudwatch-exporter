@@ -556,7 +556,7 @@ func TestScrapeRunner_Run(t *testing.T) {
 
 			// We don't want to check the exact error just the message
 			changelog, err = diff.Diff(tc.expectedErrs, errs, diff.Filter(func(_ []string, _ reflect.Type, field reflect.StructField) bool {
-				return !(field.Name == "Err")
+				return field.Name != "Err"
 			}))
 			assert.NoError(t, err, "failed to diff errs")
 			assert.Len(t, changelog, 0, changelog)

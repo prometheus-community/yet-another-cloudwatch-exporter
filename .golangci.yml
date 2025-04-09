@@ -1,13 +1,11 @@
-run:
-  timeout: 5m
-
+version: "2"
 output:
   formats:
-    - format: line-number
+    text:
       path: stderr
-
+      colors: false
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - bodyclose
@@ -15,10 +13,6 @@ linters:
     - errcheck
     - errorlint
     - exhaustive
-    - gofmt
-    - gofumpt
-    - goimports
-    - gosimple
     - govet
     - ineffassign
     - misspell
@@ -27,12 +21,33 @@ linters:
     - nonamedreturns
     - predeclared
     - revive
+    - sloglint
     - staticcheck
-    - typecheck
     - unconvert
     - unused
-    - sloglint
-
-linters-settings:
-  goimports:
-    local-prefixes: "github.com/prometheus-community/yet-another-cloudwatch-exporter"
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/prometheus-community/yet-another-cloudwatch-exporter
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

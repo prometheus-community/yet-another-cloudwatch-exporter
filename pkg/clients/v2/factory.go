@@ -79,13 +79,14 @@ var _ clients.Factory = &CachingFactory{}
 func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
 	var options []func(*aws_config.LoadOptions) error
 	options = append(options, aws_config.WithLogger(aws_logging.LoggerFunc(func(classification aws_logging.Classification, format string, v ...interface{}) {
-		if classification == aws_logging.Debug {
+		switch classification {
+		case aws_logging.Debug:
 			if logger.Enabled(context.Background(), slog.LevelDebug) {
 				logger.Debug(fmt.Sprintf(format, v...))
 			}
-		} else if classification == aws_logging.Warn {
+		case aws_logging.Warn:
 			logger.Warn(fmt.Sprintf(format, v...))
-		} else { // AWS logging only supports debug or warn, log everything else as error
+		default: // AWS logging only supports debug or warn, log everything else as error
 			logger.Error(fmt.Sprintf(format, v...), "err", "unexected aws error classification", "classification", classification)
 		}
 	})))

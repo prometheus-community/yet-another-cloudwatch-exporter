@@ -260,7 +260,7 @@ func startScraper(c *cli.Context) error {
 	cfg := config.ScrapeConf{}
 	jobsCfg, err := cfg.Load(configFile, logger)
 	if err != nil {
-		return fmt.Errorf("Couldn't read %s: %w", configFile, err)
+		return fmt.Errorf("couldn't read %s: %w", configFile, err)
 	}
 
 	featureFlags := c.StringSlice(enableFeatureFlag)
@@ -269,7 +269,7 @@ func startScraper(c *cli.Context) error {
 	var cache cachingFactory
 	cache, err = v2.NewFactory(logger, jobsCfg, fips)
 	if err != nil {
-		return fmt.Errorf("Failed to construct aws sdk v2 client cache: %w", err)
+		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
 
 	// Switch to v1 SDK if feature flag is enabled
@@ -301,7 +301,7 @@ func startScraper(c *cli.Context) error {
 			pprofLink = htmlPprof
 		}
 
-		_, _ = w.Write([]byte(fmt.Sprintf(htmlVersion, version.Version, pprofLink)))
+		_, _ = fmt.Fprintf(w, htmlVersion, version.Version, pprofLink)
 	})
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
