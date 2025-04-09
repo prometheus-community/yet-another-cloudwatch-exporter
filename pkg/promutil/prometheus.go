@@ -15,6 +15,7 @@ package promutil
 import (
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
@@ -178,8 +179,29 @@ func toConstMetrics(metrics []*PrometheusMetric) []prometheus.Metric {
 }
 
 func PromString(text string) string {
-	text = splitString(text)
-	return strings.ToLower(sanitize(text))
+	var buf strings.Builder
+	PromStringToBuilder(text, &buf)
+	return buf.String()
+}
+
+func PromStringToBuilder(text string, buf *strings.Builder) {
+	buf.Grow(len(text))
+
+	var prev rune
+	for _, c := range text {
+		switch c {
+		case ' ', ',', '\t', '/', '\\', '.', '-', ':', '=', '@', '<', '>', '(', ')', '“':
+			buf.WriteRune('_')
+		case '%':
+			buf.WriteString("_percent")
+		default:
+			if unicode.IsUpper(c) && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+				buf.WriteRune('_')
+			}
+			buf.WriteRune(unicode.ToLower(c))
+		}
+		prev = c
+	}
 }
 
 func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
@@ -209,37 +231,4 @@ func sanitize(text string) string {
 		}
 	}
 	return string(b)
-}
-
-// splitString replaces consecutive occurrences of a lowercase and uppercase letter,
-// or a number and an upper case letter, by putting a dot between the two chars.
-//
-// This is an optimised version of the original implementation:
-//
-//	  var splitRegexp = regexp.MustCompile(`([a-z0-9])([A-Z])`)
-//
-//		func splitString(text string) string {
-//		  return splitRegexp.ReplaceAllString(text, `$1.$2`)
-//		}
-func splitString(text string) string {
-	sb := strings.Builder{}
-	sb.Grow(len(text) + 4) // make some room for replacements
-
-	i := 0
-	for i < len(text) {
-		c := text[i]
-		sb.WriteByte(c)
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
-			if i < (len(text) - 1) {
-				c = text[i+1]
-				if c >= 'A' && c <= 'Z' {
-					sb.WriteByte('.')
-					sb.WriteByte(c)
-					i++
-				}
-			}
-		}
-		i++
-	}
-	return sb.String()
 }

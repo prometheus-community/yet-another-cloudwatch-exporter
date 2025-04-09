@@ -23,30 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSplitString(t *testing.T) {
-	testCases := []struct {
-		input  string
-		output string
-	}{
-		{
-			input:  "GlobalTopicCount",
-			output: "Global.Topic.Count",
-		},
-		{
-			input:  "CPUUtilization",
-			output: "CPUUtilization",
-		},
-		{
-			input:  "StatusCheckFailed_Instance",
-			output: "Status.Check.Failed_Instance",
-		},
-	}
-
-	for _, tc := range testCases {
-		assert.Equal(t, tc.output, splitString(tc.input))
-	}
-}
-
 func TestSanitize(t *testing.T) {
 	testCases := []struct {
 		input  string

@@ -31,27 +31,38 @@ var Percentile = regexp.MustCompile(`^p(\d{1,2}(\.\d{0,2})?|100)$`)
 
 func BuildMetricName(namespace, metricName, statistic string) string {
 	sb := strings.Builder{}
-	promNs := PromString(strings.ToLower(namespace))
+
 	// Some namespaces have a leading forward slash like
-	// /aws/sagemaker/TrainingJobs, which gets converted to
-	// a leading _ by PromString().
-	promNs = strings.TrimPrefix(promNs, "_")
+	// /aws/sagemaker/TrainingJobs, which should be removed.
+	var promNs string
+	if strings.HasPrefix(namespace, "/") {
+		promNs = PromString(strings.ToLower(namespace[1:]))
+	} else {
+		promNs = PromString(strings.ToLower(namespace))
+	}
+
 	if !strings.HasPrefix(promNs, "aws") {
 		sb.WriteString("aws_")
 	}
 	sb.WriteString(promNs)
+
 	sb.WriteString("_")
+
 	promMetricName := PromString(metricName)
 	// Some metric names duplicate parts of the namespace as a prefix,
 	// For example, the `Glue` namespace metrics have names prefixed also by `glue``
+	skip := 0
 	for _, part := range strings.Split(promNs, "_") {
-		promMetricName = strings.TrimPrefix(promMetricName, part)
+		if strings.HasPrefix(promMetricName[skip:], part) {
+			skip = len(part)
+		}
 	}
-	promMetricName = strings.TrimPrefix(promMetricName, "_")
+	promMetricName = strings.TrimPrefix(promMetricName[skip:], "_")
+
 	sb.WriteString(promMetricName)
 	if statistic != "" {
 		sb.WriteString("_")
-		sb.WriteString(PromString(statistic))
+		PromStringToBuilder(statistic, &sb)
 	}
 	return sb.String()
 }

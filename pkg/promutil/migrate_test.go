@@ -1124,6 +1124,94 @@ func Benchmark_BuildMetrics(b *testing.B) {
 	require.Equal(b, expectedLabels, labels)
 }
 
+func TestBuildMetricName(t *testing.T) {
+	type testCase struct {
+		name      string
+		namespace string
+		metric    string
+		statistic string
+		expected  string
+	}
+
+	testCases := []testCase{
+		{
+			name:      "standard AWS namespace",
+			namespace: "AWS/ElastiCache",
+			metric:    "CPUUtilization",
+			statistic: "Average",
+			expected:  "aws_elasticache_cpuutilization_average",
+		},
+		{
+			name:      "nonstandard namespace with slashes",
+			namespace: "/aws/sagemaker/TrainingJobs",
+			metric:    "CPUUtilization",
+			statistic: "Average",
+			expected:  "aws_sagemaker_trainingjobs_cpuutilization_average",
+		},
+		{
+			name:      "metric name duplicating namespace",
+			namespace: "Glue",
+			metric:    "glue.driver.aggregate.bytesRead",
+			statistic: "Average",
+			expected:  "aws_glue_driver_aggregate_bytes_read_average",
+		},
+		{
+			name:      "metric name not duplicating namespace",
+			namespace: "Glue",
+			metric:    "aggregate.glue.jobs.bytesRead",
+			statistic: "Average",
+			expected:  "aws_glue_aggregate_glue_jobs_bytes_read_average",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := BuildMetricName(tc.namespace, tc.metric, tc.statistic)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Benchmark_BuildMetricName(b *testing.B) {
+	testCases := []struct {
+		namespace string
+		metric    string
+		statistic string
+	}{
+		{
+			namespace: "AWS/ElastiCache",
+			metric:    "CPUUtilization",
+			statistic: "Average",
+		},
+		{
+			namespace: "/aws/sagemaker/TrainingJobs",
+			metric:    "CPUUtilization",
+			statistic: "Average",
+		},
+		{
+			namespace: "Glue",
+			metric:    "glue.driver.aggregate.bytesRead",
+			statistic: "Average",
+		},
+		{
+			namespace: "Glue",
+			metric:    "aggregate.glue.jobs.bytesRead",
+			statistic: "Average",
+		},
+	}
+
+	for _, tc := range testCases {
+		testName := BuildMetricName(tc.namespace, tc.metric, tc.statistic)
+		b.ResetTimer()
+		b.ReportAllocs()
+		b.Run(testName, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				BuildMetricName(tc.namespace, tc.metric, tc.statistic)
+			}
+		})
+	}
+}
+
 // replaceNaNValues replaces any NaN floating-point values with a marker value (54321.0)
 // so that require.Equal() can compare them. By default, require.Equal() will fail if any
 // struct values are NaN because NaN != NaN
