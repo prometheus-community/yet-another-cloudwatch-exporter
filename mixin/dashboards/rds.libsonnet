@@ -77,7 +77,7 @@ grafana.dashboard.new(
     .addYaxis()
     .addTarget(
       grafana.target.prometheus.new(
-        expr='aws_rds_cpuutilization_maximum{%s}' % [allLabels],
+        expr='aws_rds_cpuutilization_average{%s}' % [allLabels],
         legendFormat='{{dimension_DBInstanceIdentifier}}',
         datasource='$datasource',
       ),
