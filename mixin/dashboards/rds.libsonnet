@@ -65,10 +65,10 @@ grafana.dashboard.new(
     .setGridPos(w=24, h=3),
 
     grafana.panel.graph.new(
-      title='CPU utilization',
+      title='CPU utilization average',
       datasource='$datasource',
     )
-    .setGridPos(w=24, h=8)
+    .setGridPos(w=12, h=8)
     .addYaxis(
       format='percent',
       max=100,
@@ -78,6 +78,25 @@ grafana.dashboard.new(
     .addTarget(
       grafana.target.prometheus.new(
         expr='aws_rds_cpuutilization_average{%s}' % [allLabels],
+        legendFormat='{{dimension_DBInstanceIdentifier}}',
+        datasource='$datasource',
+      ),
+    ),
+
+    grafana.panel.graph.new(
+      title='CPU utilization maximum',
+      datasource='$datasource',
+    )
+    .setGridPos(w=12, h=8, x=12)
+    .addYaxis(
+      format='percent',
+      max=100,
+      min=0,
+    )
+    .addYaxis()
+    .addTarget(
+      grafana.target.prometheus.new(
+        expr='aws_rds_cpuutilization_maximum{%s}' % [allLabels],
         legendFormat='{{dimension_DBInstanceIdentifier}}',
         datasource='$datasource',
       ),
