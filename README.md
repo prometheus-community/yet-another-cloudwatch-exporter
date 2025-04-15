@@ -148,6 +148,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `CWAgent` - CloudWatch agent
   * `ECS/ContainerInsights` - ECS/ContainerInsights (Fargate metrics)
   * `Glue` - AWS Glue Jobs
+  * `LambdaInsights` - Lambda enhanced metrics
 
 ## Feature flags
 
