@@ -950,9 +950,11 @@ var SupportedServices = serviceConfigs{
 		Alias:     "sagemaker",
 		ResourceFilters: []*string{
 			aws.String("sagemaker:endpoint"),
+			aws.String("sagemaker:inference-component"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":endpoint/(?P<EndpointName>[^/]+)$"),
+			regexp.MustCompile(":inference-component/(?P<InferenceComponentName>[^/]+)$"),
 		},
 	},
 	{
@@ -963,6 +965,16 @@ var SupportedServices = serviceConfigs{
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":endpoint/(?P<EndpointName>[^/]+)$"),
+		},
+	},
+	{
+		Namespace: "/aws/sagemaker/InferenceComponents",
+		Alias:     "sagemaker-inference-components",
+		ResourceFilters: []*string{
+			aws.String("sagemaker:inference-component"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":inference-component/(?P<InferenceComponentName>[^/]+)$"),
 		},
 	},
 	{

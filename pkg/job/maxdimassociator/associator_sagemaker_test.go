@@ -37,10 +37,22 @@ var sagemakerEndpointInvocationUpper = &model.TaggedResource{
 	Namespace: "AWS/SageMaker",
 }
 
+var sagemakerInferenceComponentInvocationOne = &model.TaggedResource{
+	ARN:       "arn:aws:sagemaker:us-west-2:123456789012:inference-component/example-inference-component-one",
+	Namespace: "AWS/SageMaker",
+}
+
+var sagemakerInferenceComponentInvocationUpper = &model.TaggedResource{
+	ARN:       "arn:aws:sagemaker:us-west-2:123456789012:inference-component/example-inference-component-upper",
+	Namespace: "AWS/SageMaker",
+}
+
 var sagemakerInvocationResources = []*model.TaggedResource{
 	sagemakerEndpointInvocationOne,
 	sagemakerEndpointInvocationTwo,
 	sagemakerEndpointInvocationUpper,
+	sagemakerInferenceComponentInvocationOne,
+	sagemakerInferenceComponentInvocationUpper,
 }
 
 func TestAssociatorSagemaker(t *testing.T) {
@@ -126,6 +138,38 @@ func TestAssociatorSagemaker(t *testing.T) {
 			},
 			expectedSkip:     false,
 			expectedResource: sagemakerEndpointInvocationUpper,
+		},
+		{
+			name: "inference component match",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/SageMaker").ToModelDimensionsRegexp(),
+				resources:        sagemakerInvocationResources,
+				metric: &model.Metric{
+					MetricName: "ModelLatency",
+					Namespace:  "AWS/SageMaker",
+					Dimensions: []model.Dimension{
+						{Name: "InferenceComponentName", Value: "example-inference-component-one"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: sagemakerInferenceComponentInvocationOne,
+		},
+		{
+			name: "inference component match in Upper case",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/SageMaker").ToModelDimensionsRegexp(),
+				resources:        sagemakerInvocationResources,
+				metric: &model.Metric{
+					MetricName: "ModelLatency",
+					Namespace:  "AWS/SageMaker",
+					Dimensions: []model.Dimension{
+						{Name: "InferenceComponentName", Value: "Example-Inference-Component-Upper"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: sagemakerInferenceComponentInvocationUpper,
 		},
 	}
 

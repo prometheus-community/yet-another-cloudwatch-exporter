@@ -255,10 +255,10 @@ func fixDimension(namespace string, dim model.Dimension) (model.Dimension, bool)
 		}
 	}
 
-	// AWS Sagemaker endpoint name may have upper case characters
+	// AWS Sagemaker endpoint name and inference component name may have upper case characters
 	// Resource ARN is only in lower case, hence transforming
-	// endpoint name value to be able to match the resource ARN
-	if namespace == "AWS/SageMaker" && dim.Name == "EndpointName" {
+	// name value to be able to match the resource ARN
+	if namespace == "AWS/SageMaker" && (dim.Name == "EndpointName" || dim.Name == "InferenceComponentName") {
 		dim.Value = strings.ToLower(dim.Value)
 		return dim, true
 	}
