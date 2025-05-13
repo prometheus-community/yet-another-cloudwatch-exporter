@@ -598,6 +598,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "LambdaInsights",
+		Alias:     "lambdainsights",
+		ResourceFilters: []*string{
+			aws.String("lambda:function"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":function:(?P<FunctionName>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/Logs",
 		Alias:     "logs",
 		ResourceFilters: []*string{
