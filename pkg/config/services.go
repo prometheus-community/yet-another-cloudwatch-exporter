@@ -1022,10 +1022,10 @@ var SupportedServices = serviceConfigs{
 		Namespace: "AWS/IPAM",
 		Alias:     "ipam",
 		ResourceFilters: []*string{
-			aws.String("ec2:ipam-pool"),
+			aws.String("ec2:ipam"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
-			regexp.MustCompile(":ipam-pool/(?P<IpamPoolId>[^/]+)$"),
+			regexp.MustCompile(":ipam/(?P<IpamId>[^/]+)$"),
 		},
 	},
 	{
