@@ -103,10 +103,25 @@ grafana.dashboard.new(
     ),
 
     grafana.panel.graph.new(
+      title='Database connections average',
+      datasource='$datasource',
+    )
+    .setGridPos(w=12, h=8)
+    .addYaxis(min=0)
+    .addYaxis()
+    .addTarget(
+      grafana.target.prometheus.new(
+        expr='aws_rds_database_connections_average{%s}' % [allLabels],
+        legendFormat='{{dimension_DBInstanceIdentifier}}',
+        datasource='$datasource',
+      ),
+    ),
+
+    grafana.panel.graph.new(
       title='Database connections count',
       datasource='$datasource',
     )
-    .setGridPos(w=24, h=8)
+    .setGridPos(w=12, h=8, x=12)
     .addYaxis(min=0)
     .addYaxis()
     .addTarget(
