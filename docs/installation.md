@@ -32,7 +32,7 @@ See the [docker-compose directory](../docker-compose/README.md).
 
 ### Install with HELM
 
-The official [HELM chart](https://github.com/nerdswords/helm-charts) is the recommended way to install YACE in a Kubernetes cluster.
+The official [HELM chart](https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus-yet-another-cloudwatch-exporter) is the recommended way to install YACE in a Kubernetes cluster.
 
 ### Install with manifests
 
