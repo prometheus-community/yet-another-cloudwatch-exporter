@@ -181,9 +181,10 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) *Cachi
 	}
 }
 
-// Refresh and Clear help to avoid using lock primitives by asserting that
-// there are no ongoing writes to the map.
 func (c *CachingFactory) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.cleared {
 		return
 	}
@@ -209,13 +210,9 @@ func (c *CachingFactory) Clear() {
 }
 
 func (c *CachingFactory) Refresh() {
-	if c.refreshed {
-		return
-	}
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// Double check Refresh wasn't called concurrently
+
 	if c.refreshed {
 		return
 	}
@@ -282,11 +279,9 @@ func createAccountClient(logger *slog.Logger, sts stsiface.STSAPI, iam iamiface.
 }
 
 func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	if !c.refreshed {
-		// if we have not refreshed then we need to lock in case we are accessing concurrently
-		c.mu.Lock()
-		defer c.mu.Unlock()
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if client := c.clients[role][region].cloudwatch; client != nil {
 		return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 	}
@@ -295,11 +290,9 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 }
 
 func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
-	if !c.refreshed {
-		// if we have not refreshed then we need to lock in case we are accessing concurrently
-		c.mu.Lock()
-		defer c.mu.Unlock()
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if client := c.clients[role][region].tagging; client != nil {
 		return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 	}
@@ -308,11 +301,9 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {
-	if !c.refreshed {
-		// if we have not refreshed then we need to lock in case we are accessing concurrently
-		c.mu.Lock()
-		defer c.mu.Unlock()
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if client := c.clients[role][region].account; client != nil {
 		return client
 	}

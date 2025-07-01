@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -1147,6 +1148,105 @@ func TestSTSResolvesFIPSEnabledEndpoints(t *testing.T) {
 			require.NoError(t, resolverError, "no error expected when resolving endpoint")
 			require.Equal(t, tc.expectedEndpoint, resolvedEndpoint.URL)
 		})
+	}
+}
+
+func TestRaceConditionRefreshClear(t *testing.T) {
+	// Create a factory with the test config
+	factory := NewFactory(promslog.NewNopLogger(), model.JobsConfig{}, false)
+
+	// Number of concurrent operations to perform
+	iterations := 100
+
+	// Use WaitGroup to synchronize goroutines
+	var wg sync.WaitGroup
+	wg.Add(iterations) // For both Refresh and Clear calls
+
+	// Start function to run concurrent operations
+	for i := 0; i < iterations; i++ {
+		// Launch goroutine to call Refresh
+		go func() {
+			defer wg.Done()
+			factory.Refresh()
+			factory.Clear()
+		}()
+	}
+
+	// Create a channel to signal completion
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-done:
+		// Test completed successfully
+	case <-time.After(60 * time.Second):
+		require.Fail(t, "Test timed out after 60 seconds")
+	}
+}
+
+func TestRaceConditionOnRefreshedFlag(t *testing.T) {
+	factory := &CachingFactory{
+		refreshed: true,
+		session:   mock.Session,
+		mu:        sync.Mutex{},
+		stscache: map[model.Role]stsiface.STSAPI{
+			{}: nil,
+		},
+		clients: map[model.Role]map[string]*cachedClients{
+			{
+				RoleArn: "some-arn",
+			}: {
+				"us-east-1": &cachedClients{},
+			},
+		},
+		logger: promslog.NewNopLogger(),
+	}
+
+	defaultRole := model.Role{
+		RoleArn: "some-arn",
+	}
+
+	workers := 100
+	var wg sync.WaitGroup
+	wg.Add(workers * 4) // Including Refresh calls
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			factory.GetCloudwatchClient("us-east-1", defaultRole, cloudwatch.ConcurrencyConfig{SingleLimit: 1})
+		}()
+
+		go func() {
+			defer wg.Done()
+			factory.GetTaggingClient("us-east-1", defaultRole, 1)
+		}()
+
+		go func() {
+			defer wg.Done()
+			factory.GetAccountClient("us-east-1", defaultRole)
+		}()
+
+		go func() {
+			defer wg.Done()
+			factory.Refresh()
+		}()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Test completed successfully
+	case <-time.After(60 * time.Second):
+		require.Fail(t, "Test timed out after 60 seconds")
 	}
 }
 
