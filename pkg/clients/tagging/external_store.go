@@ -3,23 +3,26 @@ package tagging
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/resourceinventory"
 )
 
-func WithExternalStore(primary Client, store resourceinventory.Store) Client {
+func WithExternalStore(logger *slog.Logger, primary Client, store resourceinventory.Store) Client {
 	if store == nil {
 		store = resourceinventory.Nop()
 	}
 	return &taggingWithExternalStore{
 		primary:       primary,
+		logger:        logger,
 		externalStore: store,
 	}
 }
 
 type taggingWithExternalStore struct {
 	primary       Client
+	logger        *slog.Logger
 	externalStore resourceinventory.Store
 }
 
@@ -28,21 +31,31 @@ func (f *taggingWithExternalStore) GetResources(ctx context.Context, job model.D
 
 	storeRes, storeErr := f.externalStore.GetResources(ctx, job, region)
 
-	if primErr != nil && storeErr != nil {
-		return nil, fmt.Errorf("failed to get resources from primary and store: %w", primErr)
+	if storeErr != nil {
+		f.logger.Error("failed to get resources from external store", "error", storeErr)
 	}
 
-	// merge dedupe is nil safe
-	return mergeDedupResources(primRes, storeRes), nil
+	if primErr != nil {
+		f.logger.Error("failed to get resources from primary", "error", primErr)
+	}
+
+	if storeErr != nil && primErr != nil {
+		return nil, fmt.Errorf("failed to get resources from primary and store: %w", storeErr)
+	}
+
+	// merge dedupe is nil safe, priority is the tagging service (the current yace implementation)
+	return f.mergeDedupResources(primRes, storeRes), nil
 }
 
-func mergeDedupResources(resourcesLists ...[]*model.TaggedResource) []*model.TaggedResource {
+func (f *taggingWithExternalStore) mergeDedupResources(taggingService, externalStore []*model.TaggedResource) []*model.TaggedResource {
 	dedup := make(map[string]*model.TaggedResource)
 
-	for _, resources := range resourcesLists {
-		for _, r := range resources {
-			dedup[r.ARN] = r
-		}
+	for _, resource := range externalStore {
+		dedup[resource.ARN] = resource
+	}
+
+	for _, resource := range taggingService {
+		dedup[resource.ARN] = resource
 	}
 
 	deduped := make([]*model.TaggedResource, 0, len(dedup))

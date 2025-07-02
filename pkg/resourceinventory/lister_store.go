@@ -2,6 +2,7 @@ package resourceinventory
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -29,6 +30,7 @@ func NewListerStore(maxConcurrency int, ttl time.Duration, listers ...Lister) *L
 	if ttl > 0 {
 		cache = ttlcache.New[string, []*model.TaggedResource](
 			ttlcache.WithTTL[string, []*model.TaggedResource](ttl),
+			ttlcache.WithDisableTouchOnHit[string, []*model.TaggedResource](),
 		)
 		go cache.Start()
 	}
@@ -54,7 +56,7 @@ func (s *ListerStore) GetResources(ctx context.Context, job model.DiscoveryJob, 
 	key := job.Namespace + "|" + region
 	// Return cached copy if available
 	if s.cache != nil {
-		if item := s.cache.Get(key); item != nil {
+		if item := s.cache.Get(key); item != nil && !item.IsExpired() {
 			return item.Value(), nil
 		}
 	}
@@ -91,5 +93,10 @@ func (s *ListerStore) GetResources(ctx context.Context, job model.DiscoveryJob, 
 		return nil, err
 	}
 
-	return v.([]*model.TaggedResource), nil
+	taggedResources, ok := v.([]*model.TaggedResource)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast resources to []*model.TaggedResource: %v", v)
+	}
+
+	return taggedResources, nil
 }

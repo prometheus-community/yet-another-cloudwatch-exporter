@@ -62,7 +62,7 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					taggingClient := tagging.WithExternalStore(factory.GetTaggingClient(region, role, taggingAPIConcurrency), store)
+					taggingClient := tagging.WithExternalStore(jobLogger, factory.GetTaggingClient(region, role, taggingAPIConcurrency), store)
 
 					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, taggingClient, cloudwatchClient, gmdProcessor)
 					addDataToOutput := len(metrics) != 0
