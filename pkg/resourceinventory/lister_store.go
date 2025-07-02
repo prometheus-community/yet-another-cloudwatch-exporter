@@ -10,22 +10,19 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-
 type Lister interface {
 	Namespace() string
 	List(ctx context.Context, region, roleArn string) ([]*model.TaggedResource, error)
 }
 
-
 type ListerStore struct {
-	listers map[string]Lister 
+	listers map[string]Lister
 
 	sem chan struct{}
 
 	cache *ttlcache.Cache[string, []*model.TaggedResource]
 	group singleflight.Group
 }
-
 
 func NewListerStore(maxConcurrency int, ttl time.Duration, listers ...Lister) *ListerStore {
 	var cache *ttlcache.Cache[string, []*model.TaggedResource]
@@ -85,11 +82,11 @@ func (s *ListerStore) GetResources(ctx context.Context, job model.DiscoveryJob, 
 		return nil, err
 	}
 
-	dedupeMap := v.(map[string]*model.TaggedResource)
+	dedupeMap := v.(map[string]*model.TaggedResource)	
 	resources := make([]*model.TaggedResource, 0, len(dedupeMap))
 	for _, resource := range dedupeMap {
 		resources = append(resources, resource)
-	}
+	}	
 
 	return resources, nil
 }

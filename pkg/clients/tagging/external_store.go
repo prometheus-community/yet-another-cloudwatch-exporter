@@ -12,18 +12,18 @@ func WithExternalStore(primary Client, store resourceinventory.Store) Client {
 	if store == nil {
 		store = resourceinventory.Nop()
 	}
-	return &taggingStore{
+	return &taggingWithExternalStore{
 		primary:       primary,
 		externalStore: store,
 	}
 }
 
-type taggingStore struct {
+type taggingWithExternalStore struct {
 	primary       Client
 	externalStore resourceinventory.Store
 }
 
-func (f *taggingStore) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+func (f *taggingWithExternalStore) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
 	primRes, primErr := f.primary.GetResources(ctx, job, region)
 
 	storeRes, storeErr := f.externalStore.GetResources(ctx, job, region)
