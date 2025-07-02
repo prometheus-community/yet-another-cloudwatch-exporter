@@ -76,17 +76,20 @@ func (s *ListerStore) GetResources(ctx context.Context, job model.DiscoveryJob, 
 			}
 		}
 
-		return dedupedResources, nil
+		resources := make([]*model.TaggedResource, 0, len(dedupedResources))
+		for _, resource := range dedupedResources {
+			resources = append(resources, resource)
+		}
+
+		if s.cache != nil {
+			s.cache.Set(key, resources, ttlcache.DefaultTTL)
+		}
+
+		return resources, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	dedupeMap := v.(map[string]*model.TaggedResource)	
-	resources := make([]*model.TaggedResource, 0, len(dedupeMap))
-	for _, resource := range dedupeMap {
-		resources = append(resources, resource)
-	}	
-
-	return resources, nil
+	return v.([]*model.TaggedResource), nil
 }
