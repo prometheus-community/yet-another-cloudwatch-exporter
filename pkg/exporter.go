@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/resourceinventory"
 )
 
 // Metrics is a slice of prometheus metrics specific to the scraping process such API call counters
@@ -69,6 +70,7 @@ type options struct {
 	metricsPerQuery       int
 	labelsSnakeCase       bool
 	taggingAPIConcurrency int
+	resourceInventory     resourceinventory.Store
 	featureFlags          featureFlagsMap
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
 }
@@ -141,6 +143,13 @@ func TaggingAPIConcurrency(maxConcurrency int) OptionsFunc {
 	}
 }
 
+func ResourceInventory(store resourceinventory.Store) OptionsFunc {
+	return func(o *options) error {
+		o.resourceInventory = store
+		return nil
+	}
+}
+
 // EnableFeatureFlag is an option that enables a feature flag on the YACE's entrypoint.
 func EnableFeatureFlag(flags ...string) OptionsFunc {
 	return func(o *options) error {
@@ -158,6 +167,7 @@ func defaultOptions() options {
 		taggingAPIConcurrency: DefaultTaggingAPIConcurrency,
 		featureFlags:          make(featureFlagsMap),
 		cloudwatchConcurrency: DefaultCloudwatchConcurrency,
+		resourceInventory:     resourceinventory.Nop(),
 	}
 }
 
@@ -204,6 +214,7 @@ func UpdateMetrics(
 		options.metricsPerQuery,
 		options.cloudwatchConcurrency,
 		options.taggingAPIConcurrency,
+		options.resourceInventory,
 	)
 
 	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
