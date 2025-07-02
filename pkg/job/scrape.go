@@ -19,9 +19,11 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/resourceinventory"
 )
 
 func ScrapeAwsData(
@@ -32,6 +34,7 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
+	store resourceinventory.Store,
 ) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
@@ -59,7 +62,9 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
+					taggingClient := tagging.WithExternalStore(factory.GetTaggingClient(region, role, taggingAPIConcurrency), store)
+
+					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, taggingClient, cloudwatchClient, gmdProcessor)
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0
