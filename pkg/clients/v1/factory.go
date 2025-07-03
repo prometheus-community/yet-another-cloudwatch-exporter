@@ -46,6 +46,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway/storagegatewayiface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"go.uber.org/atomic"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
@@ -64,8 +65,8 @@ type CachingFactory struct {
 	stscache         map[model.Role]stsiface.STSAPI
 	iamcache         map[model.Role]iamiface.IAMAPI
 	clients          map[model.Role]map[string]*cachedClients
-	cleared          bool
-	refreshed        bool
+	cleared          *atomic.Bool
+	refreshed        *atomic.Bool
 	mu               sync.Mutex
 	fips             bool
 	logger           *slog.Logger
@@ -175,17 +176,21 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) *Cachi
 		iamcache:         iamcache,
 		clients:          cache,
 		fips:             fips,
-		cleared:          false,
-		refreshed:        false,
+		cleared:          atomic.NewBool(false),
+		refreshed:        atomic.NewBool(false),
 		logger:           logger,
 	}
 }
 
 func (c *CachingFactory) Clear() {
+	if c.cleared.CompareAndSwap(true, true) {
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.cleared {
+	if c.cleared.CompareAndSwap(true, true) {
 		return
 	}
 
@@ -205,15 +210,19 @@ func (c *CachingFactory) Clear() {
 			cachedClient.tagging = nil
 		}
 	}
-	c.cleared = true
-	c.refreshed = false
+	c.cleared.Store(true)
+	c.refreshed.Store(false)
 }
 
 func (c *CachingFactory) Refresh() {
+	if c.refreshed.CompareAndSwap(true, true) {
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	if c.refreshed {
+	// Double check Refresh wasn't called concurrently
+	if c.refreshed.CompareAndSwap(true, true) {
 		return
 	}
 
@@ -245,8 +254,8 @@ func (c *CachingFactory) Refresh() {
 		}
 	}
 
-	c.cleared = false
-	c.refreshed = true
+	c.cleared.Store(false)
+	c.refreshed.Store(true)
 }
 
 func createCloudWatchClient(logger *slog.Logger, s *session.Session, region *string, role model.Role, fips bool) cloudwatch_client.Client {
@@ -279,9 +288,11 @@ func createAccountClient(logger *slog.Logger, sts stsiface.STSAPI, iam iamiface.
 }
 
 func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].cloudwatch; client != nil {
 		return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 	}
@@ -290,9 +301,11 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 }
 
 func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].tagging; client != nil {
 		return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 	}
@@ -301,9 +314,11 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].account; client != nil {
 		return client
 	}

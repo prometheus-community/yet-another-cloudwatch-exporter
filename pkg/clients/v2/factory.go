@@ -15,6 +15,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"go.uber.org/atomic"
 	"log/slog"
 	"os"
 	"sync"
@@ -55,8 +56,8 @@ type CachingFactory struct {
 	stsOptions          func(*sts.Options)
 	clients             map[model.Role]map[awsRegion]*cachedClients
 	mu                  sync.Mutex
-	refreshed           bool
-	cleared             bool
+	refreshed           *atomic.Bool
+	cleared             *atomic.Bool
 	fipsEnabled         bool
 	endpointURLOverride string
 }
@@ -161,13 +162,17 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 		fipsEnabled:         fips,
 		stsOptions:          stsOptions,
 		endpointURLOverride: endpointURLOverride,
+		cleared:             atomic.NewBool(false),
+		refreshed:           atomic.NewBool(false),
 	}, nil
 }
 
 func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].cloudwatch; client != nil {
 		return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 	}
@@ -176,9 +181,11 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 }
 
 func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].tagging; client != nil {
 		return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 	}
@@ -198,9 +205,11 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+	if c.refreshed.CompareAndSwap(false, false) {
+		// if we have not refreshed then we need to lock in case we are accessing concurrently
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
 	if client := c.clients[role][region].account; client != nil {
 		return client
 	}
@@ -212,10 +221,13 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 }
 
 func (c *CachingFactory) Refresh() {
+	if c.refreshed.CompareAndSwap(true, true) {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Avoid double refresh in the event Refresh() is called concurrently
-	if c.refreshed {
+	if c.refreshed.CompareAndSwap(true, true) {
 		return
 	}
 
@@ -243,16 +255,19 @@ func (c *CachingFactory) Refresh() {
 		}
 	}
 
-	c.refreshed = true
-	c.cleared = false
+	c.refreshed.Store(true)
+	c.cleared.Store(false)
 }
 
 func (c *CachingFactory) Clear() {
+	if c.cleared.CompareAndSwap(true, true) {
+		return
+	}
 	// Prevent concurrent reads/write if clear is called during execution
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Avoid double clear in the event Refresh() is called concurrently
-	if c.cleared {
+	if c.cleared.CompareAndSwap(true, true) {
 		return
 	}
 
@@ -264,8 +279,8 @@ func (c *CachingFactory) Clear() {
 		}
 	}
 
-	c.refreshed = false
-	c.cleared = true
+	c.refreshed.Store(false)
+	c.cleared.Store(true)
 }
 
 func (c *CachingFactory) createCloudwatchClient(regionConfig *aws.Config) *cloudwatch.Client {

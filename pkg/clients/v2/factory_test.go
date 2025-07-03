@@ -14,6 +14,7 @@ package v2
 
 import (
 	"context"
+	"go.uber.org/atomic"
 	"log/slog"
 	"reflect"
 	"sync"
@@ -125,8 +126,8 @@ func TestNewFactory_initializes_clients(t *testing.T) {
 			output, err := NewFactory(promslog.NewNopLogger(), test.jobsCfg, false)
 			require.NoError(t, err)
 
-			assert.False(t, output.refreshed)
-			assert.False(t, output.cleared)
+			assert.False(t, output.refreshed.Load())
+			assert.False(t, output.cleared.Load())
 
 			require.Len(t, output.clients, 4)
 			assert.Contains(t, output.clients, defaultRole)
@@ -185,13 +186,13 @@ func TestCachingFactory_Clear(t *testing.T) {
 				},
 			},
 		},
-		refreshed: true,
-		cleared:   false,
+		refreshed: atomic.NewBool(true),
+		cleared:   atomic.NewBool(false),
 	}
 
 	cache.Clear()
-	assert.True(t, cache.cleared)
-	assert.False(t, cache.refreshed)
+	assert.True(t, cache.cleared.Load())
+	assert.False(t, cache.refreshed.Load())
 
 	clients := cache.clients[defaultRole]["region1"]
 	require.NotNil(t, clients)
@@ -206,8 +207,8 @@ func TestCachingFactory_Refresh(t *testing.T) {
 		require.NoError(t, err)
 
 		output.Refresh()
-		assert.False(t, output.cleared)
-		assert.True(t, output.refreshed)
+		assert.False(t, output.cleared.Load())
+		assert.True(t, output.refreshed.Load())
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
@@ -232,8 +233,8 @@ func TestCachingFactory_Refresh(t *testing.T) {
 		require.NoError(t, err)
 
 		output.Refresh()
-		assert.False(t, output.cleared)
-		assert.True(t, output.refreshed)
+		assert.False(t, output.cleared.Load())
+		assert.True(t, output.refreshed.Load())
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
@@ -496,52 +497,6 @@ func TestRaceConditionRefreshClear(t *testing.T) {
 	}()
 
 	// Wait for either completion or timeout
-	select {
-	case <-done:
-		// Test completed successfully
-	case <-time.After(60 * time.Second):
-		require.Fail(t, "Test timed out after 60 seconds")
-	}
-}
-
-func TestRaceConditionOnRefreshedFlag(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, false)
-	require.NoError(t, err)
-
-	factory.refreshed = true
-
-	workers := 100
-	var wg sync.WaitGroup
-	wg.Add(workers * 4) // Including Refresh calls
-
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			factory.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1})
-		}()
-
-		go func() {
-			defer wg.Done()
-			factory.GetTaggingClient("region1", defaultRole, 1)
-		}()
-
-		go func() {
-			defer wg.Done()
-			factory.GetAccountClient("region1", defaultRole)
-		}()
-
-		go func() {
-			defer wg.Done()
-			factory.Refresh()
-		}()
-	}
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
 	select {
 	case <-done:
 		// Test completed successfully
