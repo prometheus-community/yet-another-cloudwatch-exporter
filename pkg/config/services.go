@@ -211,6 +211,10 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("elasticbeanstalk:environment"),
 		},
+		DimensionRegexps: []*regexp.Regexp{
+			// arn uses /${ApplicationName}/${EnvironmentName}, but only EnvironmentName is a Metric Dimension
+			regexp.MustCompile("environment/[^/]+/(?P<EnvironmentName>[^/]+)"),
+		},
 	},
 	{
 		Namespace: "AWS/Billing",
