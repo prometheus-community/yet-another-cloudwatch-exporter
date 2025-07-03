@@ -30,8 +30,8 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.45.3 h1:Nn3qce+OHZuMj/edx4its
 github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.45.3/go.mod h1:aqsLGsPs+rJfwDBwWHLcIV8F7AFcikFTPLwUD4RwORQ=
 github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.53.0 h1:KPukzgWZnmdc4fZYFkA46orMsQJoeNeEh5wbSnrYCdE=
 github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.53.0/go.mod h1:YDWzt7f6AHa4WfyJDv3GcIiyY3969MfsuSX9ANUbZ+k=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.228.0 h1:lRG/ZlvNdMW1X5xjwTHqNLHSTh8uwlZFbkytGPMOdQc=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.228.0/go.mod h1:35jGWx7ECvCwTsApqicFYzZ7JFEnBc6oHUuOQ3xIS54=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.229.0 h1:gmR73Sogww0kmbAi9vDt22FuuQqiDUM5KaoGgcVHYlo=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.229.0/go.mod h1:35jGWx7ECvCwTsApqicFYzZ7JFEnBc6oHUuOQ3xIS54=
 github.com/aws/aws-sdk-go-v2/service/iam v1.43.0 h1:/ZZo3N8iU/PLsRSCjjlT/J+n4N8kqfTO7BwW1GE+G50=
 github.com/aws/aws-sdk-go-v2/service/iam v1.43.0/go.mod h1:QRtwvoAGc59uxv4vQHPKr75SLzhYCRSoETxAA98r6O4=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 h1:CXV68E2dNqhuynZJPB80bhPQwAKqBWVer887figW6Jc=
