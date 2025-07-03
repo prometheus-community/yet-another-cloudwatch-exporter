@@ -15,7 +15,6 @@ package v2
 import (
 	"context"
 	"fmt"
-	"go.uber.org/atomic"
 	"log/slog"
 	"os"
 	"sync"
@@ -38,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	aws_logging "github.com/aws/smithy-go/logging"
+	"go.uber.org/atomic"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"

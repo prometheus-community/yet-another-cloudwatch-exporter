@@ -14,7 +14,6 @@ package v2
 
 import (
 	"context"
-	"go.uber.org/atomic"
 	"log/slog"
 	"reflect"
 	"sync"
@@ -35,6 +34,7 @@ import (
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
