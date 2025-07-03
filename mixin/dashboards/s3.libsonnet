@@ -1,7 +1,7 @@
 local common = import 'common.libsonnet';
 local grafana = import 'grafonnet-7.0/grafana.libsonnet';
 
-local allLabels = 'scrape_job=~"$job", region=~"$region", dimension_BucketName=~"$bucket"';
+local allLabels = 'job=~"$job", region=~"$region", dimension_BucketName=~"$bucket"';
 
 grafana.dashboard.new(
   title='AWS S3',
@@ -21,7 +21,7 @@ grafana.dashboard.new(
     name='job',
     label='job',
     datasource='$datasource',
-    query='label_values(aws_s3_info, scrape_job)',
+    query='label_values(aws_s3_number_of_objects_average, job)',
     refresh=common.refreshOnPageLoad,
     includeAll=true,
     multi=true,
@@ -84,7 +84,7 @@ grafana.dashboard.new(
     .setOptions(calcs=['lastNotNull'], colorMode='none')
     .addTarget(
       grafana.target.prometheus.new(
-        expr='sum(last_over_time(aws_s3_number_of_objects_average{scrape_job=~"$job"}[1d]) > 0)',
+        expr='sum(last_over_time(aws_s3_number_of_objects_average{job=~"$job"}[1d]) > 0)',
         datasource='$datasource',
       ),
     ),
@@ -98,7 +98,7 @@ grafana.dashboard.new(
     .setOptions(calcs=['lastNotNull'], colorMode='none')
     .addTarget(
       grafana.target.prometheus.new(
-        expr='sum(last_over_time(aws_s3_bucket_size_bytes_average{scrape_job=~"$job"}[1d]) > 0)',
+        expr='sum(last_over_time(aws_s3_bucket_size_bytes_average{job=~"$job"}[1d]) > 0)',
         datasource='$datasource',
       ),
     ),

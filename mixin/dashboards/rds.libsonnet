@@ -1,7 +1,7 @@
 local common = import 'common.libsonnet';
 local grafana = import 'grafonnet-7.0/grafana.libsonnet';
 
-local allLabels = 'scrape_job=~"$job", region=~"$region", dimension_DBInstanceIdentifier=~"$instance"';
+local allLabels = 'job=~"$job", region=~"$region", dimension_DBInstanceIdentifier=~"$instance"';
 
 grafana.dashboard.new(
   title='AWS RDS',
@@ -21,7 +21,7 @@ grafana.dashboard.new(
     name='job',
     label='job',
     datasource='$datasource',
-    query='label_values(aws_rds_info, scrape_job)',
+    query='label_values(aws_rds_database_connections_sum, job)',
     refresh=common.refreshOnPageLoad,
     includeAll=true,
     multi=true,
@@ -46,7 +46,7 @@ grafana.dashboard.new(
     name='instance',
     label='instance',
     datasource='$datasource',
-    query='label_values(aws_rds_database_connections_sum{scrape_job=~"$job", region=~"$region"}, dimension_DBInstanceIdentifier)',
+    query='label_values(aws_rds_database_connections_sum{job=~"$job", region=~"$region"}, dimension_DBInstanceIdentifier)',
     refresh=common.refreshOnTimeRangeChange,
     allValue='.+',
     includeAll=true,

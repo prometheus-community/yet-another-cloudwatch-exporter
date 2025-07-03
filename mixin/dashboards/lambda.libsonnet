@@ -1,7 +1,7 @@
 local common = import 'common.libsonnet';
 local grafana = import 'grafonnet-7.0/grafana.libsonnet';
 
-local allLabels = 'scrape_job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name", dimension_Resource=~"$resource", dimension_ExecutedVersion=~"$executed_version"';
+local allLabels = 'job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name", dimension_Resource=~"$resource", dimension_ExecutedVersion=~"$executed_version"';
 
 grafana.dashboard.new(
   title='AWS Lambda',
@@ -21,7 +21,7 @@ grafana.dashboard.new(
     name='job',
     label='job',
     datasource='$datasource',
-    query='label_values(aws_lambda_info, scrape_job)',
+    query='label_values(aws_lambda_invocations_sum, job)',
     refresh=common.refreshOnPageLoad,
     includeAll=true,
     multi=true,
@@ -46,7 +46,7 @@ grafana.dashboard.new(
     name='function_name',
     label='Function name',
     datasource='$datasource',
-    query='label_values(aws_lambda_invocations_sum{scrape_job=~"$job", region=~"$region"}, dimension_FunctionName)',
+    query='label_values(aws_lambda_invocations_sum{job=~"$job", region=~"$region"}, dimension_FunctionName)',
     refresh=common.refreshOnTimeRangeChange,
     includeAll=true,
     multi=true,
@@ -59,7 +59,7 @@ grafana.dashboard.new(
     name='resource',
     label='Resource',
     datasource='$datasource',
-    query='label_values(aws_lambda_invocations_sum{scrape_job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name"}, dimension_Resource)',
+    query='label_values(aws_lambda_invocations_sum{job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name"}, dimension_Resource)',
     refresh=common.refreshOnTimeRangeChange,
     includeAll=true,
     multi=true,
@@ -71,7 +71,7 @@ grafana.dashboard.new(
     name='executed_version',
     label='Executed Version',
     datasource='$datasource',
-    query='label_values(aws_lambda_invocations_sum{scrape_job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name", dimension_Resource=~"$resource"}, dimension_ExecutedVersion)',
+    query='label_values(aws_lambda_invocations_sum{job=~"$job", region=~"$region", dimension_FunctionName=~"$function_name", dimension_Resource=~"$resource"}, dimension_ExecutedVersion)',
     refresh=common.refreshOnTimeRangeChange,
     allValue='.*',
     includeAll=true,

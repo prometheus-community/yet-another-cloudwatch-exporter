@@ -1,7 +1,7 @@
 local common = import 'common.libsonnet';
 local grafana = import 'grafonnet-7.0/grafana.libsonnet';
 
-local allLabels = 'scrape_job=~"$job", region=~"$region", dimension_InstanceId=~"$instance"';
+local allLabels = 'job=~"$job", region=~"$region", dimension_InstanceId=~"$instance"';
 
 grafana.dashboard.new(
   title='AWS EC2',
@@ -21,7 +21,7 @@ grafana.dashboard.new(
     name='job',
     label='job',
     datasource='$datasource',
-    query='label_values(aws_ec2_info, scrape_job)',
+    query='label_values(aws_ec2_cpuutilization_maximum, job)',
     refresh=common.refreshOnPageLoad,
     includeAll=true,
     multi=true,
@@ -46,7 +46,7 @@ grafana.dashboard.new(
     name='instance',
     label='instance',
     datasource='$datasource',
-    query='label_values(aws_ec2_cpuutilization_maximum{scrape_job=~"$job", region=~"$region"}, dimension_InstanceId)',
+    query='label_values(aws_ec2_cpuutilization_maximum{job=~"$job", region=~"$region"}, dimension_InstanceId)',
     refresh=common.refreshOnTimeRangeChange,
     includeAll=true,
     multi=true,
