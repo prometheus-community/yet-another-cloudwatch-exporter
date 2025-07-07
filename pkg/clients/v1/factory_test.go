@@ -560,11 +560,11 @@ func TestClear(t *testing.T) {
 		test := l
 		t.Run(test.description, func(t *testing.T) {
 			test.cache.Clear()
-			if test.cache.cleared.CompareAndSwap(false, false) {
+			if !test.cache.cleared.Load() {
 				t.Log("Cache cleared flag not set")
 				t.Fail()
 			}
-			if test.cache.refreshed.CompareAndSwap(true, true) {
+			if test.cache.refreshed.Load() {
 				t.Log("Cache cleared flag set")
 				t.Fail()
 			}
@@ -683,12 +683,12 @@ func TestRefresh(t *testing.T) {
 			t.Parallel()
 			test.cache.Refresh()
 
-			if test.cache.refreshed.CompareAndSwap(false, false) {
+			if !test.cache.refreshed.Load() {
 				t.Log("Cache refreshed flag not set")
 				t.Fail()
 			}
 
-			if test.cache.cleared.CompareAndSwap(true, true) {
+			if test.cache.cleared.Load() {
 				t.Log("Cache cleared flag set")
 				t.Fail()
 			}

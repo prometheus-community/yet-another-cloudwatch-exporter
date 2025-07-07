@@ -183,14 +183,14 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) *Cachi
 }
 
 func (c *CachingFactory) Clear() {
-	if c.cleared.CompareAndSwap(true, true) {
+	if c.cleared.Load() {
 		return
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.cleared.CompareAndSwap(true, true) {
+	if c.cleared.Load() {
 		return
 	}
 
@@ -215,14 +215,14 @@ func (c *CachingFactory) Clear() {
 }
 
 func (c *CachingFactory) Refresh() {
-	if c.refreshed.CompareAndSwap(true, true) {
+	if c.refreshed.Load() {
 		return
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Double check Refresh wasn't called concurrently
-	if c.refreshed.CompareAndSwap(true, true) {
+	if c.refreshed.Load() {
 		return
 	}
 
@@ -288,7 +288,7 @@ func createAccountClient(logger *slog.Logger, sts stsiface.STSAPI, iam iamiface.
 }
 
 func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	if c.refreshed.CompareAndSwap(false, false) {
+	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -301,7 +301,7 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 }
 
 func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
-	if c.refreshed.CompareAndSwap(false, false) {
+	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -314,7 +314,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {
-	if c.refreshed.CompareAndSwap(false, false) {
+	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
 		defer c.mu.Unlock()
