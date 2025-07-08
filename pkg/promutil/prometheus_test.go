@@ -40,6 +40,10 @@ func TestSanitize(t *testing.T) {
 			input:  "IHaveA%Sign",
 			output: "IHaveA_percentSign",
 		},
+		{
+			input:  "5XXError",
+			output: "_5XXError",
+		},
 	}
 
 	for _, tc := range testCases {
