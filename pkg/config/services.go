@@ -687,6 +687,18 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/NetworkMonitor",
+		Alias: "networkmonitor",
+		ResourceFilters: []*string{
+			aws.String("networkmonitor:monitor"),
+			aws.String("networkmonitor:probe"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("monitor/(?P<MonitorName>[^/]+)"),
+			regexp.MustCompile("probe/(?P<ProbeId>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/NATGateway",
 		Alias:     "ngw",
 		ResourceFilters: []*string{
