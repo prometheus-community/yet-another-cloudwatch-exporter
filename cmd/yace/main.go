@@ -76,7 +76,7 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		// if we exit very early we'll not have set up the logger yet
 		if logger == nil {
-			jsonFmt := &promslog.AllowedFormat{}
+			jsonFmt := &promslog.Format{}
 			_ = jsonFmt.Set("json")
 			logger = promslog.New(&promslog.Config{Format: jsonFmt})
 		}
@@ -354,10 +354,10 @@ func newLogger(format, level string) *slog.Logger {
 	// If flag parsing was successful, then we know that format and level
 	// are both valid options; no need to error check their returns, just
 	// set their values.
-	f := &promslog.AllowedFormat{}
+	f := &promslog.Format{}
 	_ = f.Set(format)
 
-	lvl := &promslog.AllowedLevel{}
+	lvl := &promslog.Level{}
 	_ = lvl.Set(level)
 
 	return promslog.New(&promslog.Config{Format: f, Level: lvl})
