@@ -1,7 +1,7 @@
 local common = import 'common.libsonnet';
 local grafana = import 'grafonnet-7.0/grafana.libsonnet';
 
-local allLabels = 'scrape_job=~"$job", region=~"$region", dimension_VolumeId=~"$volume"';
+local allLabels = 'job=~"$job", region=~"$region", dimension_VolumeId=~"$volume"';
 
 grafana.dashboard.new(
   title='AWS EBS',
@@ -21,7 +21,7 @@ grafana.dashboard.new(
     name='job',
     label='job',
     datasource='$datasource',
-    query='label_values(aws_ebs_info, scrape_job)',
+    query='label_values(aws_ebs_volume_idle_time_average, job)',
     refresh=common.refreshOnPageLoad,
     includeAll=true,
     multi=true,
@@ -46,7 +46,7 @@ grafana.dashboard.new(
     name='volume',
     label='Volume',
     datasource='$datasource',
-    query='label_values(aws_ebs_volume_idle_time_average{scrape_job=~"$job", region=~"$region"}, dimension_VolumeId)',
+    query='label_values(aws_ebs_volume_idle_time_average{job=~"$job", region=~"$region"}, dimension_VolumeId)',
     refresh=common.refreshOnTimeRangeChange,
     includeAll=true,
     multi=true,

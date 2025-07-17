@@ -16,6 +16,7 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -33,6 +34,7 @@ import (
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -124,8 +126,8 @@ func TestNewFactory_initializes_clients(t *testing.T) {
 			output, err := NewFactory(promslog.NewNopLogger(), test.jobsCfg, false)
 			require.NoError(t, err)
 
-			assert.False(t, output.refreshed)
-			assert.False(t, output.cleared)
+			assert.False(t, output.refreshed.Load())
+			assert.False(t, output.cleared.Load())
 
 			require.Len(t, output.clients, 4)
 			assert.Contains(t, output.clients, defaultRole)
@@ -184,13 +186,13 @@ func TestCachingFactory_Clear(t *testing.T) {
 				},
 			},
 		},
-		refreshed: true,
-		cleared:   false,
+		refreshed: atomic.NewBool(true),
+		cleared:   atomic.NewBool(false),
 	}
 
 	cache.Clear()
-	assert.True(t, cache.cleared)
-	assert.False(t, cache.refreshed)
+	assert.True(t, cache.cleared.Load())
+	assert.False(t, cache.refreshed.Load())
 
 	clients := cache.clients[defaultRole]["region1"]
 	require.NotNil(t, clients)
@@ -205,8 +207,8 @@ func TestCachingFactory_Refresh(t *testing.T) {
 		require.NoError(t, err)
 
 		output.Refresh()
-		assert.False(t, output.cleared)
-		assert.True(t, output.refreshed)
+		assert.False(t, output.cleared.Load())
+		assert.True(t, output.refreshed.Load())
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
@@ -231,8 +233,8 @@ func TestCachingFactory_Refresh(t *testing.T) {
 		require.NoError(t, err)
 
 		output.Refresh()
-		assert.False(t, output.cleared)
-		assert.True(t, output.refreshed)
+		assert.False(t, output.cleared.Load())
+		assert.True(t, output.refreshed.Load())
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
@@ -463,6 +465,44 @@ func TestCachingFactory_createPrometheusClient_DoesNotEnableFIPS(t *testing.T) {
 	require.NotNil(t, options)
 
 	assert.Equal(t, options.EndpointOptions.UseFIPSEndpoint, aws.FIPSEndpointStateUnset)
+}
+
+func TestRaceConditionRefreshClear(t *testing.T) {
+	// Create a factory with the test config
+	factory, err := NewFactory(promslog.NewNopLogger(), model.JobsConfig{}, false)
+	require.NoError(t, err)
+
+	// Number of concurrent operations to perform
+	iterations := 100
+
+	// Use WaitGroup to synchronize goroutines
+	var wg sync.WaitGroup
+	wg.Add(iterations) // For both Refresh and Clear calls
+
+	// Start function to run concurrent operations
+	for i := 0; i < iterations; i++ {
+		// Launch goroutine to call Refresh
+		go func() {
+			defer wg.Done()
+			factory.Refresh()
+			factory.Clear()
+		}()
+	}
+
+	// Create a channel to signal completion
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-done:
+		// Test completed successfully
+	case <-time.After(60 * time.Second):
+		require.Fail(t, "Test timed out after 60 seconds")
+	}
 }
 
 // getOptions uses reflection to pull the unexported options field off of any AWS Client
