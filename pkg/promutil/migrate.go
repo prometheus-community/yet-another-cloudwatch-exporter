@@ -101,10 +101,10 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 			}
 
 			for _, statistic := range statisticsInCloudwatchData(metric) {
-				datapoints, err := getDatapoints(metric, statistic)
-				for _, dataPoint := range datapoints {
+				dataPoints, err := getDataPoints(metric, statistic)
+				for _, dataPoint := range dataPoints {
 					ts := dataPoint.Timestamp
-					dataPoint := dataPoint.Datapoint
+					dataPoint := dataPoint.Value
 					if err != nil {
 						return nil, nil, err
 					}
@@ -150,7 +150,7 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 					})
 
 					if !metric.MetricMigrationParams.ExportAllDataPoints {
-						// If we're not adding historical metrics, we can skip the rest of the datapoints for this metric
+						// If we're not exporting all data points, we can skip the rest of the data points for this metric
 						break
 					}
 				}
@@ -171,45 +171,45 @@ func statisticsInCloudwatchData(d *model.CloudwatchData) []string {
 	return []string{}
 }
 
-func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]model.DatapointWithTimestamp, error) {
+func getDataPoints(cwd *model.CloudwatchData, statistic string) ([]model.DataPoint, error) {
 	// Not possible but for sanity
 	if cwd.GetMetricStatisticsResult == nil && cwd.GetMetricDataResult == nil {
 		return nil, fmt.Errorf("cannot map a data point with no results on %s", cwd.MetricName)
 	}
 
 	if cwd.GetMetricDataResult != nil {
-		// If we have no datapoints, we should return a single nil datapoint, which is then either dropped or converted to 0
-		if len(cwd.GetMetricDataResult.Datapoints) == 0 && !cwd.MetricMigrationParams.AddCloudwatchTimestamp {
-			return []model.DatapointWithTimestamp{{
-				Datapoint: nil,
+		// If we have no dataPoints, we should return a single nil datapoint, which is then either dropped or converted to 0
+		if len(cwd.GetMetricDataResult.DataPoints) == 0 && !cwd.MetricMigrationParams.AddCloudwatchTimestamp {
+			return []model.DataPoint{{
+				Value:     nil,
 				Timestamp: time.Time{},
 			}}, nil
 		}
 
-		return cwd.GetMetricDataResult.Datapoints, nil
+		return cwd.GetMetricDataResult.DataPoints, nil
 	}
 
-	var averageDataPoints []*model.Datapoint
+	var averageDataPoints []*model.MetricStatisticsResult
 
 	// sorting by timestamps so we can consistently export the most updated datapoint
-	// assuming Timestamp field in cloudwatch.Datapoint struct is never nil
-	for _, datapoint := range sortByTimestamp(cwd.GetMetricStatisticsResult.Datapoints) {
+	// assuming Timestamp field in cloudwatch.Value struct is never nil
+	for _, datapoint := range sortByTimestamp(cwd.GetMetricStatisticsResult.Results) {
 		switch {
 		case statistic == "Maximum":
 			if datapoint.Maximum != nil {
-				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Maximum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DataPoint{{Value: datapoint.Maximum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Minimum":
 			if datapoint.Minimum != nil {
-				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Minimum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DataPoint{{Value: datapoint.Minimum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Sum":
 			if datapoint.Sum != nil {
-				return []model.DatapointWithTimestamp{{Datapoint: datapoint.Sum, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DataPoint{{Value: datapoint.Sum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "SampleCount":
 			if datapoint.SampleCount != nil {
-				return []model.DatapointWithTimestamp{{Datapoint: datapoint.SampleCount, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DataPoint{{Value: datapoint.SampleCount, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Average":
 			if datapoint.Average != nil {
@@ -217,7 +217,7 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]model.Datapoi
 			}
 		case Percentile.MatchString(statistic):
 			if data, ok := datapoint.ExtendedStatistics[statistic]; ok {
-				return []model.DatapointWithTimestamp{{Datapoint: data, Timestamp: *datapoint.Timestamp}}, nil
+				return []model.DataPoint{{Value: data, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		default:
 			return nil, fmt.Errorf("invalid statistic requested on metric %s: %s", cwd.MetricName, statistic)
@@ -235,17 +235,17 @@ func getDatapoints(cwd *model.CloudwatchData, statistic string) ([]model.Datapoi
 			total += *p.Average
 		}
 		average := total / float64(len(averageDataPoints))
-		return []model.DatapointWithTimestamp{{Datapoint: &average, Timestamp: timestamp}}, nil
+		return []model.DataPoint{{Value: &average, Timestamp: timestamp}}, nil
 	}
 	return nil, nil
 }
 
-func sortByTimestamp(datapoints []*model.Datapoint) []*model.Datapoint {
-	sort.Slice(datapoints, func(i, j int) bool {
-		jTimestamp := *datapoints[j].Timestamp
-		return datapoints[i].Timestamp.After(jTimestamp)
+func sortByTimestamp(dataPoints []*model.MetricStatisticsResult) []*model.MetricStatisticsResult {
+	sort.Slice(dataPoints, func(i, j int) bool {
+		jTimestamp := *dataPoints[j].Timestamp
+		return dataPoints[i].Timestamp.After(jTimestamp)
 	})
-	return datapoints
+	return dataPoints
 }
 
 func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, contextLabels map[string]string, logger *slog.Logger) map[string]string {

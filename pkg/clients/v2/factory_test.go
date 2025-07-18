@@ -496,6 +496,6 @@ func (t testClient) GetMetricData(_ context.Context, _ []*model.CloudwatchData, 
 	return nil
 }
 
-func (t testClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.Datapoint {
+func (t testClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.MetricStatisticsResult {
 	return nil
 }
