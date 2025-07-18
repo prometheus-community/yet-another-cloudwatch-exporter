@@ -78,10 +78,10 @@ func TestProcessor_Run(t *testing.T) {
 				{MetricName: "metric-1", GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Average"}},
 			},
 			metricDataResultForMetrics: []metricDataResultForMetric{
-				{MetricName: "metric-1", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(1000), now)}},
+				{MetricName: "metric-1", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(1000), Timestamp: now}}}},
 			},
 			want: []cloudwatchDataOutput{
-				{MetricName: "metric-1", GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Average", Datapoints: model.SingleDataPoint(aws.Float64(1000), now)}},
+				{MetricName: "metric-1", GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Average", DataPoints: []model.DataPoint{{Value: aws.Float64(1000), Timestamp: now}}}},
 			},
 		},
 		{
@@ -90,13 +90,13 @@ func TestProcessor_Run(t *testing.T) {
 				{GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Min"}, MetricName: "MetricOne"},
 			},
 			metricDataResultForMetrics: []metricDataResultForMetric{
-				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC))}},
-				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(15), time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC))}},
+				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}}}},
+				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(15), Timestamp: time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC)}}}},
 			},
 			want: []cloudwatchDataOutput{
 				{MetricName: "MetricOne", GetMetricDataResult: &model.GetMetricDataResult{
 					Statistic:  "Min",
-					Datapoints: model.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)),
+					DataPoints: []model.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}},
 				}},
 			},
 		},
@@ -107,20 +107,20 @@ func TestProcessor_Run(t *testing.T) {
 				{MetricName: "metric-2", GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Average"}},
 			},
 			metricDataResultForMetrics: []metricDataResultForMetric{
-				{MetricName: "metric-1", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(1000), now)}},
+				{MetricName: "metric-1", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(1000), Timestamp: now}}}},
 			},
 			want: []cloudwatchDataOutput{
-				{MetricName: "metric-1", GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Average", Datapoints: model.SingleDataPoint(aws.Float64(1000), now)}},
+				{MetricName: "metric-1", GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Average", DataPoints: []model.DataPoint{{Value: aws.Float64(1000), Timestamp: now}}}},
 			},
 		},
 		{
-			name: "maps nil metric datapoints",
+			name: "maps nil metric dataPoints",
 			requests: []*cloudwatchDataInput{
 				{GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Min"}, MetricName: "MetricOne"},
 				{GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Max"}, MetricName: "MetricTwo"},
 			},
 			metricDataResultForMetrics: []metricDataResultForMetric{
-				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC))}},
+				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}}}},
 				{MetricName: "MetricTwo"},
 			},
 			want: []cloudwatchDataOutput{
@@ -128,14 +128,14 @@ func TestProcessor_Run(t *testing.T) {
 					MetricName: "MetricOne",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Min",
-						Datapoints: model.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)),
+						DataPoints: []model.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}},
 					},
 				},
 				{
 					MetricName: "MetricTwo",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Max",
-						Datapoints: []model.DatapointWithTimestamp{},
+						DataPoints: []model.DataPoint{},
 					},
 				},
 			},
@@ -150,38 +150,38 @@ func TestProcessor_Run(t *testing.T) {
 				{GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{Statistic: "Count"}, MetricName: "MetricFour"},
 			},
 			metricDataResultForMetrics: []metricDataResultForMetric{
-				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC))}},
-				{MetricName: "MetricTwo", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(12), time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC))}},
-				{MetricName: "MetricThree", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(15), time.Date(2023, time.June, 7, 3, 9, 8, 0, time.UTC))}},
-				{MetricName: "MetricFour", result: cloudwatch.MetricDataResult{Datapoints: cloudwatch.SingleDataPoint(aws.Float64(20), time.Date(2023, time.June, 7, 4, 9, 8, 0, time.UTC))}},
+				{MetricName: "MetricOne", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}}}},
+				{MetricName: "MetricTwo", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(12), Timestamp: time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC)}}}},
+				{MetricName: "MetricThree", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(15), Timestamp: time.Date(2023, time.June, 7, 3, 9, 8, 0, time.UTC)}}}},
+				{MetricName: "MetricFour", result: cloudwatch.MetricDataResult{DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(20), Timestamp: time.Date(2023, time.June, 7, 4, 9, 8, 0, time.UTC)}}}},
 			},
 			want: []cloudwatchDataOutput{
 				{
 					MetricName: "MetricOne",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Min",
-						Datapoints: model.SingleDataPoint(aws.Float64(5), time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)),
+						DataPoints: []model.DataPoint{{Value: aws.Float64(5), Timestamp: time.Date(2023, time.June, 7, 1, 9, 8, 0, time.UTC)}},
 					},
 				},
 				{
 					MetricName: "MetricTwo",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Max",
-						Datapoints: model.SingleDataPoint(aws.Float64(12), time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC)),
+						DataPoints: []model.DataPoint{{Value: aws.Float64(12), Timestamp: time.Date(2023, time.June, 7, 2, 9, 8, 0, time.UTC)}},
 					},
 				},
 				{
 					MetricName: "MetricThree",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Sum",
-						Datapoints: model.SingleDataPoint(aws.Float64(15), time.Date(2023, time.June, 7, 3, 9, 8, 0, time.UTC)),
+						DataPoints: []model.DataPoint{{Value: aws.Float64(15), Timestamp: time.Date(2023, time.June, 7, 3, 9, 8, 0, time.UTC)}},
 					},
 				},
 				{
 					MetricName: "MetricFour",
 					GetMetricDataResult: &model.GetMetricDataResult{
 						Statistic:  "Count",
-						Datapoints: model.SingleDataPoint(aws.Float64(20), time.Date(2023, time.June, 7, 4, 9, 8, 0, time.UTC)),
+						DataPoints: []model.DataPoint{{Value: aws.Float64(20), Timestamp: time.Date(2023, time.June, 7, 4, 9, 8, 0, time.UTC)}},
 					},
 				},
 			},
@@ -312,7 +312,7 @@ func doBench(b *testing.B, metricsPerQuery, testResourcesCount int, concurrency 
 		for _, entry := range getMetricData {
 			results = append(results, cloudwatch.MetricDataResult{
 				ID:         entry.GetMetricDataProcessingParams.QueryID,
-				Datapoints: cloudwatch.SingleDataPoint(aws.Float64(1), time.Now()),
+				DataPoints: []cloudwatch.DataPoint{{Value: aws.Float64(1), Timestamp: time.Now()}},
 			})
 		}
 		b.StartTimer()

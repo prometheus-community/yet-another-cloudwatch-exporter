@@ -13,23 +13,23 @@ Command-line flags are used to configure settings of the exporter which cannot b
 
 All flags may be prefixed with either one hypen or two (i.e., both `-config.file` and `--config.file` are valid).
 
-| Flag                                                  | Description                                                                                                                          | Default value    |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| `-listen-address`                                     | Network address to listen to                                                                                                         | `127.0.0.1:5000` |
-| `-config.file`                                        | Path to the configuration file                                                                                                       | `config.yml`     |
-| `-log.format`                                         | Output format of log messages. One of: [logfmt, json]                                                                                | `json`           |
-| `-debug`                                              | Log at debug level                                                                                                                   | `false`          |
-| `-fips`                                               | Use FIPS compliant AWS API                                                                                                           | `false`          |
-| `-cloudwatch-concurrency`                             | Maximum number of concurrent requests to CloudWatch API                                                                              | `5`              |
-| `-cloudwatch-concurrency.per-api-limit-enabled`       | Enables a concurrency limiter, that has a specific limit per CloudWatch API call.                                                    | `false`          |
-| `-cloudwatch-concurrency.list-metrics-limit`          | Maximum number of concurrent requests to CloudWatch `ListMetrics` API. Only applicable if `per-api-limit-enabled` is `true`.         | `5`              |
-| `-cloudwatch-concurrency.get-metric-data-limit`       | Maximum number of concurrent requests to CloudWatch `GetMetricsData` API. Only applicable if `per-api-limit-enabled` is `true`.      | `5`              |
-| `-cloudwatch-concurrency.get-metric-statistics-limit` | Maximum number of concurrent requests to CloudWatch `GetMetricStatistics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5`              |
-| `-tag-concurrency`                                    | Maximum number of concurrent requests to Resource Tagging API                                                                        | `5`              |
-| `-scraping-interval`                                  | Seconds to wait between scraping the AWS metrics                                                                                     | `300`            |
-| `-metrics-per-query`                                  | Number of metrics made in a single GetMetricsData request                                                                            | `500`            |
-| `-labels-snake-case`                                  | Output labels on metrics in snake case instead of camel case                                                                         | `false`          |
-| `-profiling.enabled`                                  | Enable the /debug/pprof endpoints for profiling                                                                                      | `false`          |
+| Flag | Description | Default value |
+| --- | --- | --- |
+| `-listen-address` | Network address to listen to | `127.0.0.1:5000` |
+| `-config.file` | Path to the configuration file | `config.yml` |
+| `-log.format` | Output format of log messages. One of: [logfmt, json] | `json` |
+| `-debug` | Log at debug level | `false` |
+| `-fips` | Use FIPS compliant AWS API | `false` |
+| `-cloudwatch-concurrency` | Maximum number of concurrent requests to CloudWatch API | `5` |
+| `-cloudwatch-concurrency.per-api-limit-enabled` | Enables a concurrency limiter, that has a specific limit per CloudWatch API call. | `false` |
+| `-cloudwatch-concurrency.list-metrics-limit` | Maximum number of concurrent requests to CloudWatch `ListMetrics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
+| `-cloudwatch-concurrency.get-metric-data-limit` | Maximum number of concurrent requests to CloudWatch `GetMetricsData` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
+| `-cloudwatch-concurrency.get-metric-statistics-limit` | Maximum number of concurrent requests to CloudWatch `GetMetricStatistics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
+| `-tag-concurrency` | Maximum number of concurrent requests to Resource Tagging API | `5` |
+| `-scraping-interval` | Seconds to wait between scraping the AWS metrics | `300` |
+| `-metrics-per-query` | Number of metrics made in a single GetMetricsData request | `500` |
+| `-labels-snake-case`  | Output labels on metrics in snake case instead of camel case | `false` |
+| `-profiling.enabled` | Enable the /debug/pprof endpoints for profiling | `false` |
 
 ## YAML configuration file
 
@@ -91,8 +91,8 @@ type: <string>
 roles:
   [ - <role_config> ... ]
 
-# List of Key/Value pairs to use for tag filtering (all must match).
-# The key is the AWS Tag key and is case-sensitive
+# List of Key/Value pairs to use for tag filtering (all must match). 
+# The key is the AWS Tag key and is case-sensitive  
 # The value will be treated as a regex
 searchTags:
   [ - <search_tags_config> ... ]
@@ -114,7 +114,7 @@ dimensionNameRequirements:
 # This is useful for reducing the number of metrics returned by CloudWatch, which can be very large for some services. See AWS Cloudwatch API docs for [ListMetrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_ListMetrics.html) for more details.
 [ recentlyActiveOnly: <boolean> ]
 
-# Can be used to include contextual information (account_id, region, and customTags) on info metrics and cloudwatch metrics. This can be particularly
+# Can be used to include contextual information (account_id, region, and customTags) on info metrics and cloudwatch metrics. This can be particularly 
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
 [ includeContextOnInfoMetrics: <boolean> ]
 
@@ -160,18 +160,18 @@ discovery:
     kafka:
       - Name
   jobs:
-    - type: kafka
-      regions:
-        - eu-west-1
-      searchTags:
-        - key: env
-          value: dev
-      metrics:
-        - name: BytesOutPerSec
-          statistics:
-            - Average
-          period: 600
-          length: 600
+  - type: kafka
+    regions:
+      - eu-west-1
+    searchTags:
+      - key: env
+        value: dev
+    metrics:
+      - name: BytesOutPerSec
+        statistics:
+        - Average
+        period: 600
+        length: 600
 ```
 
 ### `static_job_config`
@@ -186,19 +186,23 @@ name: <string>
 namespace: <string>
 
 # List of AWS regions
-regions: [- <string> ...]
+regions:
+  [ - <string> ...]
 
 # List of IAM roles to assume (optional)
-roles: [- <role_config> ...]
+roles:
+  [ - <role_config> ... ]
 
 # Custom tags to be added as a list of Key/Value pairs
-customTags: [- <custom_tags_config> ...]
+customTags:
+  [ - <custom_tags_config> ... ]
 
 # CloudWatch metric dimensions as a list of Name/Value pairs
-dimensions: [<dimensions_config>]
+dimensions: [ <dimensions_config> ]
 
 # List of metric definitions
-metrics: [- <metric_config> ...]
+metrics:
+  [ - <metric_config> ... ]
 ```
 
 Example config file:
@@ -212,15 +216,15 @@ static:
     regions:
       - eu-west-1
     dimensions:
-      - name: AutoScalingGroupName
-        value: MyGroup
+     - name: AutoScalingGroupName
+       value: MyGroup
     customTags:
       - key: CustomTag
         value: CustomValue
     metrics:
       - name: GroupInServiceInstances
         statistics:
-          - Minimum
+        - Minimum
         period: 60
         length: 300
 ```
@@ -345,13 +349,20 @@ statistics:
 
 # Export the metric with the original CloudWatch timestamp (Overrides job level setting)
 [ addCloudwatchTimestamp: <boolean> ]
+
+# Enables the inclusion of past metric data points from the CloudWatch response if available.
+# This is useful when a metric is configured with a 60-second period and a 300-second duration, ensuring that all
+# five data points are exposed at the metrics endpoint instead of only the latest one.
+# Note: This option requires `addCloudwatchTimestamp` to be enabled.
+# The metric destination must support out of order timestamps, see https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb
+# (General Setting for all metrics in this job)
+[ exportAllDataPoints: <boolean> ]
 ```
 
 Notes:
-
 - Available statistics: `Maximum`, `Minimum`, `Sum`, `SampleCount`, `Average`, `pXX` (e.g. `p90`).
 
-- Watch out using `addCloudwatchTimestamp` for sparse metrics, e.g from S3, since Prometheus won't scrape metrics containing timestamps older than 2-3 hours. Also the same applies when enabling `exportAllDataPoints` in any metric
+- Watch out using `addCloudwatchTimestamp` for sparse metrics, e.g from S3, since Prometheus won't scrape metrics containing timestamps older than 2-3 hours. Also the same applies when enabling `exportAllDataPoints` in any metric.
 
 ### `exported_tags_config`
 

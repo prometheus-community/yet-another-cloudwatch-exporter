@@ -112,30 +112,6 @@ type Metric struct {
 	Namespace  string
 }
 
-type Datapoint struct {
-	// The average of the metric values that correspond to the data point.
-	Average *float64
-
-	// The percentile statistic for the data point.
-	ExtendedStatistics map[string]*float64
-
-	// The maximum metric value for the data point.
-	Maximum *float64
-
-	// The minimum metric value for the data point.
-	Minimum *float64
-
-	// The number of metric values that contributed to the aggregate value of this
-	// data point.
-	SampleCount *float64
-
-	// The sum of the metric values for the data point.
-	Sum *float64
-
-	// The time stamp used for the data point.
-	Timestamp *time.Time
-}
-
 type CloudwatchMetricResult struct {
 	Context *ScrapeContext
 	Data    []*CloudwatchData
@@ -179,8 +155,32 @@ type CloudwatchData struct {
 }
 
 type GetMetricStatisticsResult struct {
-	Datapoints []*Datapoint
+	Results    []*MetricStatisticsResult
 	Statistics []string
+}
+
+type MetricStatisticsResult struct {
+	// The average of the metric values that correspond to the data point.
+	Average *float64
+
+	// The percentile statistic for the data point.
+	ExtendedStatistics map[string]*float64
+
+	// The maximum metric value for the data point.
+	Maximum *float64
+
+	// The minimum metric value for the data point.
+	Minimum *float64
+
+	// The number of metric values that contributed to the aggregate value of this
+	// data point.
+	SampleCount *float64
+
+	// The sum of the metric values for the data point.
+	Sum *float64
+
+	// The time stamp used for the data point.
+	Timestamp *time.Time
 }
 
 type GetMetricDataProcessingParams struct {
@@ -204,23 +204,12 @@ type MetricMigrationParams struct {
 
 type GetMetricDataResult struct {
 	Statistic  string
-	Datapoints []DatapointWithTimestamp
+	DataPoints []DataPoint
 }
 
-type DatapointWithTimestamp struct {
+type DataPoint struct {
+	Value     *float64
 	Timestamp time.Time
-	Datapoint *float64
-}
-
-func NewDataPoint(datapoint *float64, timestamp time.Time) DatapointWithTimestamp {
-	return DatapointWithTimestamp{
-		Timestamp: timestamp,
-		Datapoint: datapoint,
-	}
-}
-
-func SingleDataPoint(datapoint *float64, timestamp time.Time) []DatapointWithTimestamp {
-	return []DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 // TaggedResource is an AWS resource with tags

@@ -37,7 +37,7 @@ type Client interface {
 	GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult
 
 	// GetMetricStatistics returns the output of the GetMetricStatistics CloudWatch API.
-	GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint
+	GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult
 }
 
 // ConcurrencyLimiter limits the concurrency when calling AWS CloudWatch APIs. The functions implemented
@@ -56,23 +56,12 @@ type ConcurrencyLimiter interface {
 
 type MetricDataResult struct {
 	ID         string
-	Datapoints []DatapointWithTimestamp
+	DataPoints []DataPoint
 }
 
-type DatapointWithTimestamp struct {
-	Datapoint *float64
+type DataPoint struct {
+	Value     *float64
 	Timestamp time.Time
-}
-
-func NewDataPoint(datapoint *float64, timestamp time.Time) DatapointWithTimestamp {
-	return DatapointWithTimestamp{
-		Timestamp: timestamp,
-		Datapoint: datapoint,
-	}
-}
-
-func SingleDataPoint(datapoint *float64, timestamp time.Time) []DatapointWithTimestamp {
-	return []DatapointWithTimestamp{NewDataPoint(datapoint, timestamp)}
 }
 
 type limitedConcurrencyClient struct {
@@ -87,7 +76,7 @@ func NewLimitedConcurrencyClient(client Client, limiter ConcurrencyLimiter) Clie
 	}
 }
 
-func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
+func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
 	c.limiter.Acquire(getMetricStatisticsCall)
 	res := c.client.GetMetricStatistics(ctx, logger, dimensions, namespace, metric)
 	c.limiter.Release(getMetricStatisticsCall)
