@@ -28,7 +28,6 @@ import (
 
 var amazonMQBrokerSuffix = regexp.MustCompile("-[0-9]+$")
 
-type dimensionsSet []string
 
 // Associator implements a "best effort" algorithm to automatically map the output
 // of the ListMetrics API to the list of resources retrieved from the Tagging API.
@@ -42,9 +41,53 @@ type Associator struct {
 	logger       *slog.Logger
 	debugEnabled bool
 
-	// mapping from namespace to diffrent dimensions sets of a metric. The sets are sorted by the number of dimensions.
-	// And each set has the dimensions sorted.
-	namespaceToDimensions map[string][]dimensionsSet
+	// mapping from namespace to diffrent join key hash functions for a metric. The functions are sorted by the number of dimensions.
+	namespaceToJoinKeyHashFunction map[string][]hashKeyFunction
+}
+
+type hashKeyFunction struct {
+	dimensions []string
+}
+
+func newHashKeyFunction(dimensions []string) hashKeyFunction {
+	sort.Strings(dimensions)
+	return hashKeyFunction{
+		dimensions: dimensions,
+	}	
+}
+
+func (hf hashKeyFunction) hash(namespace string, cwMetric *model.Metric, shouldTryFixDimension bool) (uint64, bool, bool) {	
+	h := xxhash.New()
+
+	h.WriteString(namespace)
+
+	dimensions := make([]string, 0, len(cwMetric.Dimensions))
+	for _, dimension := range cwMetric.Dimensions {
+		dimensions = append(dimensions, dimension.Name)
+	}
+	sort.Strings(dimensions)
+
+	if !containsAll(dimensions, hf.dimensions) {
+		return 0, false, false
+	}
+
+	dimFixApplied := false
+	for _, dimension := range hf.dimensions {
+		h.WriteString(dimension)
+
+		for _, mDimension := range cwMetric.Dimensions {
+
+			if shouldTryFixDimension {
+				mDimension, dimFixApplied = fixDimension(namespace, mDimension)
+			}
+
+			if mDimension.Name == dimension {
+				h.WriteString(mDimension.Value)
+			}
+		}
+	}
+
+	return h.Sum64(), true, dimFixApplied
 }
 
 // NewAssociator builds all mappings for the given dimensions regexps and list of resources.
@@ -54,10 +97,10 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 		logger:       logger,
 		debugEnabled: logger.Handler().Enabled(context.Background(), slog.LevelDebug), // caching if debug is enabled
 
-		namespaceToDimensions: map[string][]dimensionsSet{},
+		namespaceToJoinKeyHashFunction: map[string][]hashKeyFunction{},
 	}
 
-	// Keep track of resources that have already been mapped.
+	// Keep track of resources that have already been indexed.
 	// Each resource will be matched against at most one regex.
 	// TODO(cristian): use a more memory-efficient data structure
 	mappedResources := make([]bool, len(resources))
@@ -65,6 +108,10 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 	for _, dr := range dimensionsRegexps {
 
 		for idx, r := range resources {
+			if r.Namespace != dr.Namespace {
+				continue
+			}
+
 			// Skip resource that are already indexed.
 			if mappedResources[idx] {
 				continue
@@ -83,8 +130,8 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 
 			assoc.mappings[joinKey] = r
 			sort.Strings(dr.DimensionsNames)
-			// TODO: there can be different sets of dimensions for the same namespace.
-			assoc.namespaceToDimensions[r.Namespace] = append(assoc.namespaceToDimensions[r.Namespace], dr.DimensionsNames)
+			hashKeyFunction := newHashKeyFunction(dr.DimensionsNames)
+			assoc.namespaceToJoinKeyHashFunction[r.Namespace] = append(assoc.namespaceToJoinKeyHashFunction[r.Namespace], hashKeyFunction)
 			mappedResources[idx] = true
 		}
 
@@ -99,12 +146,12 @@ func NewAssociator(logger *slog.Logger, dimensionsRegexps []model.DimensionsRege
 		}
 	}
 
-	// sort all mappings by decreasing number of dimensions names
+	// sort all key sets by decreasing number of dimensions names
 	// (this is essential so that during matching we try to find the metric
 	// with the most specific set of dimensions)
-    for namespace := range assoc.namespaceToDimensions {
-		slices.SortStableFunc(assoc.namespaceToDimensions[namespace], func(a, b dimensionsSet) int {
-			return -1 * cmp.Compare(len(a), len(b))
+    for namespace := range assoc.namespaceToJoinKeyHashFunction {
+		slices.SortStableFunc(assoc.namespaceToJoinKeyHashFunction[namespace], func(a, b hashKeyFunction) int {
+			return -1 * cmp.Compare(len(a.dimensions), len(b.dimensions))
 		})
 	}
 
@@ -141,27 +188,27 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 		logger.Debug("associate loop start", "dimensions", strings.Join(dimensions, ","))
 	}
 
-	dimensionsSets, ok := assoc.namespaceToDimensions[cwMetric.Namespace]
+	keySets, ok := assoc.namespaceToJoinKeyHashFunction[cwMetric.Namespace]
 	if !ok {
 		logger.Debug("no dimensions sets found for namespace", "namespace", cwMetric.Namespace)
 		return nil, false
 	}
 
-	// Attempt to find the dimensions set which contains the most
+	// Attempt to find the key set which contains the most
 	// (but not necessarily all) the metric's dimensions names.
-	// Dimensions sets are sorted by decreasing number of dimensions names,
+	// Key sets are sorted by decreasing number of dimensions names,
 	// which favours find the mapping with most dimensions.
 	dimFixApplied := false
 	mappingFound := false
 	match := false
 	joinKey := uint64(0)
 	var taggedResource *model.TaggedResource
-	for _, dimensionsSet := range dimensionsSets {
+	for _, hashKeyFunc := range keySets {
 		shouldTryFixDimension := true
-		joinKey, mappingFound, dimFixApplied = assoc.getJoinKeyFromMetric(cwMetric.Namespace, dimensionsSet, cwMetric, shouldTryFixDimension)
+		joinKey, mappingFound, dimFixApplied = hashKeyFunc.hash(cwMetric.Namespace, cwMetric, shouldTryFixDimension)
 		// Try again without dimension fix.
 		if !mappingFound {
-			joinKey, mappingFound, dimFixApplied = assoc.getJoinKeyFromMetric(cwMetric.Namespace, dimensionsSet, cwMetric, false)
+			joinKey, mappingFound, _ = hashKeyFunc.hash(cwMetric.Namespace, cwMetric, false)
 		}
 
 		// Try next dimensions set if still no mapping found.
@@ -173,7 +220,7 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 		taggedResource, match = assoc.mappings[joinKey]
 		// Try again without dimension fix.
 		if !match  && dimFixApplied {
-			joinKey, _, _ = assoc.getJoinKeyFromMetric(cwMetric.Namespace, dimensionsSet, cwMetric, false)
+			joinKey, _, _ = hashKeyFunc.hash(cwMetric.Namespace, cwMetric, false)
 			taggedResource, match = assoc.mappings[joinKey]
 		}
 
@@ -183,40 +230,6 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 		}
 	}
 	return taggedResource, mappingFound && !match
-}
-
-func (assoc Associator) getJoinKeyFromMetric(namespace string, dimensionsSet dimensionsSet, cwMetric *model.Metric, shouldTryFixDimension bool) (uint64, bool, bool) {
-	h := xxhash.New()
-
-	h.WriteString(namespace)
-
-	// TODO: avoid allocation
-	dimensions := make([]string, 0, len(cwMetric.Dimensions))
-	for _, dimension := range cwMetric.Dimensions {
-		dimensions = append(dimensions, dimension.Name)
-	}
-	if !containsAll(dimensions, dimensionsSet) {
-		return 0, false, false
-	}
-
-	dimFixApplied := false
-	for _, dimension := range dimensionsSet {
-		h.WriteString(dimension)
-
-		// find dimension value in cwMetric.Dimensions
-		for _, mDimension := range cwMetric.Dimensions {
-
-			if shouldTryFixDimension {
-				mDimension, dimFixApplied = fixDimension(cwMetric.Namespace, mDimension)
-			}
-
-			if mDimension.Name == dimension {
-				h.WriteString(mDimension.Value)
-			}
-		}
-	}
-
-	return h.Sum64(), true, dimFixApplied
 }
 
 // TODO: use same logic for both keys.
