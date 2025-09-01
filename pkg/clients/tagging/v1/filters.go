@@ -109,6 +109,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							ARN:       aws.StringValue(asg.AutoScalingGroupARN),
 							Namespace: job.Namespace,
 							Region:    region,
+							Metadata:  make(map[string]string),
 						}
 
 						for _, t := range asg.Tags {
@@ -196,6 +197,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							ARN:       aws.StringValue(ec2Spot.SpotFleetRequestId),
 							Namespace: job.Namespace,
 							Region:    region,
+							Metadata:  make(map[string]string),
 						}
 
 						for _, t := range ec2Spot.Tags {
@@ -229,6 +231,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							ARN:       aws.StringValue(ws.Arn),
 							Namespace: job.Namespace,
 							Region:    region,
+							Metadata:  make(map[string]string),
 						}
 
 						for key, value := range ws.Tags {
@@ -262,6 +265,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							ARN:       fmt.Sprintf("%s/%s", *gwa.GatewayId, *gwa.GatewayName),
 							Namespace: job.Namespace,
 							Region:    region,
+							Metadata:  make(map[string]string),
 						}
 
 						tagsRequest := &storagegateway.ListTagsForResourceInput{
@@ -302,6 +306,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							ARN:       fmt.Sprintf("%s/%s", *tgwa.TransitGatewayId, *tgwa.TransitGatewayAttachmentId),
 							Namespace: job.Namespace,
 							Region:    region,
+							Metadata:  make(map[string]string),
 						}
 
 						for _, t := range tgwa.Tags {
@@ -352,12 +357,13 @@ var ServiceFilters = map[string]ServiceFilter{
 					//	these land in us-east-1 so any protected resource without a region should be added when the job
 					//	is for us-east-1
 					if protectedResource.Region == region || (protectedResource.Region == "" && region == "us-east-1") {
-						taggedResource := &model.TaggedResource{
-							ARN:       protectedResourceArn,
-							Namespace: job.Namespace,
-							Region:    region,
-							Tags:      []model.Tag{{Key: "ProtectionArn", Value: protectionArn}},
-						}
+											taggedResource := &model.TaggedResource{
+						ARN:       protectedResourceArn,
+						Namespace: job.Namespace,
+						Region:    region,
+						Tags:      []model.Tag{{Key: "ProtectionArn", Value: protectionArn}},
+						Metadata:  make(map[string]string),
+					}
 						output = append(output, taggedResource)
 					}
 				}
@@ -369,4 +375,5 @@ var ServiceFilters = map[string]ServiceFilter{
 			return output, nil
 		},
 	},
+
 }

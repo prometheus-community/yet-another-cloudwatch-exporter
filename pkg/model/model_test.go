@@ -177,6 +177,7 @@ func Test_FilterThroughTags(t *testing.T) {
 				Namespace: "AWS/Service",
 				Region:    "us-east-1",
 				Tags:      tc.resourceTags,
+				Metadata:  make(map[string]string),
 			}
 			require.Equal(t, tc.result, res.FilterThroughTags(tc.filterTags))
 		})
@@ -257,6 +258,7 @@ func Test_MetricTags(t *testing.T) {
 				Namespace: "AWS/Service",
 				Region:    "us-east-1",
 				Tags:      tc.resourceTags,
+				Metadata:  make(map[string]string),
 			}
 
 			require.Equal(t, tc.result, res.MetricTags(tc.exportedTags))
