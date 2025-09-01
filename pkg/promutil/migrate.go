@@ -68,30 +68,65 @@ func BuildMetricName(namespace, metricName, statistic string) string {
 }
 
 func BuildNamespaceInfoMetrics(tagData []model.TaggedResourceResult, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, labelsSnakeCase bool, logger *slog.Logger) ([]*PrometheusMetric, map[string]model.LabelSet) {
+	// Loop through each AWS service result (e.g., discovery results from any service)
 	for _, tagResult := range tagData {
+		// Extract context labels (region, account_id, account_alias, custom_tags) from the scrape context
 		contextLabels := contextToLabels(tagResult.Context, labelsSnakeCase, logger)
+		
+		// Loop through each discovered resource (e.g., each table, instance, bucket, etc.)
 		for _, d := range tagResult.Data {
+			// Build the metric name: AWS/ServiceName + "info" + "" → "aws_servicename_info"
 			metricName := BuildMetricName(d.Namespace, "info", "")
 
-			promLabels := make(map[string]string, len(d.Tags)+len(contextLabels)+1)
+			// Pre-allocate map for all labels: resource tags + context labels + metadata + 1 for "name" label
+			promLabels := make(map[string]string, len(d.Tags)+len(contextLabels)+len(d.Metadata)+1)
+			
+			// Copy all context labels (region, account_id, etc.) into the prometheus labels map
 			maps.Copy(promLabels, contextLabels)
+			
+			// Add the "name" label containing the full ARN of the resource
+			// Example: "arn:aws:service:region:account:resource/ResourceName"
 			promLabels["name"] = d.ARN
+			
+			// Loop through all AWS tags attached to this resource
 			for _, tag := range d.Tags {
+				// Convert AWS tag key to valid Prometheus label name (handles special chars, snake_case)
 				ok, promTag := PromStringTag(tag.Key, labelsSnakeCase)
 				if !ok {
+					// Skip invalid tag names that can't be converted to Prometheus labels
 					logger.Warn("tag name is an invalid prometheus label name", "tag", tag.Key)
 					continue
 				}
 
+				// Create label with "tag_" prefix: "Environment" → "tag_Environment"
 				labelName := "tag_" + promTag
+				// Set the label value to the AWS tag value
 				promLabels[labelName] = tag.Value
 			}
 
+			// Loop through all metadata attached to this resource (e.g., service-specific attributes)
+			for metadataKey, metadataValue := range d.Metadata {
+				// Convert metadata key to valid Prometheus label name (handles special chars, snake_case)
+				ok, promKey := PromStringTag(metadataKey, labelsSnakeCase)
+				if !ok {
+					// Skip invalid metadata keys that can't be converted to Prometheus labels
+					logger.Warn("metadata key is an invalid prometheus label name", "key", metadataKey)
+					continue
+				}
+				
+				// Add metadata as labels directly (no prefix needed since they're service-specific)
+				// Examples: table_class="Standard", instance_type="t3.micro", billing_mode="PAY_PER_REQUEST"
+				promLabels[promKey] = metadataValue
+			}
+
+			// Track all label names used by this metric for consistency checking later
 			observedMetricLabels = recordLabelsForMetric(metricName, promLabels, observedMetricLabels)
+			
+			// Create the final info metric with all labels and value=0 (info metrics are label carriers)
 			metrics = append(metrics, &PrometheusMetric{
-				Name:   metricName,
-				Labels: promLabels,
-				Value:  0,
+				Name:   metricName,    // e.g., "aws_dynamodb_info", "aws_ec2_info", etc.
+				Labels: promLabels,    // All the labels we built above
+				Value:  0,             // Info metrics always have value 0
 			})
 		}
 	}
