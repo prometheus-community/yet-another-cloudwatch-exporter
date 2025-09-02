@@ -25,7 +25,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.62.0
 	github.com/r3labs/diff/v3 v3.0.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/atomic v1.11.0
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
