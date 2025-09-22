@@ -7,6 +7,39 @@
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
 
+## 0.63.0 / 2025-09-23
+
+**Important news and breaking changes**
+
+- NOTE: As of Prometheus 3.0, UTF-8 strings are valid for metric names and label names. However, for backward compatibility, this release of YACE still uses the old, stricter legacy validation scheme. UTF-8 validation will be enabled with the next version of YACE, thus requiring that your remote destination is compatible with UTF-8 support.
+
+- BREAKING CHANGE: the AWS SDK v2 is now the default in YACE. Use the flag `aws-sdk-v1` to switch back to SDK v2. Flag `aws-sdk-v2` has been removed.
+
+- NEW FEATURE: `exportAllDataPoints`, enables the inclusion of past metric data points from the CloudWatch response if available.
+
+* [CHANGE] Make aws sdk v2 the default choice by @cristiangreco
+* [FEATURE] Support history data export by @woehrl01
+* [FEATURE] Add AWS/Transfer as available service by @thepalbi
+* [FEATURE] Add auto-discovery for Directory Services(MicrosoftAD) by @RuslanMustaev
+* [FEATURE] Add support for Redshift-Serverless by @nickbazinet
+* [FEATURE] Add db connections avg panel to RDS dashboard by @yduartep
+* [FEATURE] Add example for lambda_edge by @tyagian
+* [FEATURE] sagemaker: additional InferenceComponent support by @tristanburgess
+* [ENHANCEMENT] Update Go version by @SuperQ
+* [ENHANCEMENT] Use Prometheus common version library by @SuperQ
+* [ENHANCEMENT] Update container repositories by @SuperQ
+* [ENHANCEMENT] Speed up build metric name by @jeschkies
+* [ENHANCEMENT] Add guard to hot logging location in associator by @thepalbi
+* [ENHANCEMENT] Update resource association logic to try both with and without dimension fixes by @tristanburgess
+* [ENHANCEMENT] Change discovery runtime model field from Type -> Namespace by @kgeckhart
+* [BUGFIX] Fix `CachingFactory` concurrent usage issues by @andriikushch
+* [BUGFIX] Correctly run tests in CI and fix failing tests by @jeschkies
+* [BUGFIX] Fix doc about non-existing `debug` flag by @zipkid
+* [BUGFIX] Update URL to Helm Chart in docs by @koralowiec
+* [BUGFIX] Add missing license header to `associator_logging_test.go` by @cristiangreco
+* [BUGFIX] Dashboards: replace `scrape_job` label with `job` by @yduartep
+* [BUGFIX] RDS dashboard: use average for cpu utilization to align with AWS best practices by @yduartep
+
 ## 0.62.1 / 2025-01-03
 
 **Important news and breaking changes**
