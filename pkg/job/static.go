@@ -53,11 +53,11 @@ func runStaticJob(
 			}
 
 			data.GetMetricStatisticsResult = &model.GetMetricStatisticsResult{
-				Datapoints: clientCloudwatch.GetMetricStatistics(ctx, logger, data.Dimensions, resource.Namespace, metric),
+				Results:    clientCloudwatch.GetMetricStatistics(ctx, logger, data.Dimensions, resource.Namespace, metric),
 				Statistics: metric.Statistics,
 			}
 
-			if data.GetMetricStatisticsResult.Datapoints != nil {
+			if data.GetMetricStatisticsResult.Results != nil {
 				mux.Lock()
 				cw = append(cw, &data)
 				mux.Unlock()

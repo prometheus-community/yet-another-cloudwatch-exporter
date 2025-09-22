@@ -95,6 +95,7 @@ func toModelDimensions(dimensions []*cloudwatch.Dimension) []model.Dimension {
 
 func (c client) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []cloudwatch_client.MetricDataResult {
 	metricDataQueries := make([]*cloudwatch.MetricDataQuery, 0, len(getMetricData))
+	exportAllDataPoints := false
 	for _, data := range getMetricData {
 		metricStat := &cloudwatch.MetricStat{
 			Metric: &cloudwatch.Metric{
@@ -110,6 +111,7 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 			MetricStat: metricStat,
 			ReturnData: aws.Bool(true),
 		})
+		exportAllDataPoints = exportAllDataPoints || data.MetricMigrationParams.ExportAllDataPoints
 	}
 	input := &cloudwatch.GetMetricDataInput{
 		EndTime:           &endTime,
@@ -137,23 +139,31 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		c.logger.Error("GetMetricData error", "err", err)
 		return nil
 	}
-	return toMetricDataResult(resp)
+	return toMetricDataResult(resp, exportAllDataPoints)
 }
 
-func toMetricDataResult(resp cloudwatch.GetMetricDataOutput) []cloudwatch_client.MetricDataResult {
+func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, exportAllDataPoints bool) []cloudwatch_client.MetricDataResult {
 	output := make([]cloudwatch_client.MetricDataResult, 0, len(resp.MetricDataResults))
 	for _, metricDataResult := range resp.MetricDataResults {
-		mappedResult := cloudwatch_client.MetricDataResult{ID: *metricDataResult.Id}
-		if len(metricDataResult.Values) > 0 {
-			mappedResult.Datapoint = metricDataResult.Values[0]
-			mappedResult.Timestamp = *metricDataResult.Timestamps[0]
+		mappedResult := cloudwatch_client.MetricDataResult{
+			ID:         *metricDataResult.Id,
+			DataPoints: make([]cloudwatch_client.DataPoint, 0, len(metricDataResult.Timestamps))}
+		for i := 0; i < len(metricDataResult.Timestamps); i++ {
+			mappedResult.DataPoints = append(mappedResult.DataPoints, cloudwatch_client.DataPoint{
+				Value:     metricDataResult.Values[i],
+				Timestamp: *metricDataResult.Timestamps[i],
+			})
+
+			if !exportAllDataPoints {
+				break
+			}
 		}
 		output = append(output, mappedResult)
 	}
 	return output
 }
 
-func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.Datapoint {
+func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
 	filter := createGetMetricStatisticsInput(dimensions, &namespace, metric, logger)
 
 	c.logger.Debug("GetMetricStatistics", "input", filter)
@@ -171,14 +181,14 @@ func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, di
 		return nil
 	}
 
-	return toModelDatapoints(resp.Datapoints)
+	return toModelDataPoints(resp.Datapoints)
 }
 
-func toModelDatapoints(cwDatapoints []*cloudwatch.Datapoint) []*model.Datapoint {
-	modelDataPoints := make([]*model.Datapoint, 0, len(cwDatapoints))
+func toModelDataPoints(cwDataPoints []*cloudwatch.Datapoint) []*model.MetricStatisticsResult {
+	modelDataPoints := make([]*model.MetricStatisticsResult, 0, len(cwDataPoints))
 
-	for _, cwDatapoint := range cwDatapoints {
-		modelDataPoints = append(modelDataPoints, &model.Datapoint{
+	for _, cwDatapoint := range cwDataPoints {
+		modelDataPoints = append(modelDataPoints, &model.MetricStatisticsResult{
 			Average:            cwDatapoint.Average,
 			ExtendedStatistics: cwDatapoint.ExtendedStatistics,
 			Maximum:            cwDatapoint.Maximum,
