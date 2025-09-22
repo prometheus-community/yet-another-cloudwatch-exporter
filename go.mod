@@ -19,17 +19,17 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/shield v1.30.4
 	github.com/aws/aws-sdk-go-v2/service/storagegateway v1.38.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
-	github.com/aws/smithy-go v1.22.4
+	github.com/aws/smithy-go v1.23.0
 	github.com/grafana/regexp v0.0.0-20240607082908-2cb410fa05da
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.62.0
 	github.com/r3labs/diff/v3 v3.0.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
 	go.uber.org/atomic v1.11.0
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.16.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
