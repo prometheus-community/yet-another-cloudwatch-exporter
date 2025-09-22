@@ -127,10 +127,9 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 						if metric.MetricMigrationParams.ExportAllDataPoints {
 							// If we're exporting all data points, we can skip this one and check for a historical datapoint
 							continue
-						} else {
-							// If we are not exporting all data points, we better have nothing exported
-							break
 						}
+						// If we are not exporting all data points, we better have nothing exported
+						break
 					}
 					if dataPoint == nil {
 						exportedDatapoint = math.NaN()
@@ -148,7 +147,7 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 					observedMetricLabels = recordLabelsForMetric(name, promLabels, observedMetricLabels)
 
 					if !metric.MetricMigrationParams.AddCloudwatchTimestamp {
-						//if we're not adding the original timestamp, we have to zero it so we can validate the data in the exporter via EnsureLabelConsistencyAndRemoveDuplicates
+						// if we're not adding the original timestamp, we have to zero it so we can validate the data in the exporter via EnsureLabelConsistencyAndRemoveDuplicates
 						ts = time.Time{}
 					}
 
