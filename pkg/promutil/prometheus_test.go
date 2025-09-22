@@ -48,10 +48,10 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestPromStringTag(t *testing.T) {
-	originalValidationScheme := model.NameValidationScheme
-	model.NameValidationScheme = model.LegacyValidation
+	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
+	model.NameValidationScheme = model.LegacyValidation    //nolint:staticcheck
 	defer func() {
-		model.NameValidationScheme = originalValidationScheme
+		model.NameValidationScheme = originalValidationScheme //nolint:staticcheck
 	}()
 
 	testCases := []struct {
@@ -117,10 +117,10 @@ func TestPromStringTag(t *testing.T) {
 }
 
 func TestNewPrometheusCollector_CanReportMetricsAndErrors(t *testing.T) {
-	originalValidationScheme := model.NameValidationScheme
-	model.NameValidationScheme = model.LegacyValidation
+	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
+	model.NameValidationScheme = model.LegacyValidation    //nolint:staticcheck
 	defer func() {
-		model.NameValidationScheme = originalValidationScheme
+		model.NameValidationScheme = originalValidationScheme //nolint:staticcheck
 	}()
 
 	metrics := []*PrometheusMetric{
