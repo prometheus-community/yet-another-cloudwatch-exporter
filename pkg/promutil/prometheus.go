@@ -211,7 +211,7 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 	} else {
 		s = sanitize(text)
 	}
-	return model.LabelName(s).IsValid(), s
+	return model.LabelName(s).IsValid(), s //nolint:staticcheck
 }
 
 // sanitize replaces some invalid chars with an underscore
