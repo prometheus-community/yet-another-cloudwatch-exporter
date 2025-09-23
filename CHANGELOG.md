@@ -11,7 +11,7 @@
 
 **Important news and breaking changes**
 
-- NOTE: As of Prometheus 3.0, UTF-8 strings are valid for metric names and label names. However, for backward compatibility, this release of YACE still uses the old, stricter legacy validation scheme. UTF-8 validation will be enabled with the next version of YACE, thus requiring that your remote destination is compatible with UTF-8 support.
+- NOTE: As of Prometheus 3.0, UTF-8 strings are valid for metric names and label names. However, for backward compatibility, this release of YACE still uses the old, stricter legacy validation scheme. UTF-8 validation will be enabled in a feature version of YACE, thus requiring that your remote destination is compatible with UTF-8 support.
 
 - BREAKING CHANGE: the AWS SDK v2 is now the default in YACE. Use the flag `aws-sdk-v1` to switch back to SDK v2. Flag `aws-sdk-v2` has been removed.
 
