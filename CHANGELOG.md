@@ -7,7 +7,7 @@
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
 
-## 0.63.0 / 2025-09-23
+## 0.63.0 / 2025-09-25
 
 **Important news and breaking changes**
 
