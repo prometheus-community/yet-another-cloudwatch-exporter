@@ -17,82 +17,200 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	aws_cloudwatch "github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
+
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
-const (
-	listMetricsCall         = "ListMetrics"
-	getMetricDataCall       = "GetMetricData"
-	getMetricStatisticsCall = "GetMetricStatistics"
-)
-
-type Client interface {
-	// ListMetrics returns the list of metrics and dimensions for a given namespace
-	// and metric name. Results pagination is handled automatically: the caller can
-	// optionally pass a non-nil func in order to handle results pages.
-	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
-
-	// GetMetricData returns the output of the GetMetricData CloudWatch API.
-	// Results pagination is handled automatically.
-	GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult
-
-	// GetMetricStatistics returns the output of the GetMetricStatistics CloudWatch API.
-	GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult
+type client struct {
+	logger        *slog.Logger
+	cloudwatchAPI *aws_cloudwatch.Client
 }
 
-// ConcurrencyLimiter limits the concurrency when calling AWS CloudWatch APIs. The functions implemented
-// by this interface follow the same as a normal semaphore, but accept and operation identifier. Some
-// implementations might use this to keep a different semaphore, with different reentrance values, per
-// operation.
-type ConcurrencyLimiter interface {
-	// Acquire takes one "ticket" from the concurrency limiter for op. If there's none available, the caller
-	// routine will be blocked until there's room available.
-	Acquire(op string)
-
-	// Release gives back one "ticket" to the concurrency limiter identified by op. If there's one or more
-	// routines waiting for one, one will be woken up.
-	Release(op string)
-}
-
-type MetricDataResult struct {
-	ID         string
-	DataPoints []DataPoint
-}
-
-type DataPoint struct {
-	Value     *float64
-	Timestamp time.Time
-}
-
-type limitedConcurrencyClient struct {
-	client  Client
-	limiter ConcurrencyLimiter
-}
-
-func NewLimitedConcurrencyClient(client Client, limiter ConcurrencyLimiter) Client {
-	return &limitedConcurrencyClient{
-		client:  client,
-		limiter: limiter,
+func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client) Client {
+	return &client{
+		logger:        logger,
+		cloudwatchAPI: cloudwatchAPI,
 	}
 }
 
-func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
-	c.limiter.Acquire(getMetricStatisticsCall)
-	res := c.client.GetMetricStatistics(ctx, logger, dimensions, namespace, metric)
-	c.limiter.Release(getMetricStatisticsCall)
-	return res
+func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+	filter := &aws_cloudwatch.ListMetricsInput{
+		MetricName: aws.String(metric.Name),
+		Namespace:  aws.String(namespace),
+	}
+	if recentlyActiveOnly {
+		filter.RecentlyActive = types.RecentlyActivePt3h
+	}
+
+	c.logger.Debug("ListMetrics", "input", filter)
+
+	paginator := aws_cloudwatch.NewListMetricsPaginator(c.cloudwatchAPI, filter, func(options *aws_cloudwatch.ListMetricsPaginatorOptions) {
+		options.StopOnDuplicateToken = true
+	})
+
+	for paginator.HasMorePages() {
+		promutil.CloudwatchAPICounter.WithLabelValues("ListMetrics").Inc()
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			promutil.CloudwatchAPIErrorCounter.WithLabelValues("ListMetrics").Inc()
+			c.logger.Error("ListMetrics error", "err", err)
+			return err
+		}
+
+		metricsPage := toModelMetric(page)
+		c.logger.Debug("ListMetrics", "output", metricsPage)
+
+		fn(metricsPage)
+	}
+
+	return nil
 }
 
-func (c limitedConcurrencyClient) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
-	c.limiter.Acquire(getMetricDataCall)
-	res := c.client.GetMetricData(ctx, getMetricData, namespace, startTime, endTime)
-	c.limiter.Release(getMetricDataCall)
-	return res
+func toModelMetric(page *aws_cloudwatch.ListMetricsOutput) []*model.Metric {
+	modelMetrics := make([]*model.Metric, 0, len(page.Metrics))
+	for _, cloudwatchMetric := range page.Metrics {
+		modelMetric := &model.Metric{
+			MetricName: *cloudwatchMetric.MetricName,
+			Namespace:  *cloudwatchMetric.Namespace,
+			Dimensions: toModelDimensions(cloudwatchMetric.Dimensions),
+		}
+		modelMetrics = append(modelMetrics, modelMetric)
+	}
+	return modelMetrics
 }
 
-func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
-	c.limiter.Acquire(listMetricsCall)
-	err := c.client.ListMetrics(ctx, namespace, metric, recentlyActiveOnly, fn)
-	c.limiter.Release(listMetricsCall)
-	return err
+func toModelDimensions(dimensions []types.Dimension) []model.Dimension {
+	modelDimensions := make([]model.Dimension, 0, len(dimensions))
+	for _, dimension := range dimensions {
+		modelDimension := model.Dimension{
+			Name:  *dimension.Name,
+			Value: *dimension.Value,
+		}
+		modelDimensions = append(modelDimensions, modelDimension)
+	}
+	return modelDimensions
+}
+
+func (c client) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
+	metricDataQueries := make([]types.MetricDataQuery, 0, len(getMetricData))
+	exportAllDataPoints := false
+	for _, data := range getMetricData {
+		metricStat := &types.MetricStat{
+			Metric: &types.Metric{
+				Dimensions: toCloudWatchDimensions(data.Dimensions),
+				MetricName: &data.MetricName,
+				Namespace:  &namespace,
+			},
+			Period: aws.Int32(int32(data.GetMetricDataProcessingParams.Period)),
+			Stat:   &data.GetMetricDataProcessingParams.Statistic,
+		}
+		metricDataQueries = append(metricDataQueries, types.MetricDataQuery{
+			Id:         &data.GetMetricDataProcessingParams.QueryID,
+			MetricStat: metricStat,
+			ReturnData: aws.Bool(true),
+		})
+		exportAllDataPoints = exportAllDataPoints || data.MetricMigrationParams.ExportAllDataPoints
+	}
+
+	input := &aws_cloudwatch.GetMetricDataInput{
+		EndTime:           &endTime,
+		StartTime:         &startTime,
+		MetricDataQueries: metricDataQueries,
+		ScanBy:            "TimestampDescending",
+	}
+	var resp aws_cloudwatch.GetMetricDataOutput
+	promutil.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
+	c.logger.Debug("GetMetricData", "input", input)
+
+	paginator := aws_cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *aws_cloudwatch.GetMetricDataPaginatorOptions) {
+		options.StopOnDuplicateToken = true
+	})
+	for paginator.HasMorePages() {
+		promutil.CloudwatchAPICounter.WithLabelValues("GetMetricData").Inc()
+		promutil.CloudwatchGetMetricDataAPICounter.Inc()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricData").Inc()
+			c.logger.Error("GetMetricData error", "err", err)
+			return nil
+		}
+		resp.MetricDataResults = append(resp.MetricDataResults, page.MetricDataResults...)
+	}
+
+	c.logger.Debug("GetMetricData", "output", resp)
+
+	return toMetricDataResult(resp, exportAllDataPoints)
+}
+
+func toMetricDataResult(resp aws_cloudwatch.GetMetricDataOutput, exportAllDataPoints bool) []MetricDataResult {
+	output := make([]MetricDataResult, 0, len(resp.MetricDataResults))
+	for _, metricDataResult := range resp.MetricDataResults {
+		mappedResult := MetricDataResult{
+			ID:         *metricDataResult.Id,
+			DataPoints: make([]DataPoint, 0, len(metricDataResult.Timestamps)),
+		}
+		for i := 0; i < len(metricDataResult.Timestamps); i++ {
+			mappedResult.DataPoints = append(mappedResult.DataPoints, DataPoint{
+				Value:     &metricDataResult.Values[i],
+				Timestamp: metricDataResult.Timestamps[i],
+			})
+
+			if !exportAllDataPoints {
+				break
+			}
+		}
+		output = append(output, mappedResult)
+	}
+	return output
+}
+
+func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
+	filter := createGetMetricStatisticsInput(logger, dimensions, &namespace, metric)
+	c.logger.Debug("GetMetricStatistics", "input", filter)
+
+	resp, err := c.cloudwatchAPI.GetMetricStatistics(ctx, filter)
+
+	c.logger.Debug("GetMetricStatistics", "output", resp)
+
+	promutil.CloudwatchAPICounter.WithLabelValues("GetMetricStatistics").Inc()
+	promutil.CloudwatchGetMetricStatisticsAPICounter.Inc()
+
+	if err != nil {
+		promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricStatistics").Inc()
+		c.logger.Error("Failed to get metric statistics", "err", err)
+		return nil
+	}
+
+	ptrs := make([]*types.Datapoint, 0, len(resp.Datapoints))
+	for _, datapoint := range resp.Datapoints {
+		ptrs = append(ptrs, &datapoint)
+	}
+
+	return toModelDataPoints(ptrs)
+}
+
+func toModelDataPoints(cwDataPoints []*types.Datapoint) []*model.MetricStatisticsResult {
+	modelDataPoints := make([]*model.MetricStatisticsResult, 0, len(cwDataPoints))
+
+	for _, cwDatapoint := range cwDataPoints {
+		extendedStats := make(map[string]*float64, len(cwDatapoint.ExtendedStatistics))
+		for name, value := range cwDatapoint.ExtendedStatistics {
+			extendedStats[name] = &value
+		}
+		modelDataPoints = append(modelDataPoints, &model.MetricStatisticsResult{
+			Average:            cwDatapoint.Average,
+			ExtendedStatistics: extendedStats,
+			Maximum:            cwDatapoint.Maximum,
+			Minimum:            cwDatapoint.Minimum,
+			SampleCount:        cwDatapoint.SampleCount,
+			Sum:                cwDatapoint.Sum,
+			Timestamp:          cwDatapoint.Timestamp,
+		})
+	}
+	return modelDataPoints
 }
