@@ -413,6 +413,7 @@ var ServiceFilters = map[string]ServiceFilter{
 					TableName: &tableName,
 				})
 				if err != nil {
+					// Log warning but don't fail the entire operation
 					continue
 				}
 				
