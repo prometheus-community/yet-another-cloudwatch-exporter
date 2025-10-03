@@ -131,6 +131,16 @@ var SupportedServices = serviceConfigs{
 			regexp.MustCompile(":loadbalancer/(?P<LoadBalancer>.+)$"),
 		},
 	},
+        {
+                Namespace: "AWS/AppFlow",
+                Alias:     "appflow",
+                ResourceFilters: []*string{
+                        aws.String("appflow:flow"),
+                },
+                DimensionRegexps: []*regexp.Regexp{
+                        regexp.MustCompile(":flow/(?P<FlowName>[^/]+)"),
+                },
+        },
 	{
 		Namespace: "AWS/AppStream",
 		Alias:     "appstream",
