@@ -225,6 +225,10 @@ type TaggedResource struct {
 
 	// Tags is a set of tags associated to the resource
 	Tags []Tag
+
+	// Metadata contains service-specific additional information about the resource
+	// For example: TableClass, BillingMode, InstanceType, State, etc.
+	Metadata map[string]string
 }
 
 // FilterThroughTags returns true if all filterTags match
