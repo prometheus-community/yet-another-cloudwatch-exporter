@@ -431,6 +431,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/EKS",
+		Alias:     "eks",
+		ResourceFilters: []*string{
+			aws.String("eks:cluster"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":cluster/(?P<ClusterName>[^/]+)$"),
+		},
+	},
+	{
 		Namespace: "AWS/ELB",
 		Alias:     "elb",
 		ResourceFilters: []*string{
