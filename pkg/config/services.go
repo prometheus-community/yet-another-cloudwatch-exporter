@@ -226,6 +226,10 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("cassandra"),
 		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("keyspace/(?P<Keyspace>[^/]+)/table/(?P<TableName>[^/]+)"),
+			regexp.MustCompile("keyspace/(?P<Keyspace>[^/]+)/"),
+		},
 	},
 	{
 		Namespace: "AWS/CloudFront",
