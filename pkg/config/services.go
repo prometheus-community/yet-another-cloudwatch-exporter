@@ -1039,6 +1039,12 @@ var SupportedServices = serviceConfigs{
 	{
 		Namespace: "AWS/Bedrock",
 		Alias:     "bedrock",
+		ResourceFilters: []*string{
+			aws.String("bedrock:guardrail"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("(?P<GuardrailArn>.+)"),
+		},
 	},
 	{
 		Namespace: "AWS/Events",
