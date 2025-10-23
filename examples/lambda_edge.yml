@@ -1,22 +1,22 @@
-  # We can't configure discovery job for edge lambda function but static works.,he region is always us-east-1. 
-  # Other regions can be added in use as edge locations 
-  apiVersion: v1alpha1
-  static:
-    - name: us-east-1.<edge_lambda_function_name>
-      namespace: AWS/Lambda
-      regions:
-        - eu-central-1
-        - us-east-1
-        - us-west-2
-        - ap-southeast-1
-      period: 600
-      length: 600
-      metrics:
-        - name: Invocations
-          statistics: [Sum]
-        - name: Errors
-          statistics: [Sum]
-        - name: Throttles
-          statistics: [Sum]
-        - name: Duration
-          statistics: [Average, Maximum, Minimum, p90]
+  # We can't configure discovery job for edge lambda function but static works.,he region is always us-east-1.
+  # Other regions can be added in use as edge locations
+apiVersion: v1alpha1
+static:
+  - name: us-east-1.<edge_lambda_function_name>
+    namespace: AWS/Lambda
+    regions:
+      - eu-central-1
+      - us-east-1
+      - us-west-2
+      - ap-southeast-1
+    period: 600
+    length: 600
+    metrics:
+      - name: Invocations
+        statistics: [Sum]
+      - name: Errors
+        statistics: [Sum]
+      - name: Throttles
+        statistics: [Sum]
+      - name: Duration
+        statistics: [Average, Maximum, Minimum, p90]

@@ -194,7 +194,7 @@ func UpdateMetrics(
 	optFuncs ...OptionsFunc,
 ) error {
 	// Use legacy validation as that's the behaviour of former releases.
-	prom.NameValidationScheme = prom.LegacyValidation
+	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
 
 	options := defaultOptions()
 	for _, f := range optFuncs {
