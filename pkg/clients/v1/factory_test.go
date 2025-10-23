@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -25,6 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -82,15 +84,21 @@ func TestNewClientCache(t *testing.T) {
 			"an empty config gives an empty cache",
 			model.JobsConfig{},
 			false,
-			&CachingFactory{logger: promslog.NewNopLogger()},
+			&CachingFactory{
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
+			},
 		},
 		{
 			"if fips is set then the clients has fips",
 			model.JobsConfig{},
 			true,
 			&CachingFactory{
-				fips:   true,
-				logger: promslog.NewNopLogger(),
+				fips:      true,
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 			},
 		},
 		{
@@ -153,7 +161,9 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-3": &cachedClients{},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 			},
 		},
 		{
@@ -239,7 +249,9 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-1": &cachedClients{onlyStatic: true},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 			},
 		},
 		{
@@ -362,7 +374,9 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-3": &cachedClients{},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 			},
 		},
 		{
@@ -451,7 +465,9 @@ func TestNewClientCache(t *testing.T) {
 						"ap-northeast-1": &cachedClients{onlyStatic: true},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 			},
 		},
 	}
@@ -463,12 +479,12 @@ func TestNewClientCache(t *testing.T) {
 			cache := NewFactory(promslog.NewNopLogger(), test.jobsCfg, test.fips)
 			t.Logf("the cache is: %v", cache)
 
-			if test.cache.cleared != cache.cleared {
+			if test.cache.cleared.Load() != cache.cleared.Load() {
 				t.Logf("`cleared` not equal got %v, expected %v", cache.cleared, test.cache.cleared)
 				t.Fail()
 			}
 
-			if test.cache.refreshed != cache.refreshed {
+			if test.cache.refreshed.Load() != cache.refreshed.Load() {
 				t.Logf("`refreshed` not equal got %v, expected %v", cache.refreshed, test.cache.refreshed)
 				t.Fail()
 			}
@@ -497,7 +513,7 @@ func TestClear(t *testing.T) {
 			"a new clear clears all clients",
 			&CachingFactory{
 				session: mock.Session,
-				cleared: false,
+				cleared: atomic.NewBool(false),
 				mu:      sync.Mutex{},
 				stscache: map[model.Role]stsiface.STSAPI{
 					{}: nil,
@@ -512,13 +528,14 @@ func TestClear(t *testing.T) {
 						},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
 			},
 		},
 		{
 			"A second call to clear does nothing",
 			&CachingFactory{
-				cleared: true,
+				cleared: atomic.NewBool(true),
 				mu:      sync.Mutex{},
 				session: mock.Session,
 				stscache: map[model.Role]stsiface.STSAPI{
@@ -533,7 +550,8 @@ func TestClear(t *testing.T) {
 						},
 					},
 				},
-				logger: promslog.NewNopLogger(),
+				logger:    promslog.NewNopLogger(),
+				refreshed: atomic.NewBool(false),
 			},
 		},
 	}
@@ -542,11 +560,11 @@ func TestClear(t *testing.T) {
 		test := l
 		t.Run(test.description, func(t *testing.T) {
 			test.cache.Clear()
-			if !test.cache.cleared {
+			if !test.cache.cleared.Load() {
 				t.Log("Cache cleared flag not set")
 				t.Fail()
 			}
-			if test.cache.refreshed {
+			if test.cache.refreshed.Load() {
 				t.Log("Cache cleared flag set")
 				t.Fail()
 			}
@@ -591,7 +609,8 @@ func TestRefresh(t *testing.T) {
 			"a new refresh creates clients",
 			&CachingFactory{
 				session:   mock.Session,
-				refreshed: false,
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 				mu:        sync.Mutex{},
 				stscache: map[model.Role]stsiface.STSAPI{
 					{}: nil,
@@ -613,7 +632,8 @@ func TestRefresh(t *testing.T) {
 			"a new refresh with static only creates only cloudwatch",
 			&CachingFactory{
 				session:   mock.Session,
-				refreshed: false,
+				refreshed: atomic.NewBool(false),
+				cleared:   atomic.NewBool(false),
 				mu:        sync.Mutex{},
 				stscache: map[model.Role]stsiface.STSAPI{
 					{}: nil,
@@ -635,7 +655,8 @@ func TestRefresh(t *testing.T) {
 		{
 			"A second call to refreshed does nothing",
 			&CachingFactory{
-				refreshed: true,
+				refreshed: atomic.NewBool(true),
+				cleared:   atomic.NewBool(false),
 				mu:        sync.Mutex{},
 				session:   mock.Session,
 				stscache: map[model.Role]stsiface.STSAPI{
@@ -662,12 +683,12 @@ func TestRefresh(t *testing.T) {
 			t.Parallel()
 			test.cache.Refresh()
 
-			if !test.cache.refreshed {
+			if !test.cache.refreshed.Load() {
 				t.Log("Cache refreshed flag not set")
 				t.Fail()
 			}
 
-			if test.cache.cleared {
+			if test.cache.cleared.Load() {
 				t.Log("Cache cleared flag set")
 				t.Fail()
 			}
@@ -753,7 +774,7 @@ func testGetAWSClient(
 		{
 			"locks during unrefreshed parallel call",
 			&CachingFactory{
-				refreshed: false,
+				refreshed: atomic.NewBool(false),
 				mu:        sync.Mutex{},
 				session:   mock.Session,
 				stscache: map[model.Role]stsiface.STSAPI{
@@ -775,7 +796,7 @@ func testGetAWSClient(
 		{
 			"returns clients if available",
 			&CachingFactory{
-				refreshed: true,
+				refreshed: atomic.NewBool(true),
 				session:   mock.Session,
 				mu:        sync.Mutex{},
 				stscache: map[model.Role]stsiface.STSAPI{
@@ -797,7 +818,7 @@ func testGetAWSClient(
 		{
 			"creates a new clients if not available",
 			&CachingFactory{
-				refreshed: true,
+				refreshed: atomic.NewBool(true),
 				session:   mock.Session,
 				mu:        sync.Mutex{},
 				stscache: map[model.Role]stsiface.STSAPI{
@@ -1147,6 +1168,45 @@ func TestSTSResolvesFIPSEnabledEndpoints(t *testing.T) {
 			require.NoError(t, resolverError, "no error expected when resolving endpoint")
 			require.Equal(t, tc.expectedEndpoint, resolvedEndpoint.URL)
 		})
+	}
+}
+
+func TestRaceConditionRefreshClear(t *testing.T) {
+	t.Parallel()
+
+	// Create a factory with the test config
+	factory := NewFactory(promslog.NewNopLogger(), model.JobsConfig{}, false)
+
+	// Number of concurrent operations to perform
+	iterations := 100
+
+	// Use WaitGroup to synchronize goroutines
+	var wg sync.WaitGroup
+	wg.Add(iterations) // For both Refresh and Clear calls
+
+	// Start function to run concurrent operations
+	for i := 0; i < iterations; i++ {
+		// Launch goroutine to call Refresh
+		go func() {
+			defer wg.Done()
+			factory.Refresh()
+			factory.Clear()
+		}()
+	}
+
+	// Create a channel to signal completion
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-done:
+		// Test completed successfully
+	case <-time.After(60 * time.Second):
+		require.Fail(t, "Test timed out after 60 seconds")
 	}
 }
 

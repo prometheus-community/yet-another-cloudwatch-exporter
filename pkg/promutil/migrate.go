@@ -112,40 +112,58 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 			}
 
 			for _, statistic := range statisticsInCloudwatchData(metric) {
-				dataPoint, ts, err := getDatapoint(metric, statistic)
-				if err != nil {
-					return nil, nil, err
+				dataPoints, err := getDataPoints(metric, statistic)
+				for _, dataPoint := range dataPoints {
+					ts := dataPoint.Timestamp
+					dataPoint := dataPoint.Value
+					if err != nil {
+						return nil, nil, err
+					}
+					var exportedDatapoint float64
+					if dataPoint == nil && metric.MetricMigrationParams.AddCloudwatchTimestamp {
+						// If we did not get a datapoint then the timestamp is a default value making it unusable in the
+						// exported metric. Attempting to put a fake timestamp on the metric will likely conflict with
+						// future CloudWatch timestamps which are always in the past.
+						if metric.MetricMigrationParams.ExportAllDataPoints {
+							// If we're exporting all data points, we can skip this one and check for a historical datapoint
+							continue
+						}
+						// If we are not exporting all data points, we better have nothing exported
+						break
+					}
+					if dataPoint == nil {
+						exportedDatapoint = math.NaN()
+					} else {
+						exportedDatapoint = *dataPoint
+					}
+
+					if metric.MetricMigrationParams.NilToZero && math.IsNaN(exportedDatapoint) {
+						exportedDatapoint = 0
+					}
+
+					name := BuildMetricName(metric.Namespace, metric.MetricName, statistic)
+
+					promLabels := createPrometheusLabels(metric, labelsSnakeCase, contextLabels, logger)
+					observedMetricLabels = recordLabelsForMetric(name, promLabels, observedMetricLabels)
+
+					if !metric.MetricMigrationParams.AddCloudwatchTimestamp {
+						// if we're not adding the original timestamp, we have to zero it so we can validate the data in the exporter via EnsureLabelConsistencyAndRemoveDuplicates
+						ts = time.Time{}
+					}
+
+					output = append(output, &PrometheusMetric{
+						Name:             name,
+						Labels:           promLabels,
+						Value:            exportedDatapoint,
+						Timestamp:        ts,
+						IncludeTimestamp: metric.MetricMigrationParams.AddCloudwatchTimestamp,
+					})
+
+					if !metric.MetricMigrationParams.ExportAllDataPoints {
+						// If we're not exporting all data points, we can skip the rest of the data points for this metric
+						break
+					}
 				}
-				var exportedDatapoint float64
-				if dataPoint == nil && metric.MetricMigrationParams.AddCloudwatchTimestamp {
-					// If we did not get a datapoint then the timestamp is a default value making it unusable in the
-					// exported metric. Attempting to put a fake timestamp on the metric will likely conflict with
-					// future CloudWatch timestamps which are always in the past. It's safer to skip here than guess
-					continue
-				}
-				if dataPoint == nil {
-					exportedDatapoint = math.NaN()
-				} else {
-					exportedDatapoint = *dataPoint
-				}
-
-				if metric.MetricMigrationParams.NilToZero && math.IsNaN(exportedDatapoint) {
-					exportedDatapoint = 0
-				}
-
-				name := BuildMetricName(metric.Namespace, metric.MetricName, statistic)
-
-				promLabels := createPrometheusLabels(metric, labelsSnakeCase, contextLabels, logger)
-				observedMetricLabels = recordLabelsForMetric(name, promLabels, observedMetricLabels)
-
-				output = append(output, &PrometheusMetric{
-					Name:             name,
-					Labels:           promLabels,
-					Value:            exportedDatapoint,
-					Timestamp:        ts,
-					IncludeTimestamp: metric.MetricMigrationParams.AddCloudwatchTimestamp,
-				})
-
 			}
 		}
 	}
@@ -163,37 +181,45 @@ func statisticsInCloudwatchData(d *model.CloudwatchData) []string {
 	return []string{}
 }
 
-func getDatapoint(cwd *model.CloudwatchData, statistic string) (*float64, time.Time, error) {
+func getDataPoints(cwd *model.CloudwatchData, statistic string) ([]model.DataPoint, error) {
 	// Not possible but for sanity
 	if cwd.GetMetricStatisticsResult == nil && cwd.GetMetricDataResult == nil {
-		return nil, time.Time{}, fmt.Errorf("cannot map a data point with no results on %s", cwd.MetricName)
+		return nil, fmt.Errorf("cannot map a data point with no results on %s", cwd.MetricName)
 	}
 
 	if cwd.GetMetricDataResult != nil {
-		return cwd.GetMetricDataResult.Datapoint, cwd.GetMetricDataResult.Timestamp, nil
+		// If we have no dataPoints, we should return a single nil datapoint, which is then either dropped or converted to 0
+		if len(cwd.GetMetricDataResult.DataPoints) == 0 && !cwd.MetricMigrationParams.AddCloudwatchTimestamp {
+			return []model.DataPoint{{
+				Value:     nil,
+				Timestamp: time.Time{},
+			}}, nil
+		}
+
+		return cwd.GetMetricDataResult.DataPoints, nil
 	}
 
-	var averageDataPoints []*model.Datapoint
+	var averageDataPoints []*model.MetricStatisticsResult
 
 	// sorting by timestamps so we can consistently export the most updated datapoint
-	// assuming Timestamp field in cloudwatch.Datapoint struct is never nil
-	for _, datapoint := range sortByTimestamp(cwd.GetMetricStatisticsResult.Datapoints) {
+	// assuming Timestamp field in cloudwatch.Value struct is never nil
+	for _, datapoint := range sortByTimestamp(cwd.GetMetricStatisticsResult.Results) {
 		switch {
 		case statistic == "Maximum":
 			if datapoint.Maximum != nil {
-				return datapoint.Maximum, *datapoint.Timestamp, nil
+				return []model.DataPoint{{Value: datapoint.Maximum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Minimum":
 			if datapoint.Minimum != nil {
-				return datapoint.Minimum, *datapoint.Timestamp, nil
+				return []model.DataPoint{{Value: datapoint.Minimum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Sum":
 			if datapoint.Sum != nil {
-				return datapoint.Sum, *datapoint.Timestamp, nil
+				return []model.DataPoint{{Value: datapoint.Sum, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "SampleCount":
 			if datapoint.SampleCount != nil {
-				return datapoint.SampleCount, *datapoint.Timestamp, nil
+				return []model.DataPoint{{Value: datapoint.SampleCount, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		case statistic == "Average":
 			if datapoint.Average != nil {
@@ -201,10 +227,10 @@ func getDatapoint(cwd *model.CloudwatchData, statistic string) (*float64, time.T
 			}
 		case Percentile.MatchString(statistic):
 			if data, ok := datapoint.ExtendedStatistics[statistic]; ok {
-				return data, *datapoint.Timestamp, nil
+				return []model.DataPoint{{Value: data, Timestamp: *datapoint.Timestamp}}, nil
 			}
 		default:
-			return nil, time.Time{}, fmt.Errorf("invalid statistic requested on metric %s: %s", cwd.MetricName, statistic)
+			return nil, fmt.Errorf("invalid statistic requested on metric %s: %s", cwd.MetricName, statistic)
 		}
 	}
 
@@ -219,17 +245,17 @@ func getDatapoint(cwd *model.CloudwatchData, statistic string) (*float64, time.T
 			total += *p.Average
 		}
 		average := total / float64(len(averageDataPoints))
-		return &average, timestamp, nil
+		return []model.DataPoint{{Value: &average, Timestamp: timestamp}}, nil
 	}
-	return nil, time.Time{}, nil
+	return nil, nil
 }
 
-func sortByTimestamp(datapoints []*model.Datapoint) []*model.Datapoint {
-	sort.Slice(datapoints, func(i, j int) bool {
-		jTimestamp := *datapoints[j].Timestamp
-		return datapoints[i].Timestamp.After(jTimestamp)
+func sortByTimestamp(dataPoints []*model.MetricStatisticsResult) []*model.MetricStatisticsResult {
+	sort.Slice(dataPoints, func(i, j int) bool {
+		jTimestamp := *dataPoints[j].Timestamp
+		return dataPoints[i].Timestamp.After(jTimestamp)
 	})
-	return datapoints
+	return dataPoints
 }
 
 func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, contextLabels map[string]string, logger *slog.Logger) map[string]string {
@@ -314,7 +340,10 @@ func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, obse
 			}
 		}
 
-		metricKey := fmt.Sprintf("%s-%d", metric.Name, prom_model.LabelsToSignature(metric.Labels))
+		// We are including the timestamp in the metric key to ensure that we don't have duplicate metrics
+		// if we have AddCloudwatchTimestamp enabled its the real timestamp, otherwise its a zero value
+		// the timestamp is needed to ensure valid date created by ExportAllDataPoints
+		metricKey := fmt.Sprintf("%s-%d-%d", metric.Name, prom_model.LabelsToSignature(metric.Labels), metric.Timestamp.Unix())
 		if _, exists := metricKeys[metricKey]; !exists {
 			metricKeys[metricKey] = struct{}{}
 			output = append(output, metric)
