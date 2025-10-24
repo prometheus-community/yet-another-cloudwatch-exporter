@@ -1,0 +1,17 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/PrivateLinkServices
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: ActiveConnections
+          statistics: [Average]
+        - name: NewConnections
+          statistics: [Average, Sum]
+        - name: PacketsDropped
+          statistics: [Average, Sum]
+        - name: BytesProcessed
+          statistics: [Sum]
