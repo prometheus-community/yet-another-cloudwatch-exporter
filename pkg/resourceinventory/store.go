@@ -12,7 +12,7 @@ type Store interface {
 
 type nopStore struct{}
 
-func (nopStore) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+func (nopStore) GetResources(_ context.Context, _ model.DiscoveryJob, _ string) ([]*model.TaggedResource, error) {
 	return nil, nil
 }
 

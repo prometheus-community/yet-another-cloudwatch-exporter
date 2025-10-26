@@ -242,6 +242,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/CloudWatchSynthetics",
+		Alias:     "synthetics",
+		ResourceFilters: []*string{
+			aws.String("synthetics:canary"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":canary:(?P<CanaryName>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/Cognito",
 		Alias:     "cognito-idp",
 		ResourceFilters: []*string{

@@ -16,6 +16,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
@@ -47,6 +48,15 @@ func ScrapeAwsData(
 				wg.Add(1)
 				go func(discoveryJob model.DiscoveryJob, region string, role model.Role) {
 					defer wg.Done()
+
+					// Apply startup jitter if configured
+					if jobsCfg.DiscoveryJobStartJitter != nil {
+						jitter := calculateJitter(jobsCfg.DiscoveryJobStartJitter)
+						if jitter > 0 {
+							time.Sleep(jitter)
+						}
+					}
+
 					jobLogger := logger.With("namespace", discoveryJob.Namespace, "region", region, "arn", role.RoleArn)
 					accountID, err := factory.GetAccountClient(region, role).GetAccount(ctx)
 					if err != nil {
@@ -59,6 +69,8 @@ func ScrapeAwsData(
 					if err != nil {
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
+
+					jobLogger.Info("Starting discovery job")
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)

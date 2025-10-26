@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
@@ -36,9 +37,28 @@ type ScrapeConf struct {
 type Discovery struct {
 	ExportedTagsOnMetrics ExportedTagsOnMetrics `yaml:"exportedTagsOnMetrics"`
 	Jobs                  []*Job                `yaml:"jobs"`
+	JobStartupJitter      *JitterConfig         `yaml:"jobStartupJitter"`
 }
 
 type ExportedTagsOnMetrics map[string][]string
+
+type JitterConfig struct {
+	MinDelay time.Duration `yaml:"minDelay"`
+	MaxDelay time.Duration `yaml:"maxDelay"`
+}
+
+func (j *JitterConfig) Validate() error {
+	if j.MinDelay < 0 {
+		return fmt.Errorf("minDelay must be >= 0, got %s", j.MinDelay)
+	}
+	if j.MaxDelay < 0 {
+		return fmt.Errorf("maxDelay must be >= 0, got %s", j.MaxDelay)
+	}
+	if j.MaxDelay < j.MinDelay {
+		return fmt.Errorf("maxDelay (%s) must be >= minDelay (%s)", j.MaxDelay, j.MinDelay)
+	}
+	return nil
+}
 
 type Tag struct {
 	Key   string `yaml:"key"`
@@ -160,6 +180,12 @@ func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 	}
 
 	if c.Discovery.Jobs != nil {
+		if c.Discovery.JobStartupJitter != nil {
+			if err := c.Discovery.JobStartupJitter.Validate(); err != nil {
+				return model.JobsConfig{}, fmt.Errorf("Discovery jobStartupJitter: %w", err)
+			}
+		}
+
 		for idx, job := range c.Discovery.Jobs {
 			err := job.validateDiscoveryJob(logger, idx)
 			if err != nil {
@@ -422,6 +448,13 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
+
+	if c.Discovery.JobStartupJitter != nil {
+		jobsCfg.DiscoveryJobStartJitter = &model.JitterConfig{
+			MinDelay: c.Discovery.JobStartupJitter.MinDelay,
+			MaxDelay: c.Discovery.JobStartupJitter.MaxDelay,
+		}
+	}
 
 	for _, discoveryJob := range c.Discovery.Jobs {
 		svc := SupportedServices.GetService(discoveryJob.Type)

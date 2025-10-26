@@ -136,6 +136,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/SQS` - Simple Queue Service
   * `AWS/States` - Step Functions
   * `AWS/StorageGateway` - On-premises access to cloud storage
+  * `AWS/CloudWatchSynthetics` - CloudWatch Synthetics Canaries
   * `AWS/Timestream` - Time-series database service
   * `AWS/TransitGateway` - Transit Gateway
   * `AWS/TrustedAdvisor` - Trusted Advisor
