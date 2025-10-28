@@ -1052,7 +1052,7 @@ var SupportedServices = serviceConfigs{
 	},
 	{
 		Namespace: "AWS/Bedrock/Agents",
-		Alias:     "bedrock",
+		Alias:     "bedrock-agents",
 		ResourceFilters: []*string{
 			aws.String("bedrock:agent-alias"),
 		},
@@ -1062,7 +1062,7 @@ var SupportedServices = serviceConfigs{
 	},
 	{
 		Namespace: "AWS/Bedrock/Guardrails",
-		Alias:     "bedrock",
+		Alias:     "bedrock-guardrails",
 		ResourceFilters: []*string{
 			aws.String("bedrock:guardrail"),
 		},
