@@ -22,7 +22,7 @@ import (
 // Factory is an interface to abstract away all logic required to produce the different
 // YACE specific clients which wrap AWS clients
 type Factory interface {
-	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client
+	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, rateLimit cloudwatch_client.RateLimitConfig) cloudwatch_client.Client
 	GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client
 	GetAccountClient(region string, role model.Role) account.Client
 }

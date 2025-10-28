@@ -727,7 +727,7 @@ func TestClientCacheGetCloudwatchClient(t *testing.T) {
 	testGetAWSClient(
 		t, "Cloudwatch",
 		func(t *testing.T, cache *CachingFactory, region string, role model.Role) {
-			iface := cache.GetCloudwatchClient(region, role, cloudwatch.ConcurrencyConfig{SingleLimit: 1})
+			iface := cache.GetCloudwatchClient(region, role, cloudwatch.ConcurrencyConfig{SingleLimit: 1}, cloudwatch.RateLimitConfig{})
 			if iface == nil {
 				t.Fail()
 				return

@@ -2,9 +2,9 @@
 
 **Important news and breaking changes**
 
-* [CHANGE] ...
+* [CHANGE] Refactored rate limiting to be per-account-per-region (matches AWS quota model)
 * [FEATURE] Add AWS/CloudWatchSynthetics (CloudWatch Synthetics Canaries) support
-* [ENHANCEMENT] ...
+* [ENHANCEMENT] Removed combinedRateLimiter redundancy, simplified rate limiting architecture
 * [BUGFIX] ...
 
 ## 0.63.0 / 2025-09-25

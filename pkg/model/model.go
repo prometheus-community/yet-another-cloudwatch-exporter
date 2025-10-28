@@ -24,16 +24,10 @@ const (
 )
 
 type JobsConfig struct {
-	StsRegion               string
-	DiscoveryJobs           []DiscoveryJob
-	StaticJobs              []StaticJob
-	CustomNamespaceJobs     []CustomNamespaceJob
-	DiscoveryJobStartJitter *JitterConfig
-}
-
-type JitterConfig struct {
-	MinDelay time.Duration
-	MaxDelay time.Duration
+	StsRegion           string
+	DiscoveryJobs       []DiscoveryJob
+	StaticJobs          []StaticJob
+	CustomNamespaceJobs []CustomNamespaceJob
 }
 
 type DiscoveryJob struct {

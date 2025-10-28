@@ -300,7 +300,7 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
 		// Can't do equality comparison due to concurrency limiter
-		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}))
+		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}, cloudwatch_client.RateLimitConfig{}))
 	})
 
 	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
@@ -318,7 +318,7 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 		require.NotNil(t, clients)
 		require.Nil(t, clients.cloudwatch)
 
-		output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1})
+		output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}, cloudwatch_client.RateLimitConfig{})
 		assert.NotNil(t, clients.cloudwatch)
 	})
 }

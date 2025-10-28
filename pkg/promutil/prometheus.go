@@ -85,6 +85,14 @@ var (
 		Name: "yace_cloudwatch_duplicate_metrics_filtered",
 		Help: "Help is not implemented yet.",
 	})
+	CloudwatchRateLimitWaitCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "yace_cloudwatch_rate_limit_waits_total",
+		Help: "Number of times requests were delayed due to rate limiting",
+	}, []string{"api_name"})
+	CloudwatchRateLimitAllowedCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "yace_cloudwatch_rate_limit_allowed_total",
+		Help: "Number of requests that were allowed immediately (not rate limited)",
+	}, []string{"api_name"})
 )
 
 var replacer = strings.NewReplacer(
