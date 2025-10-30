@@ -46,9 +46,7 @@ Only the latest version gets security updates. We won't support older versions.
 * Support the scraping of custom namespaces metrics with the CloudWatch Dimensions.
 * Supported services with auto discovery through tags:
   * `/aws/sagemaker/Endpoints` - Sagemaker Endpoints
-  * `/aws/sagemaker/InferenceRecommendationsJobs` - Sagemaker 
-  * `CloudWatchSynthetics` - CloudWatch Synthetics
-  Inference Recommender Jobs
+  * `/aws/sagemaker/InferenceRecommendationsJobs` - Sagemaker Inference Recommender Jobs
   * `/aws/sagemaker/ProcessingJobs` - Sagemaker Processing Jobs
   * `/aws/sagemaker/TrainingJobs` - Sagemaker Training Jobs
   * `/aws/sagemaker/TransformJobs` - Sagemaker Batch Transform Jobs
@@ -150,6 +148,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `CWAgent` - CloudWatch agent
   * `ECS/ContainerInsights` - ECS/ContainerInsights (Fargate metrics)
   * `Glue` - AWS Glue Jobs
+  * `CloudWatchSynthetics` - CloudWatch Synthetics
 
 ## Feature flags
 
