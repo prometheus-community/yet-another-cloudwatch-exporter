@@ -10,19 +10,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2
+package cloudwatch
 
 import (
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	aws_cloudwatch "github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
 	"github.com/stretchr/testify/require"
-
-	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 )
 
 func Test_toMetricDataResult(t *testing.T) {
@@ -31,15 +29,15 @@ func Test_toMetricDataResult(t *testing.T) {
 	type testCase struct {
 		name                      string
 		exportAllDataPoints       bool
-		getMetricDataOutput       cloudwatch.GetMetricDataOutput
-		expectedMetricDataResults []cloudwatch_client.MetricDataResult
+		getMetricDataOutput       aws_cloudwatch.GetMetricDataOutput
+		expectedMetricDataResults []MetricDataResult
 	}
 
 	testCases := []testCase{
 		{
 			name:                "all metrics present",
 			exportAllDataPoints: false,
-			getMetricDataOutput: cloudwatch.GetMetricDataOutput{
+			getMetricDataOutput: aws_cloudwatch.GetMetricDataOutput{
 				MetricDataResults: []types.MetricDataResult{
 					{
 						Id:         aws.String("metric-1"),
@@ -53,14 +51,14 @@ func Test_toMetricDataResult(t *testing.T) {
 					},
 				},
 			},
-			expectedMetricDataResults: []cloudwatch_client.MetricDataResult{
+			expectedMetricDataResults: []MetricDataResult{
 				{
-					ID: "metric-1", DataPoints: []cloudwatch_client.DataPoint{
+					ID: "metric-1", DataPoints: []DataPoint{
 						{Value: aws.Float64(1.0), Timestamp: ts.Add(10 * time.Minute)},
 					},
 				},
 				{
-					ID: "metric-2", DataPoints: []cloudwatch_client.DataPoint{
+					ID: "metric-2", DataPoints: []DataPoint{
 						{Value: aws.Float64(2.0), Timestamp: ts},
 					},
 				},
@@ -69,7 +67,7 @@ func Test_toMetricDataResult(t *testing.T) {
 		{
 			name:                "metric with no values",
 			exportAllDataPoints: false,
-			getMetricDataOutput: cloudwatch.GetMetricDataOutput{
+			getMetricDataOutput: aws_cloudwatch.GetMetricDataOutput{
 				MetricDataResults: []types.MetricDataResult{
 					{
 						Id:         aws.String("metric-1"),
@@ -83,22 +81,22 @@ func Test_toMetricDataResult(t *testing.T) {
 					},
 				},
 			},
-			expectedMetricDataResults: []cloudwatch_client.MetricDataResult{
+			expectedMetricDataResults: []MetricDataResult{
 				{
-					ID: "metric-1", DataPoints: []cloudwatch_client.DataPoint{
+					ID: "metric-1", DataPoints: []DataPoint{
 						{Value: aws.Float64(1.0), Timestamp: ts.Add(10 * time.Minute)},
 					},
 				},
 				{
 					ID:         "metric-2",
-					DataPoints: []cloudwatch_client.DataPoint{},
+					DataPoints: []DataPoint{},
 				},
 			},
 		},
 		{
 			name:                "export all data points",
 			exportAllDataPoints: true,
-			getMetricDataOutput: cloudwatch.GetMetricDataOutput{
+			getMetricDataOutput: aws_cloudwatch.GetMetricDataOutput{
 				MetricDataResults: []types.MetricDataResult{
 					{
 						Id:         aws.String("metric-1"),
@@ -112,16 +110,16 @@ func Test_toMetricDataResult(t *testing.T) {
 					},
 				},
 			},
-			expectedMetricDataResults: []cloudwatch_client.MetricDataResult{
+			expectedMetricDataResults: []MetricDataResult{
 				{
-					ID: "metric-1", DataPoints: []cloudwatch_client.DataPoint{
+					ID: "metric-1", DataPoints: []DataPoint{
 						{Value: aws.Float64(1.0), Timestamp: ts.Add(10 * time.Minute)},
 						{Value: aws.Float64(2.0), Timestamp: ts.Add(5 * time.Minute)},
 						{Value: aws.Float64(3.0), Timestamp: ts},
 					},
 				},
 				{
-					ID: "metric-2", DataPoints: []cloudwatch_client.DataPoint{
+					ID: "metric-2", DataPoints: []DataPoint{
 						{Value: aws.Float64(2.0), Timestamp: ts},
 					},
 				},
