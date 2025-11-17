@@ -147,6 +147,9 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("backup"),
 		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":backup-vault:(?P<BackupVaultName>[^:]+)"),
+		},
 	},
 	{
 		Namespace: "AWS/ApiGateway",
