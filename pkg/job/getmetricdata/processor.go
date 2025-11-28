@@ -52,6 +52,9 @@ type StartAndEndTimeParams struct {
 	Delay  int64
 }
 
+// Processor orchestrates parallel fetching of CloudWatch metric data from AWS.
+// It batches metric requests, executes them concurrently (controlled by concurrency limit),
+// calculates time windows for each batch, and returns only successfully processed metrics.
 type Processor struct {
 	client           Client
 	concurrency      int
@@ -74,6 +77,25 @@ func NewProcessor(logger *slog.Logger, client Client, concurrency int, windowCal
 	}
 }
 
+// Run processes CloudWatch metric requests in parallel batches, fetching data from AWS and returning successfully processed requests.
+//
+// It accepts a context for cancellation, a namespace identifier, and a slice of CloudwatchData requests.
+// The method returns early if there are no requests to process.
+//
+// Processing steps:
+// 1. Creates batches from requests using the iterator factory (optimized based on request characteristics)
+// 2. Processes each batch concurrently using an error group (controlled by concurrency limit)
+// 3. For each batch:
+//   - Assigns unique query IDs to each metric request
+//   - Calculates the time window (start/end times) based on period, length, and delay parameters
+//   - Fetches metric data from CloudWatch via the client
+//   - Maps returned results back to the original request objects using query IDs
+//
+// 4. Removes any requests that failed to retrieve data (compacts the slice in-place)
+// 5. Returns only successfully processed requests with their GetMetricDataResult populated
+//
+// Returns an error if the error group encounters a fatal error during processing, otherwise returns
+// the processed requests and nil error.
 func (p Processor) Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error) {
 	if len(requests) == 0 {
 		return requests, nil
@@ -114,6 +136,7 @@ func (p Processor) Run(ctx context.Context, namespace string, requests []*model.
 	return requests, nil
 }
 
+// addQueryIDsToBatch assigns unique query IDs to each CloudwatchData entry in the batch.
 func addQueryIDsToBatch(batch []*model.CloudwatchData) []*model.CloudwatchData {
 	for i, entry := range batch {
 		entry.GetMetricDataProcessingParams.QueryID = indexToQueryID(i)
@@ -122,6 +145,17 @@ func addQueryIDsToBatch(batch []*model.CloudwatchData) []*model.CloudwatchData {
 	return batch
 }
 
+// mapResultsToBatch maps CloudWatch GetMetricData API results back to the original batch requests using query IDs.
+//
+// For each result returned from CloudWatch:
+// 1. Extracts the batch index from the query ID (e.g., "id_5" → 5)
+// 2. Validates the query ID format and logs a warning if malformed
+// 3. Skips entries that already have a GetMetricDataResult (defensive check)
+// 4. Transforms CloudWatch DataPoints into internal model.DataPoint format
+// 5. Populates the GetMetricDataResult with the statistic type and transformed data points
+// 6. Clears GetMetricDataProcessingParams since processing is complete
+//
+// The function modifies the batch slice in-place. Invalid query IDs are logged but don't stop processing.
 func mapResultsToBatch(logger *slog.Logger, results []cloudwatch.MetricDataResult, batch []*model.CloudwatchData) {
 	for _, entry := range results {
 		id, err := queryIDToIndex(entry.ID)
