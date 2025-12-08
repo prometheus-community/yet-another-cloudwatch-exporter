@@ -14,6 +14,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -196,6 +197,10 @@ func hasEnhancedMetricsConfigured(cfg model.JobsConfig) bool {
 }
 
 func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.JobsConfig, factory clients.Factory) {
+	if processor == nil {
+		return
+	}
+
 	// Track which regions we've already registered clients for
 	rdsRegions := make(map[string]bool)
 
@@ -216,7 +221,17 @@ func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.Job
 						for _, region := range job.Regions {
 							key := region + "-" + role.RoleArn
 							if !rdsRegions[key] {
-								// Get AWS config from factory
+								// Try to get RDS client from factory if it supports it (for testing)
+								if testFactory, ok := factory.(interface{ GetRDSClient() rdsclient.ClientInterface }); ok {
+									client := testFactory.GetRDSClient()
+									if client != nil {
+										rdsSvc.RegisterClient(region, client)
+										rdsRegions[key] = true
+										continue
+									}
+								}
+
+								// Get AWS config from factory (production path)
 								awsCfg := getAWSConfigFromFactory(factory, region, role)
 								if awsCfg != nil {
 									client := rdsclient.NewClient(*awsCfg)
@@ -229,6 +244,32 @@ func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.Job
 				}
 			}
 		}
+	}
+}
+
+// RegisterEnhancedMetricsClient registers an enhanced metrics client for testing purposes
+func RegisterEnhancedMetricsClient(processor *enhanced.Processor, namespace, region string, client interface{}) error {
+	if processor == nil {
+		return fmt.Errorf("processor is nil")
+	}
+
+	svc := processor.GetService(namespace)
+	if svc == nil {
+		return fmt.Errorf("no service found for namespace %s", namespace)
+	}
+
+	switch namespace {
+	case "AWS/RDS":
+		if rdsSvc, ok := svc.(*rds.Service); ok {
+			if rdsClient, ok := client.(*rdsclient.Client); ok {
+				rdsSvc.RegisterClient(region, rdsClient)
+				return nil
+			}
+			return fmt.Errorf("client is not an RDS client")
+		}
+		return fmt.Errorf("service is not an RDS service")
+	default:
+		return fmt.Errorf("unsupported namespace: %s", namespace)
 	}
 }
 

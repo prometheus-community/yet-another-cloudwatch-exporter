@@ -21,6 +21,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 )
 
+// ClientInterface defines the interface for RDS clients
+type ClientInterface interface {
+	DescribeAllDBInstances(ctx context.Context) ([]types.DBInstance, error)
+}
+
 // Client wraps the AWS RDS client for enhanced metrics
 type Client struct {
 	client *rds.Client

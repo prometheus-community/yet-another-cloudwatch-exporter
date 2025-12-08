@@ -28,7 +28,7 @@ import (
 // Service provides enhanced metrics for AWS RDS
 type Service struct {
 	logger  *slog.Logger
-	clients map[string]*rdsclient.Client // region -> client
+	clients map[string]rdsclient.ClientInterface // region -> client
 
 	// Cache: region -> ARN -> DBInstance
 	cache struct {
@@ -41,12 +41,12 @@ type Service struct {
 func NewService(logger *slog.Logger) *Service {
 	return &Service{
 		logger:  logger,
-		clients: make(map[string]*rdsclient.Client),
+		clients: make(map[string]rdsclient.ClientInterface),
 	}
 }
 
 // RegisterClient registers an RDS client for a specific region
-func (s *Service) RegisterClient(region string, client *rdsclient.Client) {
+func (s *Service) RegisterClient(region string, client rdsclient.ClientInterface) {
 	s.clients[region] = client
 }
 
