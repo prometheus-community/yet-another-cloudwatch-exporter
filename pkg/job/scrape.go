@@ -21,9 +21,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	rdsclient "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/enhanced/rds"
 	v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v2"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/enhanced"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/enhanced/rds"
@@ -222,7 +222,9 @@ func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.Job
 							key := region + "-" + role.RoleArn
 							if !rdsRegions[key] {
 								// Try to get RDS client from factory if it supports it (for testing)
-								if testFactory, ok := factory.(interface{ GetRDSClient() rdsclient.ClientInterface }); ok {
+								if testFactory, ok := factory.(interface {
+									GetRDSClient() rdsclient.ClientInterface
+								}); ok {
 									client := testFactory.GetRDSClient()
 									if client != nil {
 										rdsSvc.RegisterClient(region, client)
@@ -244,32 +246,6 @@ func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.Job
 				}
 			}
 		}
-	}
-}
-
-// RegisterEnhancedMetricsClient registers an enhanced metrics client for testing purposes
-func RegisterEnhancedMetricsClient(processor *enhanced.Processor, namespace, region string, client interface{}) error {
-	if processor == nil {
-		return fmt.Errorf("processor is nil")
-	}
-
-	svc := processor.GetService(namespace)
-	if svc == nil {
-		return fmt.Errorf("no service found for namespace %s", namespace)
-	}
-
-	switch namespace {
-	case "AWS/RDS":
-		if rdsSvc, ok := svc.(*rds.Service); ok {
-			if rdsClient, ok := client.(*rdsclient.Client); ok {
-				rdsSvc.RegisterClient(region, rdsClient)
-				return nil
-			}
-			return fmt.Errorf("client is not an RDS client")
-		}
-		return fmt.Errorf("service is not an RDS service")
-	default:
-		return fmt.Errorf("unsupported namespace: %s", namespace)
 	}
 }
 
