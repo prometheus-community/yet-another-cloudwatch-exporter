@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/prometheus/common/promslog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
@@ -165,12 +165,7 @@ func TestUpdateMetrics_StaticJob(t *testing.T) {
 	`
 
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_ec2_cpuutilization_average")
-	assert.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
-
-	// Verify at least one metric was registered
-	count, err := testutil.GatherAndCount(registry)
-	require.NoError(t, err)
-	assert.Greater(t, count, 0, "Should have registered at least one metric")
+	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
 }
 
 func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
@@ -231,7 +226,7 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 				{
 					ID: "id_0",
 					DataPoints: []cloudwatch.DataPoint{
-						{Value: floatPtr(42.5), Timestamp: time.Now()},
+						{Value: aws.Float64(42.5), Timestamp: time.Now()},
 					},
 				},
 			},
@@ -243,14 +238,13 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
 	require.NoError(t, err)
 
-	// Discovery jobs with mocks may not generate metrics if the full discovery flow
-	// requires more complex setup. This test verifies no errors occur during the scrape.
-	count, err := testutil.GatherAndCount(registry)
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",region="us-east-1"} 42.5
+	`
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_ec2_cpuutilization_average")
 	require.NoError(t, err)
-
-	// Just verify the call completed without error
-	// Full integration tests would be needed to verify discovery job metrics
-	t.Logf("Generated %d metrics", count)
 }
 
 func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
@@ -318,7 +312,7 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 				{
 					ID: "id_0",
 					DataPoints: []cloudwatch.DataPoint{
-						{Value: floatPtr(25.5), Timestamp: time.Now()},
+						{Value: aws.Float64(25.5), Timestamp: time.Now()},
 					},
 				},
 			},
@@ -335,57 +329,14 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Generated %d total metrics", totalCount)
 
-	// Check for CPU metric using testutil
-	cpuMetricExists := false
-	err = testutil.GatherAndCompare(registry, strings.NewReader(""), "aws_rds_cpuutilization_average")
-	if err == nil {
-		cpuMetricExists = true
-		t.Log("Successfully found CPU utilization metric from CloudWatch")
-	}
+	// Check for and verify CPU metric value using testutil
+	expectedCPUMetric := `
+		# HELP aws_rds_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_rds_cpuutilization_average gauge
+		aws_rds_cpuutilization_average{account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
+		aws_rds_storage_capacity_bytes{account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
+	`
 
-	// Check for RDS storage capacity metric
-	// Note: Enhanced metrics like StorageSpace generate metrics with specific naming
-	// The actual metric name would be aws_rds_storage_capacity_bytes or similar
-	storageMetricExists := false
-	for _, metricName := range []string{"aws_rds_storage_capacity_bytes", "aws_rds_storagespace"} {
-		err = testutil.GatherAndCompare(registry, strings.NewReader(""), metricName)
-		if err == nil {
-			storageMetricExists = true
-			t.Logf("Successfully found RDS storage capacity metric: %s", metricName)
-			break
-		}
-	}
-
-	// Discovery jobs with mocks are complex as they require the full discovery flow.
-	// Enhanced metrics require actual RDS API clients to retrieve storage information.
-	// This test verifies that:
-	// 1. UpdateMetrics completes without error when enhanced metrics are configured
-	// 2. The configuration structure is correct
-	//
-	// Full integration tests with real AWS APIs would be needed to verify:
-	// - RDS storage metrics are actually retrieved and exposed
-	// - Metric naming follows the expected pattern (aws_rds_storage_capacity_bytes)
-	// - Labels include DBInstanceIdentifier and exported tags
-
-	if cpuMetricExists {
-		// Verify the metric has expected labels by attempting to gather it
-		expectedCPUMetric := `
-			# HELP aws_rds_cpuutilization_average Help text for aws_rds_cpuutilization_average
-			# TYPE aws_rds_cpuutilization_average gauge
-		`
-		// Note: We use a minimal comparison since exact values depend on mock data
-		err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average")
-		if err != nil {
-			t.Logf("CPU metric structure validation: %v", err)
-		}
-	}
-
-	if storageMetricExists {
-		t.Log("Successfully found RDS storage capacity metric from enhanced metrics")
-	}
-}
-
-// floatPtr is a helper function to create a pointer to a float64
-func floatPtr(f float64) *float64 {
-	return &f
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average", "aws_rds_storage_capacity_bytes")
+	require.NoError(t, err)
 }
