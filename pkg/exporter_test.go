@@ -245,7 +245,7 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	expectedMetric := `
 		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
 		# TYPE aws_ec2_cpuutilization_average gauge
-		aws_ec2_cpuutilization_average{account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",region="us-east-1"} 42.5
+		aws_ec2_cpuutilization_average{account_alias="test-account", account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",region="us-east-1"} 42.5
 	`
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_ec2_cpuutilization_average")
 	require.NoError(t, err)
@@ -255,34 +255,39 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 	ctx := context.Background()
 	logger := promslog.NewNopLogger()
 
-	// Create a discovery job with RDS and enhanced metrics
-	jobsCfg := model.JobsConfig{
-		DiscoveryJobs: []model.DiscoveryJob{
-			{
-				Regions:   []string{"us-east-1"},
-				Roles:     []model.Role{{}},
-				Namespace: "AWS/RDS",
-				SearchTags: []model.SearchTag{
-					{Key: "Environment"},
-				},
-				Metrics: []*model.MetricConfig{
-					{
-						Name:       "CPUUtilization",
-						Statistics: []string{"Average"},
-						Period:     300,
-						Length:     300,
+	// Create a ScrapeConf configuration and convert it to model.JobsConfig
+	conf := &config.ScrapeConf{
+		Discovery: config.Discovery{
+			Jobs: []*config.Job{
+				{
+					Type:    "AWS/RDS",
+					Regions: []string{"us-east-1"},
+					Roles:  []config.Role{{}},
+					SearchTags: []config.Tag{
+						{Key: "Environment"},
+					},
+					Metrics: []*config.Metric{
+						{
+							Name:       "CPUUtilization",
+							Statistics: []string{"Average"},
+							Period:     300,
+							Length:     300,
+						},
+					},
+					EnhancedMetrics: []*config.EnhancedMetric{
+						{
+							Name:    "StorageSpace",
+							Enabled: aws.Bool(true),
+						},
 					},
 				},
-				EnhancedMetrics: []model.EnhancedMetricConfig{
-					{
-						Name:    "StorageSpace",
-						Enabled: true,
-					},
-				},
-				ExportedTagsOnMetrics: []string{"Environment"},
+			},
+			ExportedTagsOnMetrics: config.ExportedTagsOnMetrics{
+				"AWS/RDS": []string{"Environment"},
 			},
 		},
 	}
+	jobsCfg := conf.ToModelConfig()
 
 	factory := &mockFactory{
 		accountClient: mockAccountClient{
@@ -334,13 +339,15 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 	t.Logf("Generated %d total metrics", totalCount)
 
 	// Check for and verify CPU metric value using testutil
-	expectedCPUMetric := `
+	expectedMetrics := `
 		# HELP aws_rds_cpuutilization_average Help is not implemented yet.
 		# TYPE aws_rds_cpuutilization_average gauge
-		aws_rds_cpuutilization_average{account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
-		aws_rds_storage_capacity_bytes{account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
+		aws_rds_cpuutilization_average{account_alias="test-account", account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
+		# HELP aws_rds_storage_capacity_bytes 
+        # TYPE aws_rds_storage_capacity_bytes untyped
+		aws_rds_storage_capacity_bytes{account_alias="test-account", account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
 	`
 
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average", "aws_rds_storage_capacity_bytes")
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetrics), "aws_rds_cpuutilization_average", "aws_rds_storage_capacity_bytes")
 	require.NoError(t, err)
 }
