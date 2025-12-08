@@ -171,6 +171,24 @@ func TestAssociatorSagemaker(t *testing.T) {
 			expectedSkip:     false,
 			expectedResource: sagemakerInferenceComponentInvocationUpper,
 		},
+		{
+			name: "variant name match in Upper case",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/SageMaker").ToModelDimensionsRegexp(),
+				resources:        sagemakerInvocationResources,
+				metric: &model.Metric{
+					MetricName: "ModelLatency",
+					Namespace:  "AWS/SageMaker",
+					Dimensions: []model.Dimension{
+						{Name: "EndpointName", Value: "example-endpoint-two"},
+						// this is the important part: VariantName with upper/mixed case
+						{Name: "VariantName", Value: "Variant-One"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: sagemakerEndpointInvocationTwo,
+		},
 	}
 
 	for _, tc := range testcases {

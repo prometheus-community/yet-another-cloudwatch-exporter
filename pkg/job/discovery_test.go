@@ -420,6 +420,87 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				},
 			},
 		},
+		{
+			"sagemaker endpoint with variant",
+			args{
+				region:     "us-east-1",
+				accountID:  "123123123123",
+				namespace:  "sagemaker",
+				customTags: nil,
+				tagsOnMetrics: []string{
+					"Value1",
+					"Value2",
+				},
+				dimensionRegexps: config.SupportedServices.
+					GetService("AWS/SageMaker").
+					ToModelDimensionsRegexp(),
+				// We don't set dimensionNameRequirements here: we want to allow
+				// metrics that have extra dimensions like VariantName.
+				resources: []*model.TaggedResource{
+					{
+						ARN: "arn:aws:sagemaker:us-east-1:123123123123:endpoint/someendpoint",
+						Tags: []model.Tag{
+							{
+								Key:   "Environment",
+								Value: "prod",
+							},
+						},
+						Namespace: "sagemaker",
+						Region:    "us-east-1",
+					},
+				},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "ModelLatency",
+						Namespace:  "AWS/SageMaker",
+						Dimensions: []model.Dimension{
+							// Note the mixed case here – this is what your
+							// SageMaker fixDimension logic is about.
+							{Name: "EndpointName", Value: "SomeEndpoint"},
+							{Name: "VariantName", Value: "AllTraffic"},
+						},
+					},
+				},
+				m: &model.MetricConfig{
+					Name: "ModelLatency",
+					Statistics: []string{
+						"Average",
+					},
+					Period:                 60,
+					Length:                 600,
+					Delay:                  120,
+					NilToZero:              false,
+					AddCloudwatchTimestamp: false,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName: "ModelLatency",
+					Dimensions: []model.Dimension{
+						// getFilteredMetricDatas just forwards cwMetric.Dimensions,
+						// so we expect both EndpointName AND VariantName here.
+						{Name: "EndpointName", Value: "SomeEndpoint"},
+						{Name: "VariantName", Value: "AllTraffic"},
+					},
+					ResourceName: "arn:aws:sagemaker:us-east-1:123123123123:endpoint/someendpoint",
+					Namespace:    "sagemaker",
+					Tags: []model.Tag{
+						{Key: "Value1", Value: ""},
+						{Key: "Value2", Value: ""},
+					},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Average",
+						Period:    60,
+						Length:    600,
+						Delay:     120,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{
+						NilToZero:              false,
+						AddCloudwatchTimestamp: false,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
