@@ -39,15 +39,15 @@ type mockFactory struct {
 	accountClient    mockAccountClient
 }
 
-func (f *mockFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
 	return &f.cloudwatchClient
 }
 
-func (f *mockFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
+func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Client {
 	return f.taggingClient
 }
 
-func (f *mockFactory) GetAccountClient(region string, role model.Role) account.Client {
+func (f *mockFactory) GetAccountClient(_ string, _ model.Role) account.Client {
 	return f.accountClient
 }
 
@@ -58,14 +58,14 @@ type mockAccountClient struct {
 	err          error
 }
 
-func (m mockAccountClient) GetAccount(ctx context.Context) (string, error) {
+func (m mockAccountClient) GetAccount(_ context.Context) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
 	return m.accountID, nil
 }
 
-func (m mockAccountClient) GetAccountAlias(ctx context.Context) (string, error) {
+func (m mockAccountClient) GetAccountAlias(_ context.Context) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
@@ -78,7 +78,7 @@ type mockTaggingClient struct {
 	err       error
 }
 
-func (m mockTaggingClient) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+func (m mockTaggingClient) GetResources(_ context.Context, _ model.DiscoveryJob, _ string) ([]*model.TaggedResource, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -92,7 +92,7 @@ type mockCloudwatchClient struct {
 	err               error
 }
 
-func (m *mockCloudwatchClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActive bool, fn func(page []*model.Metric)) error {
+func (m *mockCloudwatchClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ bool, fn func(page []*model.Metric)) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -102,11 +102,11 @@ func (m *mockCloudwatchClient) ListMetrics(ctx context.Context, namespace string
 	return nil
 }
 
-func (m *mockCloudwatchClient) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []cloudwatch.MetricDataResult {
+func (m *mockCloudwatchClient) GetMetricData(_ context.Context, _ []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
 	return m.metricDataResults
 }
 
-func (m *mockCloudwatchClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
+func (m *mockCloudwatchClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.MetricStatisticsResult {
 	// Return a simple metric statistics result for testing
 	now := time.Now()
 	avg := 42.0
