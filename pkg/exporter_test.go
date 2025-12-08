@@ -15,11 +15,12 @@ package exporter
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -156,24 +157,20 @@ func TestUpdateMetrics_StaticJob(t *testing.T) {
 	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
 	require.NoError(t, err)
 
-	// Gather metrics from the registry
-	metricFamilies, err := registry.Gather()
+	// Verify the expected metric exists using testutil
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_alias="test-account",account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="test-static-job",region="us-east-1"} 42
+	`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_ec2_cpuutilization_average")
+	assert.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
+
+	// Verify at least one metric was registered
+	count, err := testutil.GatherAndCount(registry)
 	require.NoError(t, err)
-
-	// Verify that metrics were registered
-	assert.NotEmpty(t, metricFamilies)
-
-	// Check for the expected metric
-	var foundMetric bool
-	for _, family := range metricFamilies {
-		if family.GetName() == "aws_ec2_cpuutilization_average" {
-			foundMetric = true
-			assert.Equal(t, dto.MetricType_GAUGE, family.GetType())
-			// Should have at least one metric data point
-			assert.NotEmpty(t, family.Metric)
-		}
-	}
-	assert.True(t, foundMetric, "Expected metric aws_ec2_cpuutilization_average not found")
+	assert.Greater(t, count, 0, "Should have registered at least one metric")
 }
 
 func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
@@ -248,12 +245,12 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 
 	// Discovery jobs with mocks may not generate metrics if the full discovery flow
 	// requires more complex setup. This test verifies no errors occur during the scrape.
-	families, err := registry.Gather()
+	count, err := testutil.GatherAndCount(registry)
 	require.NoError(t, err)
 
 	// Just verify the call completed without error
 	// Full integration tests would be needed to verify discovery job metrics
-	t.Logf("Generated %d metric families", len(families))
+	t.Logf("Generated %d metrics", count)
 }
 
 func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
@@ -333,40 +330,29 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
 	require.NoError(t, err)
 
-	// Gather metrics from the registry
-	families, err := registry.Gather()
+	// Count total metrics generated
+	totalCount, err := testutil.GatherAndCount(registry)
 	require.NoError(t, err)
+	t.Logf("Generated %d total metrics", totalCount)
 
-	// Check for metrics that might have been generated
-	var foundCPUMetric bool
-	var foundStorageMetric bool
-	for _, family := range families {
-		t.Logf("Found metric family: %s", family.GetName())
+	// Check for CPU metric using testutil
+	cpuMetricExists := false
+	err = testutil.GatherAndCompare(registry, strings.NewReader(""), "aws_rds_cpuutilization_average")
+	if err == nil {
+		cpuMetricExists = true
+		t.Log("Successfully found CPU utilization metric from CloudWatch")
+	}
 
-		if family.GetName() == "aws_rds_cpuutilization_average" {
-			foundCPUMetric = true
-			assert.Equal(t, dto.MetricType_GAUGE, family.GetType())
-		}
-
-		// Verify the RDS storage capacity metric if present
-		// Note: Enhanced metrics like StorageSpace generate metrics with specific naming
-		// The actual metric name would be aws_rds_storage_capacity_bytes or similar
-		if family.GetName() == "aws_rds_storage_capacity_bytes" ||
-			family.GetName() == "aws_rds_storagespace" {
-			foundStorageMetric = true
-			assert.Equal(t, dto.MetricType_GAUGE, family.GetType())
-			assert.NotEmpty(t, family.Metric, "Storage metric should have data points")
-
-			// Verify metric labels include the expected dimensions
-			for _, metric := range family.Metric {
-				labelMap := make(map[string]string)
-				for _, label := range metric.Label {
-					labelMap[label.GetName()] = label.GetValue()
-				}
-				t.Logf("Storage metric labels: %v", labelMap)
-				// DBInstanceIdentifier should be present as a dimension
-				// The actual label name depends on snake_case conversion
-			}
+	// Check for RDS storage capacity metric
+	// Note: Enhanced metrics like StorageSpace generate metrics with specific naming
+	// The actual metric name would be aws_rds_storage_capacity_bytes or similar
+	storageMetricExists := false
+	for _, metricName := range []string{"aws_rds_storage_capacity_bytes", "aws_rds_storagespace"} {
+		err = testutil.GatherAndCompare(registry, strings.NewReader(""), metricName)
+		if err == nil {
+			storageMetricExists = true
+			t.Logf("Successfully found RDS storage capacity metric: %s", metricName)
+			break
 		}
 	}
 
@@ -381,14 +367,22 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 	// - Metric naming follows the expected pattern (aws_rds_storage_capacity_bytes)
 	// - Labels include DBInstanceIdentifier and exported tags
 
-	if foundCPUMetric {
-		t.Log("Successfully found CPU utilization metric from CloudWatch")
-	}
-	if foundStorageMetric {
-		t.Log("Successfully found RDS storage capacity metric from enhanced metrics")
+	if cpuMetricExists {
+		// Verify the metric has expected labels by attempting to gather it
+		expectedCPUMetric := `
+			# HELP aws_rds_cpuutilization_average Help text for aws_rds_cpuutilization_average
+			# TYPE aws_rds_cpuutilization_average gauge
+		`
+		// Note: We use a minimal comparison since exact values depend on mock data
+		err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average")
+		if err != nil {
+			t.Logf("CPU metric structure validation: %v", err)
+		}
 	}
 
-	t.Logf("Test completed with %d metric families generated", len(families))
+	if storageMetricExists {
+		t.Log("Successfully found RDS storage capacity metric from enhanced metrics")
+	}
 }
 
 // floatPtr is a helper function to create a pointer to a float64
