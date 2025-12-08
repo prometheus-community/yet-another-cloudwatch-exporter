@@ -217,7 +217,7 @@ func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 		return model.JobsConfig{}, fmt.Errorf("unknown apiVersion value '%s'", c.APIVersion)
 	}
 
-	return c.toModelConfig(), nil
+	return c.ToModelConfig(), nil
 }
 
 func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
@@ -425,7 +425,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 	return nil
 }
 
-func (c *ScrapeConf) toModelConfig() model.JobsConfig {
+func (c *ScrapeConf) ToModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
 

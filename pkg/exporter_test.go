@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -172,27 +173,30 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	ctx := context.Background()
 	logger := promslog.NewNopLogger()
 
-	// Create a discovery job configuration
-	jobsCfg := model.JobsConfig{
-		DiscoveryJobs: []model.DiscoveryJob{
-			{
-				Regions:   []string{"us-east-1"},
-				Roles:     []model.Role{{}},
-				Namespace: "AWS/EC2",
-				SearchTags: []model.SearchTag{
-					{Key: "Environment"},
-				},
-				Metrics: []*model.MetricConfig{
-					{
-						Name:       "CPUUtilization",
-						Statistics: []string{"Average"},
-						Period:     300,
-						Length:     300,
+	// Create a ScrapeConf configuration and convert it to model.JobsConfig
+	conf := &config.ScrapeConf{
+		Discovery: config.Discovery{
+			Jobs: []*config.Job{
+				{
+					Type:    "AWS/EC2",
+					Regions: []string{"us-east-1"},
+					Roles:  []config.Role{{}},
+					SearchTags: []config.Tag{
+						{Key: "Environment", Value: ".*"},
+					},
+					Metrics: []*config.Metric{
+						{
+							Name:       "CPUUtilization",
+							Statistics: []string{"Average"},
+							Period:     300,
+							Length:     300,
+						},
 					},
 				},
 			},
 		},
 	}
+	jobsCfg := conf.ToModelConfig()
 
 	factory := &mockFactory{
 		accountClient: mockAccountClient{
