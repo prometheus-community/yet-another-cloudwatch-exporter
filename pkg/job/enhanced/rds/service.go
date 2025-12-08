@@ -57,7 +57,7 @@ func (s *Service) GetNamespace() string {
 
 // GetSupportedMetrics returns list of supported enhanced metric names
 func (s *Service) GetSupportedMetrics() []string {
-	return []string{"StorageSpace", "AllocatedStorage"}
+	return []string{"StorageCapacity", "AllocatedStorage"}
 }
 
 // FetchEnhancedMetrics fetches AWS API data and builds enhanced metrics
@@ -168,14 +168,14 @@ func (s *Service) buildMetric(
 	exportedTags []string,
 ) *model.CloudwatchData {
 	switch metricName {
-	case "StorageSpace", "AllocatedStorage":
-		return s.buildStorageSpaceMetric(resource, instance, exportedTags)
+	case "StorageCapacity", "AllocatedStorage":
+		return s.buildStorageCapacityMetric(resource, instance, exportedTags)
 	default:
 		return nil
 	}
 }
 
-func (s *Service) buildStorageSpaceMetric(
+func (s *Service) buildStorageCapacityMetric(
 	resource *model.TaggedResource,
 	instance *types.DBInstance,
 	exportedTags []string,
@@ -199,11 +199,12 @@ func (s *Service) buildStorageSpaceMetric(
 	// Get tags to export (uses existing TaggedResource.MetricTags method!)
 	tags := resource.MetricTags(exportedTags)
 
-	// Convert AllocatedStorage (int32) to float64 for Prometheus
-	value := float64(*instance.AllocatedStorage)
+	// Convert AllocatedStorage from GiB to bytes for Prometheus
+	// AWS reports AllocatedStorage in GiB (gibibytes)
+	valueInBytes := float64(*instance.AllocatedStorage) * 1024 * 1024 * 1024
 
 	return &model.CloudwatchData{
-		MetricName:   "StorageSpace",
+		MetricName:   "StorageCapacity",
 		ResourceName: resource.ARN,
 		Namespace:    "AWS/RDS",
 		Dimensions:   dimensions,
@@ -218,10 +219,10 @@ func (s *Service) buildStorageSpaceMetric(
 
 		// Store the value as a single data point
 		GetMetricDataResult: &model.GetMetricDataResult{
-			Statistic: "Value",
+			Statistic: "Bytes",
 			DataPoints: []model.DataPoint{
 				{
-					Value:     &value,
+					Value:     &valueInBytes,
 					Timestamp: time.Now(),
 				},
 			},

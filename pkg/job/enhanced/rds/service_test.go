@@ -45,11 +45,11 @@ func TestService_GetNamespace(t *testing.T) {
 func TestService_GetSupportedMetrics(t *testing.T) {
 	svc := NewService(promslog.NewNopLogger())
 	metrics := svc.GetSupportedMetrics()
-	assert.Contains(t, metrics, "StorageSpace")
+	assert.Contains(t, metrics, "StorageCapacity")
 	assert.Contains(t, metrics, "AllocatedStorage")
 }
 
-func TestService_buildStorageSpaceMetric(t *testing.T) {
+func TestService_buildStorageCapacityMetric(t *testing.T) {
 	logger := promslog.NewNopLogger()
 	svc := NewService(logger)
 
@@ -81,7 +81,7 @@ func TestService_buildStorageSpaceMetric(t *testing.T) {
 			},
 			exportedTags: []string{"Environment"},
 			wantNil:      false,
-			wantValue:    100.0,
+			wantValue:    107374182400.0, // 100 GiB in bytes
 			wantDims:     3,
 		},
 		{
@@ -134,19 +134,19 @@ func TestService_buildStorageSpaceMetric(t *testing.T) {
 			},
 			exportedTags: []string{},
 			wantNil:      false,
-			wantValue:    16384.0,
+			wantValue:    17592186044416.0, // 16384 GiB in bytes
 			wantDims:     3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := svc.buildStorageSpaceMetric(tt.resource, tt.instance, tt.exportedTags)
+			got := svc.buildStorageCapacityMetric(tt.resource, tt.instance, tt.exportedTags)
 			if tt.wantNil {
 				assert.Nil(t, got)
 			} else {
 				assert.NotNil(t, got)
-				assert.Equal(t, "StorageSpace", got.MetricName)
+				assert.Equal(t, "StorageCapacity", got.MetricName)
 				assert.Equal(t, tt.resource.ARN, got.ResourceName)
 				assert.Equal(t, "AWS/RDS", got.Namespace)
 				assert.Len(t, got.Dimensions, tt.wantDims)
@@ -246,8 +246,8 @@ func TestService_buildMetric(t *testing.T) {
 		wantNil    bool
 	}{
 		{
-			name:       "StorageSpace metric",
-			metricName: "StorageSpace",
+			name:       "StorageCapacity metric",
+			metricName: "StorageCapacity",
 			wantNil:    false,
 		},
 		{

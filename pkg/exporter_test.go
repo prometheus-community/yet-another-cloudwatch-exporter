@@ -300,7 +300,7 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 					},
 					EnhancedMetrics: []*config.EnhancedMetric{
 						{
-							Name:    "StorageSpace",
+							Name:    "StorageCapacity",
 							Enabled: aws.Bool(true),
 						},
 					},
@@ -376,11 +376,18 @@ func TestUpdateMetrics_RDSStorageMetrics(t *testing.T) {
 		# HELP aws_rds_cpuutilization_average Help is not implemented yet.
 		# TYPE aws_rds_cpuutilization_average gauge
 		aws_rds_cpuutilization_average{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="my-database",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 25.5
-	        # HELP aws_rds_storage_space_value Help is not implemented yet.
-# TYPE aws_rds_storage_space_value gauge
-aws_rds_storage_space_value{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="my-database",dimension_DatabaseClass="db.t3.micro",dimension_EngineName="postgres",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 100
 	`
 
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average", "aws_rds_storage_space_value")
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedCPUMetric), "aws_rds_cpuutilization_average")
+	require.NoError(t, err)
+
+	// Verify RDS storage capacity metric exists and has correct value (100 GiB = 107374182400 bytes)
+	expectedStorageMetric := `
+		# HELP aws_rds_storage_capacity_bytes Help is not implemented yet.
+		# TYPE aws_rds_storage_capacity_bytes gauge
+		aws_rds_storage_capacity_bytes{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="my-database",dimension_DatabaseClass="db.t3.micro",dimension_EngineName="postgres",name="arn:aws:rds:us-east-1:123456789012:db:my-database",region="us-east-1",tag_Environment="production"} 1.073741824e+11
+	`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedStorageMetric), "aws_rds_storage_capacity_bytes")
 	require.NoError(t, err)
 }
