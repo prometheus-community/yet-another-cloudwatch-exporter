@@ -505,3 +505,57 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 		})
 	}
 }
+
+func Test_getEnabledEnhancedMetrics(t *testing.T) {
+	tests := []struct {
+		name    string
+		configs []model.EnhancedMetricConfig
+		want    []string
+	}{
+		{
+			name:    "empty configs",
+			configs: []model.EnhancedMetricConfig{},
+			want:    []string{},
+		},
+		{
+			name: "all enabled",
+			configs: []model.EnhancedMetricConfig{
+				{Name: "StorageSpace", Enabled: true},
+				{Name: "AllocatedStorage", Enabled: true},
+				{Name: "MemorySize", Enabled: true},
+			},
+			want: []string{"StorageSpace", "AllocatedStorage", "MemorySize"},
+		},
+		{
+			name: "some enabled some disabled",
+			configs: []model.EnhancedMetricConfig{
+				{Name: "StorageSpace", Enabled: true},
+				{Name: "AllocatedStorage", Enabled: false},
+				{Name: "MemorySize", Enabled: true},
+				{Name: "ItemCount", Enabled: false},
+			},
+			want: []string{"StorageSpace", "MemorySize"},
+		},
+		{
+			name: "all disabled",
+			configs: []model.EnhancedMetricConfig{
+				{Name: "StorageSpace", Enabled: false},
+				{Name: "AllocatedStorage", Enabled: false},
+			},
+			want: []string{},
+		},
+		{
+			name: "single enabled metric",
+			configs: []model.EnhancedMetricConfig{
+				{Name: "StorageSpace", Enabled: true},
+			},
+			want: []string{"StorageSpace"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getEnabledEnhancedMetrics(tt.configs)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

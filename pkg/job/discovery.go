@@ -35,6 +35,10 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
+type enhancedMetricsProcessor interface {
+	Process(ctx context.Context, namespace string, resources []*model.TaggedResource, requestedMetrics []string, exportedTags []string) ([]*model.CloudwatchData, error)
+}
+
 func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -43,6 +47,7 @@ func runDiscoveryJob(
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
+	enhancedProcessor enhancedMetricsProcessor,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
@@ -71,6 +76,21 @@ func runDiscoveryJob(
 	if err != nil {
 		logger.Error("Failed to get metric data", "err", err)
 		return nil, nil
+	}
+
+	// Fetch enhanced metrics if configured
+	if enhancedProcessor != nil && len(job.EnhancedMetrics) > 0 {
+		enabledMetrics := getEnabledEnhancedMetrics(job.EnhancedMetrics)
+		if len(enabledMetrics) > 0 {
+			logger.Debug("Fetching enhanced metrics", "count", len(enabledMetrics))
+			enhancedData, err := enhancedProcessor.Process(ctx, svc.Namespace, resources, enabledMetrics, job.ExportedTagsOnMetrics)
+			if err != nil {
+				logger.Warn("Failed to get enhanced metrics", "err", err)
+			} else if len(enhancedData) > 0 {
+				logger.Debug("Got enhanced metrics", "count", len(enhancedData))
+				getMetricDatas = append(getMetricDatas, enhancedData...)
+			}
+		}
 	}
 
 	return resources, getMetricDatas
@@ -207,4 +227,14 @@ func metricDimensionsMatchNames(metric *model.Metric, dimensionNameRequirements 
 		}
 	}
 	return true
+}
+
+func getEnabledEnhancedMetrics(configs []model.EnhancedMetricConfig) []string {
+	enabled := make([]string, 0, len(configs))
+	for _, cfg := range configs {
+		if cfg.Enabled {
+			enabled = append(enabled, cfg.Name)
+		}
+	}
+	return enabled
 }

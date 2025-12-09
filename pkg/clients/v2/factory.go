@@ -220,6 +220,19 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 	return c.clients[role][region].account
 }
 
+// GetAWSConfig returns the AWS config for a given region and role
+// This is used by enhanced metrics to create additional AWS service clients
+func (c *CachingFactory) GetAWSConfig(region string, role model.Role) *aws.Config {
+	if !c.refreshed.Load() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
+	if c.clients[role][region].awsConfig != nil {
+		return c.clients[role][region].awsConfig
+	}
+	return nil
+}
+
 func (c *CachingFactory) Refresh() {
 	if c.refreshed.Load() {
 		return

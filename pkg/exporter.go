@@ -46,9 +46,10 @@ var Metrics = []prometheus.Collector{
 }
 
 const (
-	DefaultMetricsPerQuery       = 500
-	DefaultLabelsSnakeCase       = false
-	DefaultTaggingAPIConcurrency = 5
+	DefaultMetricsPerQuery             = 500
+	DefaultLabelsSnakeCase             = false
+	DefaultTaggingAPIConcurrency       = 5
+	DefaultEnhancedMetricsConcurrency  = 5
 )
 
 var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
@@ -66,11 +67,12 @@ var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
 type featureFlagsMap map[string]struct{}
 
 type options struct {
-	metricsPerQuery       int
-	labelsSnakeCase       bool
-	taggingAPIConcurrency int
-	featureFlags          featureFlagsMap
-	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
+	metricsPerQuery             int
+	labelsSnakeCase             bool
+	taggingAPIConcurrency       int
+	enhancedMetricsConcurrency  int
+	featureFlags                featureFlagsMap
+	cloudwatchConcurrency       cloudwatch.ConcurrencyConfig
 }
 
 // IsFeatureEnabled implements the FeatureFlags interface, allowing us to inject the options-configure feature flags in the rest of the code.
@@ -141,6 +143,17 @@ func TaggingAPIConcurrency(maxConcurrency int) OptionsFunc {
 	}
 }
 
+func EnhancedMetricsConcurrency(maxConcurrency int) OptionsFunc {
+	return func(o *options) error {
+		if maxConcurrency <= 0 {
+			return fmt.Errorf("EnhancedMetricsConcurrency must be a positive value")
+		}
+
+		o.enhancedMetricsConcurrency = maxConcurrency
+		return nil
+	}
+}
+
 // EnableFeatureFlag is an option that enables a feature flag on the YACE's entrypoint.
 func EnableFeatureFlag(flags ...string) OptionsFunc {
 	return func(o *options) error {
@@ -153,11 +166,12 @@ func EnableFeatureFlag(flags ...string) OptionsFunc {
 
 func defaultOptions() options {
 	return options{
-		metricsPerQuery:       DefaultMetricsPerQuery,
-		labelsSnakeCase:       DefaultLabelsSnakeCase,
-		taggingAPIConcurrency: DefaultTaggingAPIConcurrency,
-		featureFlags:          make(featureFlagsMap),
-		cloudwatchConcurrency: DefaultCloudwatchConcurrency,
+		metricsPerQuery:            DefaultMetricsPerQuery,
+		labelsSnakeCase:            DefaultLabelsSnakeCase,
+		taggingAPIConcurrency:      DefaultTaggingAPIConcurrency,
+		enhancedMetricsConcurrency: DefaultEnhancedMetricsConcurrency,
+		featureFlags:               make(featureFlagsMap),
+		cloudwatchConcurrency:      DefaultCloudwatchConcurrency,
 	}
 }
 
@@ -204,6 +218,7 @@ func UpdateMetrics(
 		options.metricsPerQuery,
 		options.cloudwatchConcurrency,
 		options.taggingAPIConcurrency,
+		options.enhancedMetricsConcurrency,
 	)
 
 	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)

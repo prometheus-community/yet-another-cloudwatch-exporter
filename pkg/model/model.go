@@ -43,6 +43,7 @@ type DiscoveryJob struct {
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
 	DimensionsRegexps           []DimensionsRegexp
+	EnhancedMetrics             []EnhancedMetricConfig
 }
 
 type StaticJob struct {
@@ -81,6 +82,11 @@ type MetricConfig struct {
 	NilToZero              bool
 	AddCloudwatchTimestamp bool
 	ExportAllDataPoints    bool
+}
+
+type EnhancedMetricConfig struct {
+	Name    string
+	Enabled bool
 }
 
 type DimensionsRegexp struct {
