@@ -123,7 +123,7 @@ func TestAssociatorSagemaker(t *testing.T) {
 			expectedResource: nil,
 		},
 		{
-			name: "2 dimensions should match in Upper case",
+			name: "2 dimensions should not match in Upper case",
 			args: args{
 				dimensionRegexps: config.SupportedServices.GetService("AWS/SageMaker").ToModelDimensionsRegexp(),
 				resources:        sagemakerInvocationResources,
@@ -136,8 +136,8 @@ func TestAssociatorSagemaker(t *testing.T) {
 					},
 				},
 			},
-			expectedSkip:     false,
-			expectedResource: sagemakerEndpointInvocationUpper,
+			expectedSkip:     true,
+			expectedResource: nil,
 		},
 		{
 			name: "inference component match",

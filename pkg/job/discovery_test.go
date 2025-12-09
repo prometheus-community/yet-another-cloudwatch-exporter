@@ -420,6 +420,65 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				},
 			},
 		},
+		{
+			"sagemaker: ARN contains uppercase letters",
+			args{
+				region:           "us-east-1",
+				accountID:        "123123123123",
+				namespace:        "AWS/SageMaker",
+				dimensionRegexps: config.SupportedServices.GetService("AWS/SageMaker").ToModelDimensionsRegexp(),
+				resources: []*model.TaggedResource{
+					{
+						ARN: "arn:aws:sagemaker:us-east-1:123123123123:endpoint/someEndpoint",
+						Tags: []model.Tag{
+							{
+								Key:   "Environment",
+								Value: "prod",
+							},
+						},
+						Namespace: "sagemaker",
+						Region:    "us-east-1",
+					},
+				},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "Invocation4XXErrors",
+						Dimensions: []model.Dimension{
+							{Name: "EndpointName", Value: "someEndpoint"},
+							{Name: "VariantName", Value: "AllTraffic"},
+						},
+						Namespace: "AWS/SageMaker",
+					},
+				},
+				m: &model.MetricConfig{
+					Name: "Invocation4XXErrors",
+					Statistics: []string{
+						"Sum",
+					},
+					Period: 60,
+					Length: 600,
+					Delay:  120,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName: "Invocation4XXErrors",
+					Dimensions: []model.Dimension{
+						{Name: "EndpointName", Value: "someEndpoint"},
+						{Name: "VariantName", Value: "AllTraffic"},
+					},
+					ResourceName: "arn:aws:sagemaker:us-east-1:123123123123:endpoint/someEndpoint",
+					Namespace:    "AWS/SageMaker",
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Sum",
+						Period:    60,
+						Length:    600,
+						Delay:     120,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
