@@ -9,26 +9,22 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/cache"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
-
-// separator is NULL byte (0x00)
-var separator = "\x00"
 
 type Client interface {
 	DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error)
 }
 
 type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
-type RDS struct {
-	// regionalClients: region + separator + role.RoleArn + separator + role.ExternalID -> Client
-	regionalClients map[string]Client
-	clientsM        sync.RWMutex
 
+type RDS struct {
+	regionalClients     map[string]Client
+	clientsM            sync.RWMutex
 	clientFactoryMethod func(cfg aws.Config) Client
 
-	// regionalData: *dbInstance.DBInstanceArn -> DBInstance
 	regionalData map[string]*types.DBInstance
 
 	// dataM protects access to regionalData, for the concurrent metric processing
@@ -44,6 +40,8 @@ func NewRDSService(clientFactoryMethod func(cfg aws.Config) Client) *RDS {
 
 	rds := &RDS{
 		clientFactoryMethod: clientFactoryMethod,
+		regionalClients:     make(map[string]Client),
+		regionalData:        make(map[string]*types.DBInstance),
 	}
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{
@@ -58,10 +56,6 @@ func (s *RDS) GetNamespace() string {
 	return "AWS/RDS"
 }
 
-func (s *RDS) getClientKey(region string, role model.Role) string {
-	return region + separator + role.RoleArn + separator + role.ExternalID
-}
-
 func (s *RDS) initializeClient(_ context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (Client, error) {
 	regionalConfig := configProvider.GetAWSRegionalConfig(region, role)
 	if regionalConfig == nil {
@@ -71,7 +65,7 @@ func (s *RDS) initializeClient(_ context.Context, logger *slog.Logger, region st
 	s.clientsM.Lock()
 	defer s.clientsM.Unlock()
 
-	key := s.getClientKey(region, role)
+	key := cache.GetClientKey(region, role)
 	if s.regionalClients == nil {
 		s.regionalClients = make(map[string]Client)
 	}
@@ -103,13 +97,13 @@ func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, regi
 
 	s.regionalData = make(map[string]*types.DBInstance)
 
-	dbInstances, err := client.DescribeAllDBInstances(ctx, logger)
+	instances, err := client.DescribeAllDBInstances(ctx, logger)
 	if err != nil {
 		return fmt.Errorf("error describing RDS DB instances in region %s: %w", region, err)
 	}
 
-	for _, dbInstance := range dbInstances {
-		s.regionalData[*dbInstance.DBInstanceArn] = &dbInstance
+	for _, instance := range instances {
+		s.regionalData[*instance.DBInstanceArn] = &instance
 	}
 
 	return nil
@@ -120,8 +114,8 @@ func (s *RDS) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
-	if len(resources) == 0 || len(metrics) == 0 {
+func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
+	if len(resources) == 0 || len(enhancedMetrics) == 0 {
 		return nil, nil
 	}
 
@@ -145,7 +139,7 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 			continue
 		}
 
-		for _, enhancedMetric := range metrics {
+		for _, enhancedMetric := range enhancedMetrics {
 			if !s.isMetricSupported(enhancedMetric.Name) {
 				logger.Warn("RDS enhanced metric not supported", "metric", enhancedMetric.Name)
 				continue
@@ -168,7 +162,7 @@ func (s *RDS) getClient(region string, role model.Role) (client Client) {
 	s.clientsM.RLock()
 	defer s.clientsM.RUnlock()
 
-	key := s.getClientKey(region, role)
+	key := cache.GetClientKey(region, role)
 	client, ok := s.regionalClients[key]
 	if !ok {
 		return nil
@@ -176,7 +170,7 @@ func (s *RDS) getClient(region string, role model.Role) (client Client) {
 	return client
 }
 
-func (s *RDS) buildAllocatedStorageMetric(ctx context.Context, logger *slog.Logger, resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
 	if instance.AllocatedStorage == nil {
 		return nil, fmt.Errorf("AllocatedStorage is nil for DB instance %s", resource.ARN)
 	}

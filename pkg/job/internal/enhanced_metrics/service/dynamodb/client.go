@@ -1,4 +1,4 @@
-package client
+package dynamodb
 
 import (
 	"context"
@@ -13,26 +13,26 @@ import (
 
 // todo: change logging to debug where appropriate
 
-// DynamoDBClient wraps the AWS DynamoDB client
-type DynamoDBClient struct {
+// AWSDynamoDBClient wraps the AWS DynamoDB client
+type AWSDynamoDBClient struct {
 	client *dynamodb.Client
 }
 
 // NewDynamoDBClient creates a new DynamoDB client with default AWS configuration
-func NewDynamoDBClient(ctx context.Context) (*DynamoDBClient, error) {
+func NewDynamoDBClient(ctx context.Context) (*AWSDynamoDBClient, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	return &DynamoDBClient{
+	return &AWSDynamoDBClient{
 		client: dynamodb.NewFromConfig(cfg),
 	}, nil
 }
 
 // NewDynamoDBClientWithConfig creates a new DynamoDB client with custom AWS configuration
-func NewDynamoDBClientWithConfig(cfg aws.Config) *DynamoDBClient {
-	return &DynamoDBClient{
+func NewDynamoDBClientWithConfig(cfg aws.Config) *AWSDynamoDBClient {
+	return &AWSDynamoDBClient{
 		client: dynamodb.NewFromConfig(cfg),
 	}
 }
@@ -50,7 +50,7 @@ type ListTablesOutput struct {
 }
 
 // ListTables retrieves a list of DynamoDB tables
-func (c *DynamoDBClient) ListTables(ctx context.Context, logger *slog.Logger, input *ListTablesInput) (*ListTablesOutput, error) {
+func (c *AWSDynamoDBClient) ListTables(ctx context.Context, logger *slog.Logger, input *ListTablesInput) (*ListTablesOutput, error) {
 	dynamoInput := &dynamodb.ListTablesInput{}
 
 	if input != nil {
@@ -70,7 +70,7 @@ func (c *DynamoDBClient) ListTables(ctx context.Context, logger *slog.Logger, in
 }
 
 // DescribeTable retrieves detailed information about a DynamoDB table
-func (c *DynamoDBClient) DescribeTable(ctx context.Context, logger *slog.Logger, tableName string) (*types.TableDescription, error) {
+func (c *AWSDynamoDBClient) DescribeTable(ctx context.Context, logger *slog.Logger, tableName string) (*types.TableDescription, error) {
 	result, err := c.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(tableName),
 	})
@@ -82,7 +82,7 @@ func (c *DynamoDBClient) DescribeTable(ctx context.Context, logger *slog.Logger,
 }
 
 // DescribeAllTables retrieves all DynamoDB tables with their descriptions
-func (c *DynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error) {
+func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error) {
 	logger.Info("Looking for all DynamoDB tables")
 	var allTables []types.TableDescription
 	var startTableName *string

@@ -1,4 +1,4 @@
-package client
+package elasticache
 
 import (
 	"context"
@@ -13,26 +13,26 @@ import (
 
 // todo: change logging to debug where appropriate
 
-// ElastiCacheClient wraps the AWS ElastiCache client
-type ElastiCacheClient struct {
+// AWSElastiCacheClient wraps the AWS ElastiCache client
+type AWSElastiCacheClient struct {
 	client *elasticache.Client
 }
 
 // NewElastiCacheClient creates a new ElastiCache client with default AWS configuration
-func NewElastiCacheClient(ctx context.Context) (*ElastiCacheClient, error) {
+func NewElastiCacheClient(ctx context.Context) (*AWSElastiCacheClient, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	return &ElastiCacheClient{
+	return &AWSElastiCacheClient{
 		client: elasticache.NewFromConfig(cfg),
 	}, nil
 }
 
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
-func NewElastiCacheClientWithConfig(cfg aws.Config) *ElastiCacheClient {
-	return &ElastiCacheClient{
+func NewElastiCacheClientWithConfig(cfg aws.Config) *AWSElastiCacheClient {
+	return &AWSElastiCacheClient{
 		client: elasticache.NewFromConfig(cfg),
 	}
 }
@@ -52,7 +52,7 @@ type DescribeCacheClustersOutput struct {
 }
 
 // DescribeCacheClusters retrieves information about cache clusters
-func (c *ElastiCacheClient) DescribeCacheClusters(ctx context.Context, input *DescribeCacheClustersInput) (*DescribeCacheClustersOutput, error) {
+func (c *AWSElastiCacheClient) DescribeCacheClusters(ctx context.Context, input *DescribeCacheClustersInput) (*DescribeCacheClustersOutput, error) {
 	elasticacheInput := &elasticache.DescribeCacheClustersInput{}
 
 	if input != nil {
@@ -74,7 +74,7 @@ func (c *ElastiCacheClient) DescribeCacheClusters(ctx context.Context, input *De
 }
 
 // DescribeAllCacheClusters retrieves all cache clusters with pagination support
-func (c *ElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error) {
+func (c *AWSElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error) {
 	logger.Info("Looking for all ElastiCache clusters")
 	var allClusters []types.CacheCluster
 	var marker *string
