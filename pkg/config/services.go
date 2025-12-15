@@ -62,6 +62,18 @@ func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 	return dr
 }
 
+func (sc ServiceConfig) ToModelEnhancedMetricsConfig(ems []*EnhancedMetric) []*model.EnhancedMetricConfig {
+	emc := make([]*model.EnhancedMetricConfig, 0, len(ems))
+
+	for _, em := range ems {
+		emc = append(emc, &model.EnhancedMetricConfig{
+			Name: em.Name,
+		})
+	}
+
+	return emc
+}
+
 type serviceConfigs []ServiceConfig
 
 func (sc serviceConfigs) GetService(serviceType string) *ServiceConfig {

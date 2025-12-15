@@ -22,6 +22,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+
+	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics"
 )
 
 func ScrapeAwsData(
@@ -52,6 +54,22 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
+					// at this point we have already all the data to start loading the enhanced metrics if any is configured
+					var enhancedProcessor *em.EnhancedProcessor
+					if discoveryJob.IsEnhancedMetricsConfigured() {
+						enhancedProcessor, err = em.NewEnhancedProcessor(discoveryJob.Namespace, factory, em.DefaultRegistry)
+						if err != nil {
+							jobLogger.Error("Couldn't initialize enhanced metrics processor", "err", err)
+						}
+
+						go func() {
+							err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role)
+							if err != nil {
+								jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
+							}
+						}()
+					}
+
 					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
 					if err != nil {
 						jobLogger.Warn("Couldn't get account alias", "err", err)
@@ -59,7 +77,7 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
+					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor, enhancedProcessor)
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0
