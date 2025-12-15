@@ -87,7 +87,7 @@ func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.
 		for _, tableName := range output.TableNames {
 			tableDesc, err := c.describeTable(ctx, logger, tableName)
 			if err != nil {
-				logger.Error("Failed to describe table", err, "table", tableName)
+				logger.Error("Failed to describe table", "error", err.Error(), "table", tableName)
 				continue
 			}
 			allTables = append(allTables, *tableDesc)
