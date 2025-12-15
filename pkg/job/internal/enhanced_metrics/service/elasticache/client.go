@@ -31,7 +31,7 @@ func NewElastiCacheClient(ctx context.Context) (*AWSElastiCacheClient, error) {
 }
 
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
-func NewElastiCacheClientWithConfig(cfg aws.Config) *AWSElastiCacheClient {
+func NewElastiCacheClientWithConfig(cfg aws.Config) Client {
 	return &AWSElastiCacheClient{
 		client: elasticache.NewFromConfig(cfg),
 	}
