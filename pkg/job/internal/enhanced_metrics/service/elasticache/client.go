@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 )
@@ -18,18 +17,6 @@ type AWSElastiCacheClient struct {
 	client *elasticache.Client
 }
 
-// NewElastiCacheClient creates a new ElastiCache client with default AWS configuration
-func NewElastiCacheClient(ctx context.Context) (*AWSElastiCacheClient, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %w", err)
-	}
-
-	return &AWSElastiCacheClient{
-		client: elasticache.NewFromConfig(cfg),
-	}, nil
-}
-
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
 func NewElastiCacheClientWithConfig(cfg aws.Config) Client {
 	return &AWSElastiCacheClient{
@@ -37,7 +24,7 @@ func NewElastiCacheClientWithConfig(cfg aws.Config) Client {
 	}
 }
 
-// DescribeCacheClustersInput contains parameters for DescribeCacheClusters
+// DescribeCacheClustersInput contains parameters for describeCacheClusters
 type DescribeCacheClustersInput struct {
 	CacheClusterId    *string
 	MaxRecords        *int32
@@ -45,14 +32,14 @@ type DescribeCacheClustersInput struct {
 	ShowCacheNodeInfo *bool
 }
 
-// DescribeCacheClustersOutput contains the response from DescribeCacheClusters
+// DescribeCacheClustersOutput contains the response from describeCacheClusters
 type DescribeCacheClustersOutput struct {
 	CacheClusters []types.CacheCluster
 	Marker        *string
 }
 
-// DescribeCacheClusters retrieves information about cache clusters
-func (c *AWSElastiCacheClient) DescribeCacheClusters(ctx context.Context, input *DescribeCacheClustersInput) (*DescribeCacheClustersOutput, error) {
+// describeCacheClusters retrieves information about cache clusters
+func (c *AWSElastiCacheClient) describeCacheClusters(ctx context.Context, input *DescribeCacheClustersInput) (*DescribeCacheClustersOutput, error) {
 	elasticacheInput := &elasticache.DescribeCacheClustersInput{}
 
 	if input != nil {
@@ -82,7 +69,7 @@ func (c *AWSElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, log
 	showNodeInfo := true
 
 	for {
-		output, err := c.DescribeCacheClusters(ctx, &DescribeCacheClustersInput{
+		output, err := c.describeCacheClusters(ctx, &DescribeCacheClustersInput{
 			MaxRecords:        &maxRecords,
 			Marker:            marker,
 			ShowCacheNodeInfo: &showNodeInfo,
