@@ -12,9 +12,13 @@ import (
 
 // todo: change logging to debug where appropriate
 
+type AwsClient interface {
+	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
+}
+
 // AWSLambdaClient wraps the AWS Lambda client
 type AWSLambdaClient struct {
-	client *lambda.Client
+	client AwsClient
 }
 
 // NewLambdaClientWithConfig creates a new Lambda client with custom AWS configuration
@@ -24,40 +28,14 @@ func NewLambdaClientWithConfig(cfg aws.Config) Client {
 	}
 }
 
-// ListFunctionsInput contains parameters for listFunctions
-type ListFunctionsInput struct {
-	FunctionVersion *string
-	Marker          *string
-	MaxItems        *int32
-	MasterRegion    *string
-}
-
-// ListFunctionsOutput contains the response from listFunctions
-type ListFunctionsOutput struct {
-	Functions  []types.FunctionConfiguration
-	NextMarker *string
-}
-
 // listFunctions retrieves a list of Lambda regionalData
-func (c *AWSLambdaClient) listFunctions(ctx context.Context, input *ListFunctionsInput) (*ListFunctionsOutput, error) {
-	lambdaInput := &lambda.ListFunctionsInput{}
-
-	if input != nil {
-		// lambdaInput.FunctionVersion = types.FunctionVersionAll
-		lambdaInput.Marker = input.Marker
-		lambdaInput.MaxItems = input.MaxItems
-		// lambdaInput.MasterRegion = input.MasterRegion
-	}
-
-	result, err := c.client.ListFunctions(ctx, lambdaInput)
+func (c *AWSLambdaClient) listFunctions(ctx context.Context, input *lambda.ListFunctionsInput) (*lambda.ListFunctionsOutput, error) {
+	result, err := c.client.ListFunctions(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Lambda regionalData: %w", err)
 	}
 
-	return &ListFunctionsOutput{
-		Functions:  result.Functions,
-		NextMarker: result.NextMarker,
-	}, nil
+	return result, nil
 }
 
 // ListAllFunctions retrieves all Lambda regionalData by handling pagination
@@ -68,7 +46,7 @@ func (c *AWSLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Log
 	var maxItems int32 = 50
 
 	for {
-		output, err := c.listFunctions(ctx, &ListFunctionsInput{
+		output, err := c.listFunctions(ctx, &lambda.ListFunctionsInput{
 			Marker:   marker,
 			MaxItems: &maxItems,
 		})
