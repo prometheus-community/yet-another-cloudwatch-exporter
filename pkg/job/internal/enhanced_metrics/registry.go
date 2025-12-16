@@ -2,6 +2,7 @@ package enhanced_metrics
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -40,4 +41,28 @@ func (receiver *Registry) GetEnhancedMetricsService(namespace string) (EnhancedM
 		return nil, fmt.Errorf("enhanced metrics service for namespace %s not found", namespace)
 	}
 	return ems, nil
+}
+
+func (receiver *Registry) ListSupportedMetrics() map[string][]string {
+	receiver.m.RLock()
+	defer receiver.m.RUnlock()
+	res := make(map[string][]string)
+	for _, v := range receiver.enhancedMetricProcessors {
+		res[v.GetNamespace()] = v.ListSupportedMetrics()
+	}
+
+	return res
+}
+
+func (receiver *Registry) ListRequiredPermissions() []string {
+	receiver.m.RLock()
+	defer receiver.m.RUnlock()
+	res := make([]string, 0)
+	for _, v := range receiver.enhancedMetricProcessors {
+		res = append(res, v.ListRequiredPermissions()...)
+	}
+
+	sort.Strings(res)
+
+	return res
 }

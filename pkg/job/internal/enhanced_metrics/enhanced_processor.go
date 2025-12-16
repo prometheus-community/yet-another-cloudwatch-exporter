@@ -13,6 +13,7 @@ import (
 
 type EnhancedMetricsServiceRegistry interface {
 	GetEnhancedMetricsService(namespace string) (EnhancedMetricsService, error)
+	ListRequiredPermissions() []string
 }
 
 // todo: do we need to have this type?
