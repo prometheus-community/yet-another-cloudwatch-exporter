@@ -16,7 +16,7 @@ import (
 func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 	tests := []struct {
 		name    string
-		client  AwsClient
+		client  awsClient
 		want    []types.FunctionConfiguration
 		wantErr bool
 	}{
@@ -95,7 +95,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 	}
 }
 
-// mockLambdaClient is a mock implementation of AwsClient
+// mockLambdaClient is a mock implementation of awsClient
 type mockLambdaClient struct {
 	listFunctionsFunc func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }

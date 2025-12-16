@@ -12,13 +12,13 @@ import (
 
 // todo: change logging to debug where appropriate
 
-type AwsClient interface {
+type awsClient interface {
 	DescribeDBInstances(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
 
 // AWSRDSClient wraps the AWS RDS client
 type AWSRDSClient struct {
-	client AwsClient
+	client awsClient
 }
 
 // NewRDSClientWithConfig creates a new RDS client with custom AWS configuration

@@ -16,7 +16,7 @@ import (
 func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 	tests := []struct {
 		name    string
-		client  AwsClient
+		client  awsClient
 		want    []types.CacheCluster
 		wantErr bool
 	}{
@@ -95,7 +95,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 	}
 }
 
-// mockElastiCacheClient is a mock implementation of AwsClient
+// mockElastiCacheClient is a mock implementation of awsClient
 type mockElastiCacheClient struct {
 	describeCacheClustersFunc func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }

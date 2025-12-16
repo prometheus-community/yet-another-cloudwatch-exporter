@@ -12,13 +12,13 @@ import (
 
 // todo: change logging to debug where appropriate
 
-type AwsClient interface {
+type awsClient interface {
 	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }
 
 // AWSLambdaClient wraps the AWS Lambda client
 type AWSLambdaClient struct {
-	client AwsClient
+	client awsClient
 }
 
 // NewLambdaClientWithConfig creates a new Lambda client with custom AWS configuration

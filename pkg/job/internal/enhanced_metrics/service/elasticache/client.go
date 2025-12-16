@@ -12,13 +12,13 @@ import (
 
 // todo: change logging to debug where appropriate
 
-type AwsClient interface {
+type awsClient interface {
 	DescribeCacheClusters(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }
 
 // AWSElastiCacheClient wraps the AWS ElastiCache client
 type AWSElastiCacheClient struct {
-	client AwsClient
+	client awsClient
 }
 
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
