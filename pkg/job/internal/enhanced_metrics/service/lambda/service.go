@@ -55,7 +55,7 @@ func (s *Lambda) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, r
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing Lambda client for region %s: %w", region, err)
 		}
@@ -160,4 +160,18 @@ func (s *Lambda) buildTimeoutMetric(_ context.Context, _ *slog.Logger, resource 
 			},
 		},
 	}, nil
+}
+
+func (s *Lambda) ListRequiredPermissions() []string {
+	return []string{
+		"lambda:ListFunctions",
+	}
+}
+
+func (s *Lambda) ListSupportedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
 }

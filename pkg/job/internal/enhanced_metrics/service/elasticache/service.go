@@ -55,7 +55,7 @@ func (s *ElastiCache) LoadMetricsMetadata(ctx context.Context, logger *slog.Logg
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing ElastiCache client for region %s: %w", region, err)
 		}
@@ -167,4 +167,18 @@ func (s *ElastiCache) buildNumCacheNodesMetric(_ context.Context, _ *slog.Logger
 			},
 		},
 	}, nil
+}
+
+func (s *ElastiCache) ListRequiredPermissions() []string {
+	return []string{
+		"elasticache:DescribeCacheClusters",
+	}
+}
+
+func (s *ElastiCache) ListSupportedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
 }
