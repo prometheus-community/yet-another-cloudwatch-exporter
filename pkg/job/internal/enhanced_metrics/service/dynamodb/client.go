@@ -12,9 +12,14 @@ import (
 
 // todo: change logging to debug where appropriate
 
+type AWSClient interface {
+	ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
+	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
+}
+
 // AWSDynamoDBClient wraps the AWS DynamoDB client
 type AWSDynamoDBClient struct {
-	client *dynamodb.Client
+	client AWSClient
 }
 
 // NewDynamoDBClientWithConfig creates a new DynamoDB client with custom AWS configuration
@@ -24,36 +29,19 @@ func NewDynamoDBClientWithConfig(cfg aws.Config) Client {
 	}
 }
 
-// ListTablesInput contains parameters for listTables
-type ListTablesInput struct {
-	ExclusiveStartTableName *string
-	Limit                   *int32
-}
-
-// ListTablesOutput contains the response from listTables
-type ListTablesOutput struct {
-	TableNames             []string
-	LastEvaluatedTableName *string
-}
-
 // listTables retrieves a list of DynamoDB tables
-func (c *AWSDynamoDBClient) listTables(ctx context.Context, logger *slog.Logger, input *ListTablesInput) (*ListTablesOutput, error) {
-	dynamoInput := &dynamodb.ListTablesInput{}
-
-	if input != nil {
-		dynamoInput.ExclusiveStartTableName = input.ExclusiveStartTableName
-		dynamoInput.Limit = input.Limit
+func (c *AWSDynamoDBClient) listTables(ctx context.Context, logger *slog.Logger, exclusiveStartTableName *string, limit *int32) ([]string, *string, error) {
+	dynamoInput := &dynamodb.ListTablesInput{
+		ExclusiveStartTableName: exclusiveStartTableName,
+		Limit:                   limit,
 	}
 
 	result, err := c.client.ListTables(ctx, dynamoInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list DynamoDB tables: %w", err)
+		return nil, nil, fmt.Errorf("failed to list DynamoDB tables: %w", err)
 	}
 
-	return &ListTablesOutput{
-		TableNames:             result.TableNames,
-		LastEvaluatedTableName: result.LastEvaluatedTableName,
-	}, nil
+	return result.TableNames, result.LastEvaluatedTableName, nil
 }
 
 // describeTable retrieves detailed information about a DynamoDB table
@@ -76,15 +64,12 @@ func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.
 	var limit int32 = 100
 
 	for {
-		output, err := c.listTables(ctx, logger, &ListTablesInput{
-			ExclusiveStartTableName: startTableName,
-			Limit:                   &limit,
-		})
+		tableNames, lastEvaluatedTableName, err := c.listTables(ctx, logger, startTableName, &limit)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, tableName := range output.TableNames {
+		for _, tableName := range tableNames {
 			tableDesc, err := c.describeTable(ctx, logger, tableName)
 			if err != nil {
 				logger.Error("Failed to describe table", "error", err.Error(), "table", tableName)
@@ -93,10 +78,10 @@ func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.
 			allTables = append(allTables, *tableDesc)
 		}
 
-		if output.LastEvaluatedTableName == nil {
+		if lastEvaluatedTableName == nil {
 			break
 		}
-		startTableName = output.LastEvaluatedTableName
+		startTableName = lastEvaluatedTableName
 	}
 
 	logger.Info("Looking for all DynamoDB tables finished", "total_tables", len(allTables))
