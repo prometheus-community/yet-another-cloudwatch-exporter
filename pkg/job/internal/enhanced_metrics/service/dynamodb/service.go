@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/cache"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -21,7 +21,7 @@ type Client interface {
 type buildDynamoDBMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type DynamoDB struct {
-	clients *cache.Clients[Client]
+	clients *clients.Clients[Client]
 
 	regionalData map[string]*types.TableDescription
 	dataM        sync.RWMutex
@@ -34,7 +34,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 		buildClientFunc = NewDynamoDBClientWithConfig
 	}
 	svc := &DynamoDB{
-		clients:      cache.NewClients[Client](buildClientFunc),
+		clients:      clients.NewClients[Client](buildClientFunc),
 		regionalData: make(map[string]*types.TableDescription),
 	}
 
