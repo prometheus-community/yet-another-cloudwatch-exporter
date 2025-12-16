@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/cache"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -21,7 +20,7 @@ type Client interface {
 type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type RDS struct {
-	clients *cache.Clients[Client]
+	clients *clients.Clients[Client]
 
 	regionalData map[string]*types.DBInstance
 
@@ -37,7 +36,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	}
 
 	rds := &RDS{
-		clients:      cache.NewClients[Client](buildClientFunc),
+		clients:      clients.NewClients[Client](buildClientFunc),
 		regionalData: make(map[string]*types.DBInstance),
 	}
 

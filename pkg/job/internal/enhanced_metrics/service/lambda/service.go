@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/cache"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -21,7 +20,7 @@ type Client interface {
 type buildLambdaMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
 type Lambda struct {
-	clients *cache.Clients[Client]
+	clients *clients.Clients[Client]
 
 	regionalData map[string]*types.FunctionConfiguration
 
@@ -36,7 +35,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		buildClientFunc = NewLambdaClientWithConfig
 	}
 	svc := &Lambda{
-		clients:      cache.NewClients[Client](buildClientFunc),
+		clients:      clients.NewClients[Client](buildClientFunc),
 		regionalData: make(map[string]*types.FunctionConfiguration),
 	}
 
