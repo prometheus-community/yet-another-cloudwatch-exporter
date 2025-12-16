@@ -21,9 +21,7 @@ type Client interface {
 type buildDynamoDBMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type DynamoDB struct {
-	regionalClients     map[string]Client
-	clientsM            sync.RWMutex
-	clientFactoryMethod func(cfg aws.Config) Client
+	clients *cache.Clients[Client]
 
 	regionalData map[string]*types.TableDescription
 	dataM        sync.RWMutex
@@ -31,14 +29,13 @@ type DynamoDB struct {
 	supportedMetrics map[string]buildDynamoDBMetricFunc
 }
 
-func NewDynamoDBService(clientFactoryMethod func(cfg aws.Config) Client) *DynamoDB {
-	if clientFactoryMethod == nil {
-		clientFactoryMethod = NewDynamoDBClientWithConfig
+func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
+	if buildClientFunc == nil {
+		buildClientFunc = NewDynamoDBClientWithConfig
 	}
 	svc := &DynamoDB{
-		clientFactoryMethod: clientFactoryMethod,
-		regionalClients:     make(map[string]Client),
-		regionalData:        make(map[string]*types.TableDescription),
+		clients:      cache.NewClients[Client](buildClientFunc),
+		regionalData: make(map[string]*types.TableDescription),
 	}
 
 	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
@@ -52,32 +49,11 @@ func (s *DynamoDB) GetNamespace() string {
 	return "AWS/DynamoDB"
 }
 
-func (s *DynamoDB) initializeClient(_ context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (Client, error) {
-	regionalConfig := configProvider.GetAWSRegionalConfig(region, role)
-	if regionalConfig == nil {
-		return nil, fmt.Errorf("could not get AWS config for region %s", region)
-	}
-
-	s.clientsM.Lock()
-	defer s.clientsM.Unlock()
-
-	key := cache.GetClientKey(region, role)
-	if s.regionalClients == nil {
-		s.regionalClients = make(map[string]Client)
-	}
-	_, exists := s.regionalClients[key]
-	if !exists {
-		s.regionalClients[key] = s.clientFactoryMethod(*regionalConfig)
-	}
-
-	return s.regionalClients[key], nil
-}
-
 func (s *DynamoDB) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
 	var err error
-	client := s.getClient(region, role)
+	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.initializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing DynamoDB client for region %s: %w", region, err)
 		}
@@ -150,18 +126,6 @@ func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace s
 	}
 
 	return result, nil
-}
-
-func (s *DynamoDB) getClient(region string, role model.Role) (client Client) {
-	s.clientsM.RLock()
-	defer s.clientsM.RUnlock()
-
-	key := cache.GetClientKey(region, role)
-	client, ok := s.regionalClients[key]
-	if !ok {
-		return nil
-	}
-	return client
 }
 
 func (s *DynamoDB) buildItemCountMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {

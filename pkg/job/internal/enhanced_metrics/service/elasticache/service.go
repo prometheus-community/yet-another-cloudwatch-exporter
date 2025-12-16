@@ -21,9 +21,7 @@ type Client interface {
 type buildElastiCacheMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
 type ElastiCache struct {
-	regionalClients     map[string]Client
-	clientsM            sync.RWMutex
-	clientFactoryMethod func(cfg aws.Config) Client
+	clients *cache.Clients[Client]
 
 	regionalData map[string]*types.CacheCluster
 
@@ -33,14 +31,13 @@ type ElastiCache struct {
 	supportedMetrics map[string]buildElastiCacheMetricFunc
 }
 
-func NewElastiCacheService(clientFactoryMethod func(cfg aws.Config) Client) *ElastiCache {
-	if clientFactoryMethod == nil {
-		clientFactoryMethod = NewElastiCacheClientWithConfig
+func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiCache {
+	if buildClientFunc == nil {
+		buildClientFunc = NewElastiCacheClientWithConfig
 	}
 	svc := &ElastiCache{
-		clientFactoryMethod: clientFactoryMethod,
-		regionalClients:     make(map[string]Client),
-		regionalData:        make(map[string]*types.CacheCluster),
+		clients:      cache.NewClients[Client](buildClientFunc),
+		regionalData: make(map[string]*types.CacheCluster),
 	}
 
 	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{
@@ -54,32 +51,11 @@ func (s *ElastiCache) GetNamespace() string {
 	return "AWS/ElastiCache"
 }
 
-func (s *ElastiCache) initializeClient(_ context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (Client, error) {
-	regionalConfig := configProvider.GetAWSRegionalConfig(region, role)
-	if regionalConfig == nil {
-		return nil, fmt.Errorf("could not get AWS config for region %s", region)
-	}
-
-	s.clientsM.Lock()
-	defer s.clientsM.Unlock()
-
-	key := cache.GetClientKey(region, role)
-	if s.regionalClients == nil {
-		s.regionalClients = make(map[string]Client)
-	}
-	_, exists := s.regionalClients[key]
-	if !exists {
-		s.regionalClients[key] = s.clientFactoryMethod(*regionalConfig)
-	}
-
-	return s.regionalClients[key], nil
-}
-
 func (s *ElastiCache) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
 	var err error
-	client := s.getClient(region, role)
+	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.initializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing ElastiCache client for region %s: %w", region, err)
 		}
@@ -152,18 +128,6 @@ func (s *ElastiCache) Process(ctx context.Context, logger *slog.Logger, namespac
 	}
 
 	return result, nil
-}
-
-func (s *ElastiCache) getClient(region string, role model.Role) (client Client) {
-	s.clientsM.RLock()
-	defer s.clientsM.RUnlock()
-
-	key := cache.GetClientKey(region, role)
-	client, ok := s.regionalClients[key]
-	if !ok {
-		return nil
-	}
-	return client
 }
 
 func (s *ElastiCache) buildNumCacheNodesMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
