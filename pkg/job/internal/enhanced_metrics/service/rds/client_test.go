@@ -16,7 +16,7 @@ import (
 func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 	tests := []struct {
 		name    string
-		client  AwsClient
+		client  awsClient
 		want    []types.DBInstance
 		wantErr bool
 	}{
@@ -95,7 +95,7 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 	}
 }
 
-// mockRDSClient is a mock implementation of AwsClient
+// mockRDSClient is a mock implementation of awsClient
 type mockRDSClient struct {
 	describeDBInstancesFunc func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
