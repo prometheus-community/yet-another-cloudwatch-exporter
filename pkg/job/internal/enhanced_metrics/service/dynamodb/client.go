@@ -12,14 +12,14 @@ import (
 
 // todo: change logging to debug where appropriate
 
-type AWSClient interface {
+type awsClient interface {
 	ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
 }
 
 // AWSDynamoDBClient wraps the AWS DynamoDB client
 type AWSDynamoDBClient struct {
-	client AWSClient
+	client awsClient
 }
 
 // NewDynamoDBClientWithConfig creates a new DynamoDB client with custom AWS configuration

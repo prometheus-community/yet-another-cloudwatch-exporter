@@ -16,7 +16,7 @@ import (
 func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 	tests := []struct {
 		name    string
-		client  AWSClient
+		client  awsClient
 		want    []types.TableDescription
 		wantErr bool
 	}{
@@ -128,7 +128,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 	}
 }
 
-// mockDynamoDBClient is a mock implementation of AWSClient
+// mockDynamoDBClient is a mock implementation of awsClient
 type mockDynamoDBClient struct {
 	listTablesFunc    func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	describeTableFunc func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
