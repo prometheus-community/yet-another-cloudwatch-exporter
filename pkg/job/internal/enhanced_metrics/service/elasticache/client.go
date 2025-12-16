@@ -12,9 +12,13 @@ import (
 
 // todo: change logging to debug where appropriate
 
+type AwsClient interface {
+	DescribeCacheClusters(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
+}
+
 // AWSElastiCacheClient wraps the AWS ElastiCache client
 type AWSElastiCacheClient struct {
-	client *elasticache.Client
+	client AwsClient
 }
 
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
@@ -24,40 +28,14 @@ func NewElastiCacheClientWithConfig(cfg aws.Config) Client {
 	}
 }
 
-// DescribeCacheClustersInput contains parameters for describeCacheClusters
-type DescribeCacheClustersInput struct {
-	CacheClusterId    *string
-	MaxRecords        *int32
-	Marker            *string
-	ShowCacheNodeInfo *bool
-}
-
-// DescribeCacheClustersOutput contains the response from describeCacheClusters
-type DescribeCacheClustersOutput struct {
-	CacheClusters []types.CacheCluster
-	Marker        *string
-}
-
 // describeCacheClusters retrieves information about cache clusters
-func (c *AWSElastiCacheClient) describeCacheClusters(ctx context.Context, input *DescribeCacheClustersInput) (*DescribeCacheClustersOutput, error) {
-	elasticacheInput := &elasticache.DescribeCacheClustersInput{}
-
-	if input != nil {
-		elasticacheInput.CacheClusterId = input.CacheClusterId
-		elasticacheInput.MaxRecords = input.MaxRecords
-		elasticacheInput.Marker = input.Marker
-		elasticacheInput.ShowCacheNodeInfo = input.ShowCacheNodeInfo
-	}
-
-	result, err := c.client.DescribeCacheClusters(ctx, elasticacheInput)
+func (c *AWSElastiCacheClient) describeCacheClusters(ctx context.Context, input *elasticache.DescribeCacheClustersInput) (*elasticache.DescribeCacheClustersOutput, error) {
+	result, err := c.client.DescribeCacheClusters(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe cache clusters: %w", err)
 	}
 
-	return &DescribeCacheClustersOutput{
-		CacheClusters: result.CacheClusters,
-		Marker:        result.Marker,
-	}, nil
+	return result, nil
 }
 
 // DescribeAllCacheClusters retrieves all cache clusters with pagination support
@@ -69,7 +47,7 @@ func (c *AWSElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, log
 	showNodeInfo := true
 
 	for {
-		output, err := c.describeCacheClusters(ctx, &DescribeCacheClustersInput{
+		output, err := c.describeCacheClusters(ctx, &elasticache.DescribeCacheClustersInput{
 			MaxRecords:        &maxRecords,
 			Marker:            marker,
 			ShowCacheNodeInfo: &showNodeInfo,
