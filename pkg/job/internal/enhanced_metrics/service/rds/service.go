@@ -21,9 +21,7 @@ type Client interface {
 type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type RDS struct {
-	regionalClients     map[string]Client
-	clientsM            sync.RWMutex
-	clientFactoryMethod func(cfg aws.Config) Client
+	clients *cache.Clients[Client]
 
 	regionalData map[string]*types.DBInstance
 
@@ -33,15 +31,14 @@ type RDS struct {
 	supportedMetrics map[string]buildRDSMetricFunc
 }
 
-func NewRDSService(clientFactoryMethod func(cfg aws.Config) Client) *RDS {
-	if clientFactoryMethod == nil {
-		clientFactoryMethod = NewRDSClientWithConfig
+func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
+	if buildClientFunc == nil {
+		buildClientFunc = NewRDSClientWithConfig
 	}
 
 	rds := &RDS{
-		clientFactoryMethod: clientFactoryMethod,
-		regionalClients:     make(map[string]Client),
-		regionalData:        make(map[string]*types.DBInstance),
+		clients:      cache.NewClients[Client](buildClientFunc),
+		regionalData: make(map[string]*types.DBInstance),
 	}
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{
@@ -56,33 +53,12 @@ func (s *RDS) GetNamespace() string {
 	return "AWS/RDS"
 }
 
-func (s *RDS) initializeClient(_ context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (Client, error) {
-	regionalConfig := configProvider.GetAWSRegionalConfig(region, role)
-	if regionalConfig == nil {
-		return nil, fmt.Errorf("could not get AWS config for region %s", region)
-	}
-
-	s.clientsM.Lock()
-	defer s.clientsM.Unlock()
-
-	key := cache.GetClientKey(region, role)
-	if s.regionalClients == nil {
-		s.regionalClients = make(map[string]Client)
-	}
-	_, exists := s.regionalClients[key]
-	if !exists {
-		s.regionalClients[key] = s.clientFactoryMethod(*regionalConfig)
-	}
-
-	return s.regionalClients[key], nil
-}
-
 // LoadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
 func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
 	var err error
-	client := s.getClient(region, role)
+	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.initializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing RDS client for region %s: %w", region, err)
 		}
@@ -155,19 +131,6 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 	}
 
 	return result, nil
-}
-
-// getClient retrieves the RDS client for the given region and role, or nil if not found
-func (s *RDS) getClient(region string, role model.Role) (client Client) {
-	s.clientsM.RLock()
-	defer s.clientsM.RUnlock()
-
-	key := cache.GetClientKey(region, role)
-	client, ok := s.regionalClients[key]
-	if !ok {
-		return nil
-	}
-	return client
 }
 
 func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
