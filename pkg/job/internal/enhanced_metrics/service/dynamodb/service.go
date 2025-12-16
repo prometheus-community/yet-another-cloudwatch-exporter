@@ -53,7 +53,7 @@ func (s *DynamoDB) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger,
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing DynamoDB client for region %s: %w", region, err)
 		}
@@ -202,4 +202,19 @@ func (s *DynamoDB) buildItemCountMetric(_ context.Context, _ *slog.Logger, resou
 	}
 
 	return result, nil
+}
+
+func (s *DynamoDB) ListRequiredPermissions() []string {
+	return []string{
+		"dynamodb:DescribeTable",
+		"dynamodb:ListTables",
+	}
+}
+
+func (s *DynamoDB) ListSupportedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
 }

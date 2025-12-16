@@ -58,7 +58,7 @@ func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, regi
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
-		client, err = s.clients.InitializeClient(ctx, logger, region, role, configProvider)
+		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
 			return fmt.Errorf("error initializing RDS client for region %s: %w", region, err)
 		}
@@ -182,4 +182,18 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 			},
 		},
 	}, nil
+}
+
+func (s *RDS) ListRequiredPermissions() []string {
+	return []string{
+		"rds:DescribeDBInstances",
+	}
+}
+
+func (s *RDS) ListSupportedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
 }

@@ -1,9 +1,7 @@
 package clients
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -28,7 +26,7 @@ func NewClients[T any](buildClientFunc func(cfg aws.Config) T) *Clients[T] {
 	}
 }
 
-func (c *Clients[T]) InitializeClient(_ context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (T, error) {
+func (c *Clients[T]) InitializeClient(region string, role model.Role, configProvider config.RegionalConfigProvider) (T, error) {
 	var zero T
 	regionalConfig := configProvider.GetAWSRegionalConfig(region, role)
 	if regionalConfig == nil {
@@ -44,6 +42,9 @@ func (c *Clients[T]) InitializeClient(_ context.Context, logger *slog.Logger, re
 	}
 	_, exists := c.regionalClients[key]
 	if !exists {
+		if c.buildClientFunc == nil {
+			return zero, fmt.Errorf("could not get client for region %s, because buildClientFunc is not provided", region)
+		}
 		c.regionalClients[key] = c.buildClientFunc(*regionalConfig)
 	}
 
