@@ -1,4 +1,4 @@
-package enhanced_metrics
+package enhancedmetrics
 
 import (
 	"fmt"
