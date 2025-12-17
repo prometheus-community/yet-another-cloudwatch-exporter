@@ -157,7 +157,6 @@ func (s *ElastiCache) buildNumCacheNodesMetric(_ context.Context, _ *slog.Logger
 		Dimensions:   dimensions,
 		Tags:         resource.MetricTags(exportedTags),
 		GetMetricDataResult: &model.GetMetricDataResult{
-			Statistic: "Sum",
 			DataPoints: []model.DataPoint{
 				{
 					Value:     &value,

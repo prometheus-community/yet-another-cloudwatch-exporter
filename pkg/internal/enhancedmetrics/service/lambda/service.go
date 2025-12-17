@@ -150,7 +150,6 @@ func (s *Lambda) buildTimeoutMetric(_ context.Context, _ *slog.Logger, resource 
 		Dimensions:   dimensions,
 		Tags:         resource.MetricTags(exportedTags),
 		GetMetricDataResult: &model.GetMetricDataResult{
-			Statistic: "Sum",
 			DataPoints: []model.DataPoint{
 				{
 					Value:     &value,
