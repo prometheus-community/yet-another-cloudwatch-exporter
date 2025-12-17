@@ -137,31 +137,30 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 		return nil, fmt.Errorf("AllocatedStorage is nil for DB instance %s", resource.ARN)
 	}
 
-	dimensions := make([]model.Dimension, 3)
+	var dimensions []model.Dimension
 
-	if instance.DBInstanceIdentifier != nil {
+	if instance.DBInstanceIdentifier != nil && len(*instance.DBInstanceIdentifier) > 0 {
 		dimensions = append(dimensions, model.Dimension{
 			Name:  "DBInstanceIdentifier",
 			Value: *instance.DBInstanceIdentifier,
 		})
 	}
 
-	if instance.DBInstanceClass != nil {
+	if instance.DBInstanceClass != nil && len(*instance.DBInstanceClass) > 0 {
 		dimensions = append(dimensions, model.Dimension{
 			Name:  "DatabaseClass",
 			Value: *instance.DBInstanceClass,
 		})
 	}
-	if instance.Engine != nil {
+
+	if instance.Engine != nil && len(*instance.Engine) > 0 {
 		dimensions = append(dimensions, model.Dimension{
 			Name:  "EngineName",
 			Value: *instance.Engine,
 		})
 	}
 
-	// Convert AllocatedStorage from GiB to bytes for Prometheus
-	// AWS reports AllocatedStorage in GiB (gibibytes)
-	valueInBytes := float64(*instance.AllocatedStorage) * 1024 * 1024 * 1024
+	valueInGiB := float64(*instance.AllocatedStorage)
 
 	return &model.CloudwatchData{
 		MetricName:   "StorageCapacity",
@@ -172,10 +171,10 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 
 		// Store the value as a single data point
 		GetMetricDataResult: &model.GetMetricDataResult{
-			Statistic: "Sum",
+			//Statistic: "Sum",
 			DataPoints: []model.DataPoint{
 				{
-					Value:     &valueInBytes,
+					Value:     &valueInGiB,
 					Timestamp: time.Now(),
 				},
 			},
