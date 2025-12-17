@@ -4,7 +4,18 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/elasticache"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 )
+
+var DefaultRegistry = (&Registry{}).
+	Register(rds.NewRDSService(nil)).
+	Register(lambda.NewLambdaService(nil)).
+	Register(elasticache.NewElastiCacheService(nil)).
+	Register(dynamodb.NewDynamoDBService(nil))
 
 type Registry struct {
 	m sync.RWMutex
