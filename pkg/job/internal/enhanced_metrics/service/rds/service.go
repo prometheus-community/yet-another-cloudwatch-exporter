@@ -37,8 +37,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	}
 
 	rds := &RDS{
-		clients:      clients.NewClients[Client](buildClientFunc),
-		regionalData: make(map[string]*types.DBInstance),
+		clients: clients.NewClients[Client](buildClientFunc),
 	}
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{

@@ -36,8 +36,7 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 		buildClientFunc = NewElastiCacheClientWithConfig
 	}
 	svc := &ElastiCache{
-		clients:      clients.NewClients[Client](buildClientFunc),
-		regionalData: make(map[string]*types.CacheCluster),
+		clients: clients.NewClients[Client](buildClientFunc),
 	}
 
 	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{

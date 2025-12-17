@@ -34,8 +34,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 		buildClientFunc = NewDynamoDBClientWithConfig
 	}
 	svc := &DynamoDB{
-		clients:      clients.NewClients[Client](buildClientFunc),
-		regionalData: make(map[string]*types.TableDescription),
+		clients: clients.NewClients[Client](buildClientFunc),
 	}
 
 	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
