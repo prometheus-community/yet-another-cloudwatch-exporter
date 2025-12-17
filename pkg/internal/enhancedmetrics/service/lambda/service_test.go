@@ -1,4 +1,4 @@
-package rds
+package lambda
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRDSService(t *testing.T) {
+func TestNewLambdaService(t *testing.T) {
 	tests := []struct {
 		name             string
 		buildClientFunc  func(cfg aws.Config) Client
@@ -33,58 +33,58 @@ func TestNewRDSService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewRDSService(tt.buildClientFunc)
+			got := NewLambdaService(tt.buildClientFunc)
 			require.NotNil(t, got)
 			require.NotNil(t, got.clients)
 			require.Nil(t, got.regionalData)
 			require.Len(t, got.supportedMetrics, 1)
-			require.NotNil(t, got.supportedMetrics["AllocatedStorage"])
+			require.NotNil(t, got.supportedMetrics["Timeout"])
 		})
 	}
 }
 
-func TestRDS_GetNamespace(t *testing.T) {
-	service := NewRDSService(nil)
-	expectedNamespace := "AWS/RDS"
+func TestLambda_GetNamespace(t *testing.T) {
+	service := NewLambdaService(nil)
+	expectedNamespace := "AWS/Lambda"
 	require.Equal(t, expectedNamespace, service.GetNamespace())
 }
 
-func TestRDS_ListRequiredPermissions(t *testing.T) {
-	service := NewRDSService(nil)
+func TestLambda_ListRequiredPermissions(t *testing.T) {
+	service := NewLambdaService(nil)
 	expectedPermissions := []string{
-		"rds:DescribeDBInstances",
+		"lambda:ListFunctions",
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestRDS_ListSupportedMetrics(t *testing.T) {
-	service := NewRDSService(nil)
+func TestLambda_ListSupportedMetrics(t *testing.T) {
+	service := NewLambdaService(nil)
 	expectedMetrics := []string{
-		"AllocatedStorage",
+		"Timeout",
 	}
 	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
 }
 
-func TestRDS_LoadMetricsMetadata(t *testing.T) {
+func TestLambda_LoadMetricsMetadata(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupMock      func() *mockServiceRDSClient
+		setupMock      func() *mockServiceLambdaClient
 		region         string
-		existingData   map[string]*types.DBInstance
+		existingData   map[string]*types.FunctionConfiguration
 		wantErr        bool
 		wantDataLoaded bool
 	}{
 		{
 			name:   "successfully load metadata",
 			region: "us-east-1",
-			setupMock: func() *mockServiceRDSClient {
-				mock := &mockServiceRDSClient{}
-				instanceArn := "arn:aws:rds:us-east-1:123456789012:db:test-instance"
-				instanceID := "test-instance"
-				mock.instances = []types.DBInstance{
+			setupMock: func() *mockServiceLambdaClient {
+				mock := &mockServiceLambdaClient{}
+				functionArn := "arn:aws:lambda:us-east-1:123456789012:function:test-function"
+				functionName := "test-function"
+				mock.functions = []types.FunctionConfiguration{
 					{
-						DBInstanceArn:        &instanceArn,
-						DBInstanceIdentifier: &instanceID,
+						FunctionArn:  &functionArn,
+						FunctionName: &functionName,
 					},
 				}
 				return mock
@@ -93,10 +93,10 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 			wantDataLoaded: true,
 		},
 		{
-			name:   "describe instances error",
+			name:   "list functions error",
 			region: "us-east-1",
-			setupMock: func() *mockServiceRDSClient {
-				return &mockServiceRDSClient{describeErr: true}
+			setupMock: func() *mockServiceLambdaClient {
+				return &mockServiceLambdaClient{listErr: true}
 			},
 			wantErr:        true,
 			wantDataLoaded: false,
@@ -104,11 +104,11 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 		{
 			name:   "metadata already loaded - skip loading",
 			region: "us-east-1",
-			existingData: map[string]*types.DBInstance{
+			existingData: map[string]*types.FunctionConfiguration{
 				"existing-arn": {},
 			},
-			setupMock: func() *mockServiceRDSClient {
-				return &mockServiceRDSClient{}
+			setupMock: func() *mockServiceLambdaClient {
+				return &mockServiceLambdaClient{}
 			},
 			wantErr:        false,
 			wantDataLoaded: false,
@@ -119,12 +119,12 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			var service *RDS
+			var service *Lambda
 
 			if tt.setupMock == nil {
-				service = NewRDSService(nil)
+				service = NewLambdaService(nil)
 			} else {
-				service = NewRDSService(func(cfg aws.Config) Client {
+				service = NewLambdaService(func(cfg aws.Config) Client {
 					return tt.setupMock()
 				})
 			}
@@ -153,39 +153,38 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 	}
 }
 
-func TestRDS_Process(t *testing.T) {
-	rd := map[string]*types.DBInstance{
-		"arn:aws:rds:us-east-1:123456789012:db:test-instance": {
-			DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance"),
-			DBInstanceIdentifier: aws.String("test-instance"),
-			DBInstanceClass:      aws.String("db.t3.micro"),
-			Engine:               aws.String("postgres"),
-			AllocatedStorage:     aws.Int32(100),
+func TestLambda_Process(t *testing.T) {
+	rd := map[string]*types.FunctionConfiguration{
+		"arn:aws:lambda:us-east-1:123456789012:function:test-function": {
+			FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function"),
+			FunctionName: aws.String("test-function"),
+			Timeout:      aws.Int32(300),
 		},
 	}
+
 	tests := []struct {
 		name                 string
 		namespace            string
 		resources            []*model.TaggedResource
 		enhancedMetrics      []*model.EnhancedMetricConfig
 		exportedTagOnMetrics []string
-		regionalData         map[string]*types.DBInstance
+		regionalData         map[string]*types.FunctionConfiguration
 		wantErr              bool
 		wantResultCount      int
 	}{
 		{
 			name:            "empty resources",
-			namespace:       "AWS/RDS",
+			namespace:       "AWS/Lambda",
 			resources:       []*model.TaggedResource{},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       "AWS/RDS",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
+			namespace:       "AWS/Lambda",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			regionalData:    rd,
 			wantErr:         false,
@@ -194,77 +193,73 @@ func TestRDS_Process(t *testing.T) {
 		{
 			name:            "wrong namespace",
 			namespace:       "AWS/EC2",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			regionalData:    rd,
 			wantErr:         true,
 			wantResultCount: 0,
 		},
 		{
 			name:            "metadata not loaded",
-			namespace:       "AWS/RDS",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			namespace:       "AWS/Lambda",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			regionalData:    nil,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "successfully process metric",
-			namespace: "AWS/RDS",
+			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function"},
 			},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 1,
 		},
 		{
 			name:      "resource not found in metadata",
-			namespace: "AWS/RDS",
+			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:non-existent"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:non-existent"},
 			},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "unsupported metric",
-			namespace: "AWS/RDS",
+			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
-			regionalData: map[string]*types.DBInstance{
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance": {
-					AllocatedStorage: aws.Int32(100),
-				},
-			},
+			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "multiple resources and metrics",
-			namespace: "AWS/RDS",
+			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-1"},
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-2"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function-1"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function-2"},
 			},
-			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			exportedTagOnMetrics: []string{"Name"},
-			regionalData: map[string]*types.DBInstance{
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance-1": {
-					DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance-1"),
-					DBInstanceIdentifier: aws.String("test-instance-1"),
-					AllocatedStorage:     aws.Int32(100),
+			regionalData: map[string]*types.FunctionConfiguration{
+				"arn:aws:lambda:us-east-1:123456789012:function:test-function-1": {
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function-1"),
+					FunctionName: aws.String("test-function-1"),
+					Timeout:      aws.Int32(300),
 				},
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance-2": {
-					DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance-2"),
-					DBInstanceIdentifier: aws.String("test-instance-2"),
-					AllocatedStorage:     aws.Int32(200),
+				"arn:aws:lambda:us-east-1:123456789012:function:test-function-2": {
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function-2"),
+					FunctionName: aws.String("test-function-2"),
+					Timeout:      aws.Int32(600),
 				},
 			},
 			wantErr:         false,
@@ -276,7 +271,11 @@ func TestRDS_Process(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			service := NewRDSService(nil)
+			service := NewLambdaService(
+				func(cfg aws.Config) Client {
+					return nil
+				},
+			)
 			// we directly set the regionalData for testing
 			service.regionalData = tt.regionalData
 
@@ -293,7 +292,7 @@ func TestRDS_Process(t *testing.T) {
 			if tt.wantResultCount > 0 {
 				for _, metric := range result {
 					require.NotNil(t, metric)
-					require.Equal(t, "AWS/RDS", metric.Namespace)
+					require.Equal(t, "AWS/Lambda", metric.Namespace)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
 					require.Empty(t, metric.GetMetricDataResult.Statistic)
@@ -304,17 +303,17 @@ func TestRDS_Process(t *testing.T) {
 	}
 }
 
-type mockServiceRDSClient struct {
-	instances   []types.DBInstance
-	describeErr bool
-	initErr     bool
+type mockServiceLambdaClient struct {
+	functions []types.FunctionConfiguration
+	listErr   bool
+	initErr   bool
 }
 
-func (m *mockServiceRDSClient) DescribeAllDBInstances(_ context.Context, _ *slog.Logger) ([]types.DBInstance, error) {
-	if m.describeErr {
-		return nil, fmt.Errorf("mock describe error")
+func (m *mockServiceLambdaClient) ListAllFunctions(_ context.Context, _ *slog.Logger) ([]types.FunctionConfiguration, error) {
+	if m.listErr {
+		return nil, fmt.Errorf("mock list error")
 	}
-	return m.instances, nil
+	return m.functions, nil
 }
 
 type mockConfigProvider struct {
