@@ -36,8 +36,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		buildClientFunc = NewLambdaClientWithConfig
 	}
 	svc := &Lambda{
-		clients:      clients.NewClients[Client](buildClientFunc),
-		regionalData: make(map[string]*types.FunctionConfiguration),
+		clients: clients.NewClients[Client](buildClientFunc),
 	}
 
 	svc.supportedMetrics = map[string]buildLambdaMetricFunc{
