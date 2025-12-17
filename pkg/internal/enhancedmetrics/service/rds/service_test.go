@@ -306,6 +306,8 @@ func TestRDS_Process(t *testing.T) {
 					require.Equal(t, "AWS/RDS", metric.Namespace)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
+					require.Empty(t, metric.GetMetricDataResult.Statistic)
+					require.Nil(t, metric.GetMetricStatisticsResult)
 				}
 			}
 		})
@@ -329,6 +331,6 @@ type mockConfigProvider struct {
 	c *aws.Config
 }
 
-func (m *mockConfigProvider) GetAWSRegionalConfig(region string, role model.Role) *aws.Config {
+func (m *mockConfigProvider) GetAWSRegionalConfig(_ string, _ model.Role) *aws.Config {
 	return m.c
 }
