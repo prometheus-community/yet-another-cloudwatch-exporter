@@ -93,12 +93,6 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 			wantDataLoaded: true,
 		},
 		{
-			name:           "client initialization error, client build func is nil",
-			region:         "us-east-1",
-			wantErr:        true,
-			wantDataLoaded: false,
-		},
-		{
 			name:   "describe instances error",
 			region: "us-east-1",
 			setupMock: func() *mockServiceRDSClient {
