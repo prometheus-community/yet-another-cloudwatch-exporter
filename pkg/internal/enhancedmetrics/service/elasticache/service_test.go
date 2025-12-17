@@ -1,4 +1,4 @@
-package rds
+package elasticache
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRDSService(t *testing.T) {
+func TestNewElastiCacheService(t *testing.T) {
 	tests := []struct {
 		name             string
 		buildClientFunc  func(cfg aws.Config) Client
@@ -33,58 +33,58 @@ func TestNewRDSService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewRDSService(tt.buildClientFunc)
+			got := NewElastiCacheService(tt.buildClientFunc)
 			require.NotNil(t, got)
 			require.NotNil(t, got.clients)
 			require.Nil(t, got.regionalData)
 			require.Len(t, got.supportedMetrics, 1)
-			require.NotNil(t, got.supportedMetrics["AllocatedStorage"])
+			require.NotNil(t, got.supportedMetrics["NumCacheNodes"])
 		})
 	}
 }
 
-func TestRDS_GetNamespace(t *testing.T) {
-	service := NewRDSService(nil)
-	expectedNamespace := "AWS/RDS"
+func TestElastiCache_GetNamespace(t *testing.T) {
+	service := NewElastiCacheService(nil)
+	expectedNamespace := "AWS/ElastiCache"
 	require.Equal(t, expectedNamespace, service.GetNamespace())
 }
 
-func TestRDS_ListRequiredPermissions(t *testing.T) {
-	service := NewRDSService(nil)
+func TestElastiCache_ListRequiredPermissions(t *testing.T) {
+	service := NewElastiCacheService(nil)
 	expectedPermissions := []string{
-		"rds:DescribeDBInstances",
+		"elasticache:DescribeCacheClusters",
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestRDS_ListSupportedMetrics(t *testing.T) {
-	service := NewRDSService(nil)
+func TestElastiCache_ListSupportedMetrics(t *testing.T) {
+	service := NewElastiCacheService(nil)
 	expectedMetrics := []string{
-		"AllocatedStorage",
+		"NumCacheNodes",
 	}
 	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
 }
 
-func TestRDS_LoadMetricsMetadata(t *testing.T) {
+func TestElastiCache_LoadMetricsMetadata(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupMock      func() *mockServiceRDSClient
+		setupMock      func() *mockServiceElastiCacheClient
 		region         string
-		existingData   map[string]*types.DBInstance
+		existingData   map[string]*types.CacheCluster
 		wantErr        bool
 		wantDataLoaded bool
 	}{
 		{
 			name:   "successfully load metadata",
 			region: "us-east-1",
-			setupMock: func() *mockServiceRDSClient {
-				mock := &mockServiceRDSClient{}
-				instanceArn := "arn:aws:rds:us-east-1:123456789012:db:test-instance"
-				instanceID := "test-instance"
-				mock.instances = []types.DBInstance{
+			setupMock: func() *mockServiceElastiCacheClient {
+				mock := &mockServiceElastiCacheClient{}
+				clusterArn := "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"
+				clusterID := "test-cluster"
+				mock.clusters = []types.CacheCluster{
 					{
-						DBInstanceArn:        &instanceArn,
-						DBInstanceIdentifier: &instanceID,
+						ARN:            &clusterArn,
+						CacheClusterId: &clusterID,
 					},
 				}
 				return mock
@@ -93,10 +93,10 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 			wantDataLoaded: true,
 		},
 		{
-			name:   "describe instances error",
+			name:   "describe clusters error",
 			region: "us-east-1",
-			setupMock: func() *mockServiceRDSClient {
-				return &mockServiceRDSClient{describeErr: true}
+			setupMock: func() *mockServiceElastiCacheClient {
+				return &mockServiceElastiCacheClient{describeErr: true}
 			},
 			wantErr:        true,
 			wantDataLoaded: false,
@@ -104,11 +104,11 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 		{
 			name:   "metadata already loaded - skip loading",
 			region: "us-east-1",
-			existingData: map[string]*types.DBInstance{
+			existingData: map[string]*types.CacheCluster{
 				"existing-arn": {},
 			},
-			setupMock: func() *mockServiceRDSClient {
-				return &mockServiceRDSClient{}
+			setupMock: func() *mockServiceElastiCacheClient {
+				return &mockServiceElastiCacheClient{}
 			},
 			wantErr:        false,
 			wantDataLoaded: false,
@@ -119,12 +119,12 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			var service *RDS
+			var service *ElastiCache
 
 			if tt.setupMock == nil {
-				service = NewRDSService(nil)
+				service = NewElastiCacheService(nil)
 			} else {
-				service = NewRDSService(func(cfg aws.Config) Client {
+				service = NewElastiCacheService(func(cfg aws.Config) Client {
 					return tt.setupMock()
 				})
 			}
@@ -153,39 +153,41 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 	}
 }
 
-func TestRDS_Process(t *testing.T) {
-	rd := map[string]*types.DBInstance{
-		"arn:aws:rds:us-east-1:123456789012:db:test-instance": {
-			DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance"),
-			DBInstanceIdentifier: aws.String("test-instance"),
-			DBInstanceClass:      aws.String("db.t3.micro"),
-			Engine:               aws.String("postgres"),
-			AllocatedStorage:     aws.Int32(100),
+func TestElastiCache_Process(t *testing.T) {
+	rd := map[string]*types.CacheCluster{
+		"arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster": {
+			ARN:                aws.String("arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"),
+			CacheClusterId:     aws.String("test-cluster"),
+			ReplicationGroupId: aws.String("test-replication-group"),
+			CacheNodeType:      aws.String("cache.t3.micro"),
+			Engine:             aws.String("redis"),
+			NumCacheNodes:      aws.Int32(2),
 		},
 	}
+
 	tests := []struct {
 		name                 string
 		namespace            string
 		resources            []*model.TaggedResource
 		enhancedMetrics      []*model.EnhancedMetricConfig
 		exportedTagOnMetrics []string
-		regionalData         map[string]*types.DBInstance
+		regionalData         map[string]*types.CacheCluster
 		wantErr              bool
 		wantResultCount      int
 	}{
 		{
 			name:            "empty resources",
-			namespace:       "AWS/RDS",
+			namespace:       "AWS/ElastiCache",
 			resources:       []*model.TaggedResource{},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       "AWS/RDS",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
+			namespace:       "AWS/ElastiCache",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			regionalData:    rd,
 			wantErr:         false,
@@ -194,77 +196,73 @@ func TestRDS_Process(t *testing.T) {
 		{
 			name:            "wrong namespace",
 			namespace:       "AWS/EC2",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			regionalData:    rd,
 			wantErr:         true,
 			wantResultCount: 0,
 		},
 		{
 			name:            "metadata not loaded",
-			namespace:       "AWS/RDS",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:test"}},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			namespace:       "AWS/ElastiCache",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			regionalData:    nil,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "successfully process metric",
-			namespace: "AWS/RDS",
+			namespace: "AWS/ElastiCache",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"},
 			},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 1,
 		},
 		{
 			name:      "resource not found in metadata",
-			namespace: "AWS/RDS",
+			namespace: "AWS/ElastiCache",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:non-existent"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:non-existent"},
 			},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "unsupported metric",
-			namespace: "AWS/RDS",
+			namespace: "AWS/ElastiCache",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
-			regionalData: map[string]*types.DBInstance{
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance": {
-					AllocatedStorage: aws.Int32(100),
-				},
-			},
+			regionalData:    rd,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:      "multiple resources and metrics",
-			namespace: "AWS/RDS",
+			namespace: "AWS/ElastiCache",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-1"},
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-2"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2"},
 			},
-			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			exportedTagOnMetrics: []string{"Name"},
-			regionalData: map[string]*types.DBInstance{
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance-1": {
-					DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance-1"),
-					DBInstanceIdentifier: aws.String("test-instance-1"),
-					AllocatedStorage:     aws.Int32(100),
+			regionalData: map[string]*types.CacheCluster{
+				"arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1": {
+					ARN:            aws.String("arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1"),
+					CacheClusterId: aws.String("test-cluster-1"),
+					NumCacheNodes:  aws.Int32(1),
 				},
-				"arn:aws:rds:us-east-1:123456789012:db:test-instance-2": {
-					DBInstanceArn:        aws.String("arn:aws:rds:us-east-1:123456789012:db:test-instance-2"),
-					DBInstanceIdentifier: aws.String("test-instance-2"),
-					AllocatedStorage:     aws.Int32(200),
+				"arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2": {
+					ARN:            aws.String("arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2"),
+					CacheClusterId: aws.String("test-cluster-2"),
+					NumCacheNodes:  aws.Int32(3),
 				},
 			},
 			wantErr:         false,
@@ -276,7 +274,11 @@ func TestRDS_Process(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			service := NewRDSService(nil)
+			service := NewElastiCacheService(
+				func(cfg aws.Config) Client {
+					return nil
+				},
+			)
 			// we directly set the regionalData for testing
 			service.regionalData = tt.regionalData
 
@@ -293,7 +295,7 @@ func TestRDS_Process(t *testing.T) {
 			if tt.wantResultCount > 0 {
 				for _, metric := range result {
 					require.NotNil(t, metric)
-					require.Equal(t, "AWS/RDS", metric.Namespace)
+					require.Equal(t, "AWS/ElastiCache", metric.Namespace)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
 					require.Empty(t, metric.GetMetricDataResult.Statistic)
@@ -304,17 +306,17 @@ func TestRDS_Process(t *testing.T) {
 	}
 }
 
-type mockServiceRDSClient struct {
-	instances   []types.DBInstance
+type mockServiceElastiCacheClient struct {
+	clusters    []types.CacheCluster
 	describeErr bool
 	initErr     bool
 }
 
-func (m *mockServiceRDSClient) DescribeAllDBInstances(_ context.Context, _ *slog.Logger) ([]types.DBInstance, error) {
+func (m *mockServiceElastiCacheClient) DescribeAllCacheClusters(_ context.Context, _ *slog.Logger) ([]types.CacheCluster, error) {
 	if m.describeErr {
 		return nil, fmt.Errorf("mock describe error")
 	}
-	return m.instances, nil
+	return m.clusters, nil
 }
 
 type mockConfigProvider struct {

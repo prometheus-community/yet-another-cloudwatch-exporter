@@ -1,0 +1,351 @@
+package dynamodb
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNewDynamoDBService(t *testing.T) {
+	tests := []struct {
+		name             string
+		buildClientFunc  func(cfg aws.Config) Client
+		wantNilClients   bool
+		wantMetricsCount int
+	}{
+		{
+			name:            "with nil buildClientFunc",
+			buildClientFunc: nil,
+		},
+		{
+			name: "with custom buildClientFunc",
+			buildClientFunc: func(cfg aws.Config) Client {
+				return nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewDynamoDBService(tt.buildClientFunc)
+			require.NotNil(t, got)
+			require.NotNil(t, got.clients)
+			require.Nil(t, got.regionalData)
+			require.Len(t, got.supportedMetrics, 1)
+			require.NotNil(t, got.supportedMetrics["ItemCount"])
+		})
+	}
+}
+
+func TestDynamoDB_GetNamespace(t *testing.T) {
+	service := NewDynamoDBService(nil)
+	expectedNamespace := "AWS/DynamoDB"
+	require.Equal(t, expectedNamespace, service.GetNamespace())
+}
+
+func TestDynamoDB_ListRequiredPermissions(t *testing.T) {
+	service := NewDynamoDBService(nil)
+	expectedPermissions := []string{
+		"dynamodb:DescribeTable",
+		"dynamodb:ListTables",
+	}
+	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
+}
+
+func TestDynamoDB_ListSupportedMetrics(t *testing.T) {
+	service := NewDynamoDBService(nil)
+	expectedMetrics := []string{
+		"ItemCount",
+	}
+	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
+}
+
+func TestDynamoDB_LoadMetricsMetadata(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupMock      func() *mockServiceDynamoDBClient
+		region         string
+		existingData   map[string]*types.TableDescription
+		wantErr        bool
+		wantDataLoaded bool
+	}{
+		{
+			name:   "successfully load metadata",
+			region: "us-east-1",
+			setupMock: func() *mockServiceDynamoDBClient {
+				mock := &mockServiceDynamoDBClient{}
+				tableArn := "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"
+				tableName := "test-table"
+				mock.tables = []types.TableDescription{
+					{
+						TableArn:  &tableArn,
+						TableName: &tableName,
+					},
+				}
+				return mock
+			},
+			wantErr:        false,
+			wantDataLoaded: true,
+		},
+		{
+			name:   "describe tables error",
+			region: "us-east-1",
+			setupMock: func() *mockServiceDynamoDBClient {
+				return &mockServiceDynamoDBClient{describeErr: true}
+			},
+			wantErr:        true,
+			wantDataLoaded: false,
+		},
+		{
+			name:   "metadata already loaded - skip loading",
+			region: "us-east-1",
+			existingData: map[string]*types.TableDescription{
+				"existing-arn": {},
+			},
+			setupMock: func() *mockServiceDynamoDBClient {
+				return &mockServiceDynamoDBClient{}
+			},
+			wantErr:        false,
+			wantDataLoaded: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			var service *DynamoDB
+
+			if tt.setupMock == nil {
+				service = NewDynamoDBService(nil)
+			} else {
+				service = NewDynamoDBService(func(cfg aws.Config) Client {
+					return tt.setupMock()
+				})
+			}
+
+			if tt.existingData != nil {
+				service.regionalData = tt.existingData
+			}
+
+			mockConfig := &mockConfigProvider{
+				c: &aws.Config{
+					Region: tt.region,
+				},
+			}
+			err := service.LoadMetricsMetadata(ctx, logger, tt.region, model.Role{}, mockConfig)
+
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			if tt.wantDataLoaded {
+				require.NotEmpty(t, service.regionalData)
+			}
+		})
+	}
+}
+
+func TestDynamoDB_Process(t *testing.T) {
+	rd := map[string]*types.TableDescription{
+		"arn:aws:dynamodb:us-east-1:123456789012:table/test-table": {
+			TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table"),
+			TableName: aws.String("test-table"),
+			ItemCount: aws.Int64(1000),
+		},
+	}
+	tests := []struct {
+		name                 string
+		namespace            string
+		resources            []*model.TaggedResource
+		enhancedMetrics      []*model.EnhancedMetricConfig
+		exportedTagOnMetrics []string
+		regionalData         map[string]*types.TableDescription
+		wantErr              bool
+		wantResultCount      int
+	}{
+		{
+			name:            "empty resources",
+			namespace:       "AWS/DynamoDB",
+			resources:       []*model.TaggedResource{},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData:    rd,
+			wantErr:         false,
+			wantResultCount: 0,
+		},
+		{
+			name:            "empty enhanced metrics",
+			namespace:       "AWS/DynamoDB",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{},
+			regionalData:    rd,
+			wantErr:         false,
+			wantResultCount: 0,
+		},
+		{
+			name:            "wrong namespace",
+			namespace:       "AWS/EC2",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData:    rd,
+			wantErr:         true,
+			wantResultCount: 0,
+		},
+		{
+			name:            "metadata not loaded",
+			namespace:       "AWS/DynamoDB",
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData:    nil,
+			wantErr:         false,
+			wantResultCount: 0,
+		},
+		{
+			name:      "successfully process metric",
+			namespace: "AWS/DynamoDB",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData:    rd,
+			wantErr:         false,
+			wantResultCount: 1,
+		},
+		{
+			name:      "successfully process metric with global secondary indexes",
+			namespace: "AWS/DynamoDB",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData: map[string]*types.TableDescription{
+				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi": {
+					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"),
+					TableName: aws.String("test-table-with-gsi"),
+					ItemCount: aws.Int64(1000),
+					GlobalSecondaryIndexes: []types.GlobalSecondaryIndexDescription{
+						{
+							IndexName: aws.String("test-gsi-1"),
+							ItemCount: aws.Int64(500),
+						},
+						{
+							IndexName: aws.String("test-gsi-2"),
+							ItemCount: aws.Int64(300),
+						},
+					},
+				},
+			},
+			wantErr:         false,
+			wantResultCount: 3, // 1 for table + 2 for GSIs
+		},
+		{
+			name:      "resource not found in metadata",
+			namespace: "AWS/DynamoDB",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			regionalData:    rd,
+			wantErr:         false,
+			wantResultCount: 0,
+		},
+		{
+			name:      "unsupported metric",
+			namespace: "AWS/DynamoDB",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
+			regionalData: map[string]*types.TableDescription{
+				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table": {
+					ItemCount: aws.Int64(1000),
+				},
+			},
+			wantErr:         false,
+			wantResultCount: 0,
+		},
+		{
+			name:      "multiple resources and metrics",
+			namespace: "AWS/DynamoDB",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1"},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2"},
+			},
+			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			exportedTagOnMetrics: []string{"Name"},
+			regionalData: map[string]*types.TableDescription{
+				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1": {
+					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1"),
+					TableName: aws.String("test-table-1"),
+					ItemCount: aws.Int64(1000),
+				},
+				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2": {
+					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2"),
+					TableName: aws.String("test-table-2"),
+					ItemCount: aws.Int64(2000),
+				},
+			},
+			wantErr:         false,
+			wantResultCount: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			service := NewDynamoDBService(nil)
+			// we directly set the regionalData for testing
+			service.regionalData = tt.regionalData
+
+			result, err := service.Process(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics)
+
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Len(t, result, tt.wantResultCount)
+
+			if tt.wantResultCount > 0 {
+				for _, metric := range result {
+					require.NotNil(t, metric)
+					require.Equal(t, "AWS/DynamoDB", metric.Namespace)
+					require.NotEmpty(t, metric.Dimensions)
+					require.NotNil(t, metric.GetMetricDataResult)
+					require.Nil(t, metric.GetMetricStatisticsResult)
+				}
+			}
+		})
+	}
+}
+
+type mockServiceDynamoDBClient struct {
+	tables      []types.TableDescription
+	describeErr bool
+	initErr     bool
+}
+
+func (m *mockServiceDynamoDBClient) DescribeAllTables(_ context.Context, _ *slog.Logger) ([]types.TableDescription, error) {
+	if m.describeErr {
+		return nil, fmt.Errorf("mock describe error")
+	}
+	return m.tables, nil
+}
+
+type mockConfigProvider struct {
+	c *aws.Config
+}
+
+func (m *mockConfigProvider) GetAWSRegionalConfig(_ string, _ model.Role) *aws.Config {
+	return m.c
+}
