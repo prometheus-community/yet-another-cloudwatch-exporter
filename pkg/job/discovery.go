@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics"
+	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -55,15 +55,15 @@ func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.Discove
 
 	svc := config.SupportedServices.GetService(job.Namespace)
 	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
-	if len(getMetricDatas) == 0 {
-		logger.Info("No metrics data found")
-		return resources, nil
-	}
 
-	getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
-	if err != nil {
-		logger.Error("Failed to get metric data", "err", err)
-		return nil, nil
+	if len(getMetricDatas) > 0 {
+		getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
+		if err != nil {
+			logger.Error("Failed to get metric data", "err", err)
+			return nil, nil
+		}
+	} else {
+		logger.Info("No metrics data found")
 	}
 
 	// Fetch enhanced metrics if configured

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 

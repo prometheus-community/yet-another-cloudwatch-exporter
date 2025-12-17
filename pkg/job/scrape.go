@@ -20,10 +20,9 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-
-	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics"
 )
 
 func ScrapeAwsData(
@@ -55,9 +54,9 @@ func ScrapeAwsData(
 					jobLogger = jobLogger.With("account", accountID)
 
 					// at this point we have already all the data to start loading the enhanced metrics if any is configured
-					var enhancedProcessor *em.EnhancedProcessor
+					var enhancedProcessor *enhancedmetrics.EnhancedProcessor
 					if discoveryJob.IsEnhancedMetricsConfigured() {
-						enhancedProcessor, err = em.NewEnhancedProcessor(discoveryJob.Namespace, factory, em.DefaultRegistry)
+						enhancedProcessor, err = enhancedmetrics.NewEnhancedProcessor(discoveryJob.Namespace, factory, enhancedmetrics.DefaultRegistry)
 						if err != nil {
 							jobLogger.Error("Couldn't initialize enhanced metrics processor", "err", err)
 						}
