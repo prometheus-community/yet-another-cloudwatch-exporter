@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 
-	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics"
+	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics"
 )
 
 func ScrapeAwsData(
