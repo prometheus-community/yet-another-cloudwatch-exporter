@@ -1,10 +1,10 @@
-package enhanced_metrics
+package enhancedmetrics
 
 import (
 	"context"
 	"log/slog"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 

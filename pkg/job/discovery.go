@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhanced_metrics"
+	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
