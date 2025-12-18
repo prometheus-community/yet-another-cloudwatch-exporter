@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	enhancedmetricsLambdaService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	enhancedmetricsService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus/client_golang/prometheus"
@@ -128,6 +130,19 @@ func (m *mockRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog
 	return m.instances, nil
 }
 
+// mockLambdaClient implements the Lambda Client interface for testing
+type mockLambdaClient struct {
+	functions []lambdaTypes.FunctionConfiguration
+	err       error
+}
+
+func (m *mockLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]lambdaTypes.FunctionConfiguration, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.functions, nil
+}
+
 func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	// restore the original state after the test, it is important to avoid side effects on other tests.
 	// However, it should be changed to use a separate registry for each test in the future.
@@ -215,11 +230,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 
 	metrics, err := registry.Gather()
 	require.NoError(t, err)
-
-	// We verify the process completes successfully
-	// In a real scenario, enhanced metrics would be generated
 	require.NotNil(t, metrics)
-
 	require.Len(t, metrics, 2)
 
 	expectedMetric := `
@@ -237,5 +248,113 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 `
 
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_rds_storage_capacity")
+	require.NoError(t, err)
+}
+
+func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
+	// restore the original state after the test, it is important to avoid side effects on other tests.
+	// However, it should be changed to use a separate registry for each test in the future.
+	defer enhancedmetrics.DefaultRegistry.Remove("AWS/Lambda").Register(enhancedmetricsLambdaService.NewLambdaService(nil))
+
+	ctx := context.Background()
+	logger := slog.Default()
+
+	// Create a test AWS config
+	testAWSConfig := &aws.Config{
+		Region: "us-east-1",
+	}
+
+	// Create mock clients
+	mockAcctClient := &mockAccountClient{
+		accountID:    "123456789012",
+		accountAlias: "test-account",
+	}
+
+	mockCWClient := &mockCloudwatchClient{
+		listMetricsResult:   []*model.Metric{},
+		getMetricDataResult: []cloudwatch.MetricDataResult{},
+	}
+
+	mockTagClient := &mockTaggingClient{
+		resources: []*model.TaggedResource{
+			{
+				ARN:       "arn:aws:lambda:us-east-1:123456789012:function:test-function",
+				Namespace: "AWS/Lambda",
+				Region:    "us-east-1",
+				Tags: []model.Tag{
+					{Key: "Name", Value: "test-function"},
+				},
+			},
+		},
+	}
+
+	// Create a mock Lambda client builder function for testing
+	mockLambdaClientBuilder := func(cfg aws.Config) enhancedmetricsLambdaService.Client {
+		return &mockLambdaClient{
+			functions: []lambdaTypes.FunctionConfiguration{
+				{
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function"),
+					FunctionName: aws.String("test-function"),
+					Timeout:      aws.Int32(300),
+				},
+			},
+		}
+	}
+
+	// Register the Lambda service with the mock builder in the default registry
+	lambdaService := enhancedmetricsLambdaService.NewLambdaService(mockLambdaClientBuilder)
+	enhancedmetrics.DefaultRegistry.Remove("AWS/Lambda").Register(lambdaService)
+
+	// Create the mock factory that implements both interfaces
+	factory := &mockFactory{
+		accountClient:    mockAcctClient,
+		cloudwatchClient: mockCWClient,
+		taggingClient:    mockTagClient,
+		awsConfig:        testAWSConfig,
+	}
+
+	// Create a test job config with enhanced metrics
+	jobsCfg := model.JobsConfig{
+		DiscoveryJobs: []model.DiscoveryJob{
+			{
+				Regions:   []string{"us-east-1"},
+				Namespace: "AWS/Lambda",
+				Roles:     []model.Role{{RoleArn: "arn:aws:iam::123456789012:role/test-role"}},
+				EnhancedMetrics: []*model.EnhancedMetricConfig{
+					{
+						Name: "Timeout",
+					},
+				},
+				ExportedTagsOnMetrics: []string{"Name"},
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
+	require.NoError(t, err)
+
+	metrics, err := registry.Gather()
+
+	require.NoError(t, err)
+	require.NotNil(t, metrics)
+	require.Len(t, metrics, 2)
+
+	expectedMetric := `
+		# HELP aws_lambda_info Help is not implemented yet.
+		# TYPE aws_lambda_info gauge
+		aws_lambda_info{name="arn:aws:lambda:us-east-1:123456789012:function:test-function",tag_Name="test-function"} 0
+`
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_lambda_info")
+	require.NoError(t, err)
+
+	expectedMetric = `
+		# HELP aws_lambda_timeout Help is not implemented yet.
+		# TYPE aws_lambda_timeout gauge
+		aws_lambda_timeout{account_alias="test-account",account_id="123456789012",dimension_FunctionName="test-function",name="arn:aws:lambda:us-east-1:123456789012:function:test-function",region="us-east-1",tag_Name="test-function"} 300
+`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_lambda_timeout")
 	require.NoError(t, err)
 }
