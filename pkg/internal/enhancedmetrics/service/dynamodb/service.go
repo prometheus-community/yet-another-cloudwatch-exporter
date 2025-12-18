@@ -93,14 +93,14 @@ func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace s
 		return nil, fmt.Errorf("dynamodb enhanced metrics service cannot process namespace %s", namespace)
 	}
 
+	var result []*model.CloudwatchData
+	s.dataM.RLock()
+	defer s.dataM.RUnlock()
+
 	if s.regionalData == nil {
 		logger.Info("dynamodb metadata not loaded, skipping metric processing")
 		return nil, nil
 	}
-
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
 
 	for _, resource := range resources {
 		table, exists := s.regionalData[resource.ARN]

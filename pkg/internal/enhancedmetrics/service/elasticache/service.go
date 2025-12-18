@@ -95,14 +95,14 @@ func (s *ElastiCache) Process(ctx context.Context, logger *slog.Logger, namespac
 		return nil, fmt.Errorf("elasticache enhanced metrics service cannot process namespace %s", namespace)
 	}
 
+	var result []*model.CloudwatchData
+	s.dataM.RLock()
+	defer s.dataM.RUnlock()
+
 	if s.regionalData == nil {
 		logger.Info("elasticache metadata not loaded, skipping metric processing")
 		return nil, nil
 	}
-
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
 
 	for _, resource := range resources {
 		cluster, exists := s.regionalData[resource.ARN]
