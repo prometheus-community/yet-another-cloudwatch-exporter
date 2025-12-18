@@ -148,7 +148,6 @@ func (s *DynamoDB) buildItemCountMetric(_ context.Context, _ *slog.Logger, resou
 		Dimensions:   dimensions,
 		Tags:         resource.MetricTags(exportedTags),
 		GetMetricDataResult: &model.GetMetricDataResult{
-			Statistic: "Sum",
 			DataPoints: []model.DataPoint{
 				{
 					Value:     &value,
