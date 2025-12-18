@@ -2,78 +2,79 @@ package enhancedmetrics
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/elasticache"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 )
 
-var DefaultRegistry = (&Registry{}).
-	Register(rds.NewRDSService(nil)).
-	Register(lambda.NewLambdaService(nil)).
-	Register(elasticache.NewElastiCacheService(nil)).
-	Register(dynamodb.NewDynamoDBService(nil))
+var DefaultRegistry = &Registry{}
 
 type Registry struct {
+	buildClientFunctions map[string]any
+
 	m sync.RWMutex
-
-	// Map of enhanced metric processors by metric name: Namespace -> EnhancedMetricsService
-	enhancedMetricProcessors map[string]EnhancedMetricsService
 }
 
-func (receiver *Registry) Register(ems EnhancedMetricsService) *Registry {
+// SetCustomBuildClientFunctions sets a custom function to build service clients for a specific namespace.
+// It is used for testing purposes.
+func (receiver *Registry) SetCustomBuildClientFunctions(namespace string, f any) {
 	receiver.m.Lock()
 	defer receiver.m.Unlock()
-	if receiver.enhancedMetricProcessors == nil {
-		receiver.enhancedMetricProcessors = make(map[string]EnhancedMetricsService)
+
+	if receiver.buildClientFunctions == nil {
+		receiver.buildClientFunctions = map[string]any{}
 	}
-
-	receiver.enhancedMetricProcessors[ems.GetNamespace()] = ems
-
-	return receiver
+	receiver.buildClientFunctions[namespace] = f
 }
 
-func (receiver *Registry) Remove(namespace string) *Registry {
+// DeleteCustomBuildClientFunctions deletes a custom function to build service clients for a specific namespace.
+// It is used for testing purposes.
+func (receiver *Registry) DeleteCustomBuildClientFunctions(namespace string) {
 	receiver.m.Lock()
 	defer receiver.m.Unlock()
-	delete(receiver.enhancedMetricProcessors, namespace)
 
-	return receiver
+	delete(receiver.buildClientFunctions, namespace)
 }
 
 func (receiver *Registry) GetEnhancedMetricsService(namespace string) (EnhancedMetricsService, error) {
 	receiver.m.RLock()
 	defer receiver.m.RUnlock()
-	ems, ok := receiver.enhancedMetricProcessors[namespace]
+
+	bcf, ok := receiver.buildClientFunctions[namespace]
 	if !ok {
-		return nil, fmt.Errorf("enhanced metrics service for namespace %s not found", namespace)
-	}
-	return ems, nil
-}
-
-func (receiver *Registry) ListSupportedMetrics() map[string][]string {
-	receiver.m.RLock()
-	defer receiver.m.RUnlock()
-	res := make(map[string][]string)
-	for _, v := range receiver.enhancedMetricProcessors {
-		res[v.GetNamespace()] = v.ListSupportedMetrics()
+		bcf = nil
 	}
 
-	return res
-}
-
-func (receiver *Registry) ListRequiredPermissions() []string {
-	receiver.m.RLock()
-	defer receiver.m.RUnlock()
-	res := make([]string, 0)
-	for _, v := range receiver.enhancedMetricProcessors {
-		res = append(res, v.ListRequiredPermissions()...)
+	switch namespace {
+	case "AWS/RDS":
+		bcf, ok := bcf.(func(cfg aws.Config) rds.Client)
+		if !ok {
+			bcf = nil
+		}
+		return rds.NewRDSService(bcf), nil
+	case "AWS/Lambda":
+		bcf, ok := bcf.(func(cfg aws.Config) lambda.Client)
+		if !ok {
+			bcf = nil
+		}
+		return lambda.NewLambdaService(bcf), nil
+	case "AWS/ElastiCache":
+		bcf, ok := bcf.(func(cfg aws.Config) elasticache.Client)
+		if !ok {
+			bcf = nil
+		}
+		return elasticache.NewElastiCacheService(bcf), nil
+	case "AWS/DynamoDB":
+		bcf, ok := bcf.(func(cfg aws.Config) dynamodb.Client)
+		if !ok {
+			bcf = nil
+		}
+		return dynamodb.NewDynamoDBService(bcf), nil
 	}
 
-	sort.Strings(res)
-
-	return res
+	return nil, fmt.Errorf("enhanced metrics service for namespace %s not found", namespace)
 }

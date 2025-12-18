@@ -2,18 +2,23 @@ package exporter
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	elasticacheTypes "github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	enhancedmetricsDynamoDBService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
+	enhancedmetricsElastiCacheService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/elasticache"
 	enhancedmetricsLambdaService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	enhancedmetricsService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -143,14 +148,36 @@ func (m *mockLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Lo
 	return m.functions, nil
 }
 
-func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
-	// restore the original state after the test, it is important to avoid side effects on other tests.
-	// However, it should be changed to use a separate registry for each test in the future.
-	defer enhancedmetrics.DefaultRegistry.Remove("AWS/RDS").Register(enhancedmetricsService.NewRDSService(nil))
+// mockElastiCacheClient implements the ElastiCache Client interface for testing
+type mockElastiCacheClient struct {
+	clusters []elasticacheTypes.CacheCluster
+	err      error
+}
 
+func (m *mockElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]elasticacheTypes.CacheCluster, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.clusters, nil
+}
+
+// mockDynamoDBClient implements the DynamoDB Client interface for testing
+type mockDynamoDBClient struct {
+	tables []dynamodbTypes.TableDescription
+	err    error
+}
+
+func (m *mockDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]dynamodbTypes.TableDescription, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.tables, nil
+}
+
+func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
+	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/RDS")
 	ctx := context.Background()
-	//logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	logger := slog.Default()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -195,8 +222,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	}
 
 	// Register the RDS service with the mock builder in the default registry
-	enhancedmetrics.DefaultRegistry.Remove("AWS/RDS").Register(
-		enhancedmetricsService.NewRDSService(mockRDSClientBuilder))
+	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/RDS", mockRDSClientBuilder)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
@@ -237,27 +263,19 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 		# HELP aws_rds_info Help is not implemented yet.
 		# TYPE aws_rds_info gauge
 		aws_rds_info{name="arn:aws:rds:us-east-1:123456789012:db:test-db",tag_Name="test-db"} 0
-`
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_rds_info")
-
-	require.NoError(t, err)
-	expectedMetric = `
 		# HELP aws_rds_storage_capacity Help is not implemented yet.
 		# TYPE aws_rds_storage_capacity gauge
 		aws_rds_storage_capacity{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="test-db",name="arn:aws:rds:us-east-1:123456789012:db:test-db",region="us-east-1",tag_Name="test-db"} 100
 `
 
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_rds_storage_capacity")
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
 	require.NoError(t, err)
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
-	// restore the original state after the test, it is important to avoid side effects on other tests.
-	// However, it should be changed to use a separate registry for each test in the future.
-	defer enhancedmetrics.DefaultRegistry.Remove("AWS/Lambda").Register(enhancedmetricsLambdaService.NewLambdaService(nil))
-
+	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/Lambda")
 	ctx := context.Background()
-	logger := slog.Default()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -302,8 +320,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	}
 
 	// Register the Lambda service with the mock builder in the default registry
-	lambdaService := enhancedmetricsLambdaService.NewLambdaService(mockLambdaClientBuilder)
-	enhancedmetrics.DefaultRegistry.Remove("AWS/Lambda").Register(lambdaService)
+	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/Lambda", mockLambdaClientBuilder)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
@@ -345,16 +362,220 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 		# HELP aws_lambda_info Help is not implemented yet.
 		# TYPE aws_lambda_info gauge
 		aws_lambda_info{name="arn:aws:lambda:us-east-1:123456789012:function:test-function",tag_Name="test-function"} 0
-`
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_lambda_info")
-	require.NoError(t, err)
-
-	expectedMetric = `
 		# HELP aws_lambda_timeout Help is not implemented yet.
 		# TYPE aws_lambda_timeout gauge
 		aws_lambda_timeout{account_alias="test-account",account_id="123456789012",dimension_FunctionName="test-function",name="arn:aws:lambda:us-east-1:123456789012:function:test-function",region="us-east-1",tag_Name="test-function"} 300
 `
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err)
+}
 
-	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric), "aws_lambda_timeout")
+func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
+	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/ElastiCache")
+
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Create a test AWS config
+	testAWSConfig := &aws.Config{
+		Region: "us-east-1",
+	}
+
+	// Create mock clients
+	mockAcctClient := &mockAccountClient{
+		accountID:    "123456789012",
+		accountAlias: "test-account",
+	}
+
+	mockCWClient := &mockCloudwatchClient{
+		listMetricsResult:   []*model.Metric{},
+		getMetricDataResult: []cloudwatch.MetricDataResult{},
+	}
+
+	mockTagClient := &mockTaggingClient{
+		resources: []*model.TaggedResource{
+			{
+				ARN:       "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster",
+				Namespace: "AWS/ElastiCache",
+				Region:    "us-east-1",
+				Tags: []model.Tag{
+					{Key: "Name", Value: "test-cluster"},
+				},
+			},
+		},
+	}
+
+	// Create a mock ElastiCache client builder function for testing
+	mockElastiCacheClientBuilder := func(cfg aws.Config) enhancedmetricsElastiCacheService.Client {
+		return &mockElastiCacheClient{
+			clusters: []elasticacheTypes.CacheCluster{
+				{
+					ARN:            aws.String("arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"),
+					CacheClusterId: aws.String("test-cluster"),
+					NumCacheNodes:  aws.Int32(3),
+				},
+			},
+		}
+	}
+
+	// Register the ElastiCache service with the mock builder in the default registry
+	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/ElastiCache", mockElastiCacheClientBuilder)
+
+	// Create the mock factory that implements both interfaces
+	factory := &mockFactory{
+		accountClient:    mockAcctClient,
+		cloudwatchClient: mockCWClient,
+		taggingClient:    mockTagClient,
+		awsConfig:        testAWSConfig,
+	}
+
+	// Create a test job config with enhanced metrics
+	jobsCfg := model.JobsConfig{
+		DiscoveryJobs: []model.DiscoveryJob{
+			{
+				Regions:   []string{"us-east-1"},
+				Namespace: "AWS/ElastiCache",
+				Roles:     []model.Role{{RoleArn: "arn:aws:iam::123456789012:role/test-role"}},
+				EnhancedMetrics: []*model.EnhancedMetricConfig{
+					{
+						Name: "NumCacheNodes",
+					},
+				},
+				ExportedTagsOnMetrics: []string{"Name"},
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
+	require.NoError(t, err)
+
+	metrics, err := registry.Gather()
+	require.NoError(t, err)
+	require.NotNil(t, metrics)
+	require.Len(t, metrics, 2)
+
+	expectedMetric := `
+		# HELP aws_elasticache_info Help is not implemented yet.
+		# TYPE aws_elasticache_info gauge
+		aws_elasticache_info{name="arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster",tag_Name="test-cluster"} 0
+		# HELP aws_elasticache_num_cache_nodes Help is not implemented yet.
+		# TYPE aws_elasticache_num_cache_nodes gauge
+		aws_elasticache_num_cache_nodes{account_alias="test-account",account_id="123456789012",dimension_CacheClusterId="test-cluster",name="arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster",region="us-east-1",tag_Name="test-cluster"} 3
+`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err)
+}
+
+func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
+	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/DynamoDB")
+
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Create a test AWS config
+	testAWSConfig := &aws.Config{
+		Region: "us-east-1",
+	}
+
+	// Create mock clients
+	mockAcctClient := &mockAccountClient{
+		accountID:    "123456789012",
+		accountAlias: "test-account",
+	}
+
+	mockCWClient := &mockCloudwatchClient{
+		listMetricsResult:   []*model.Metric{},
+		getMetricDataResult: []cloudwatch.MetricDataResult{},
+	}
+
+	mockTagClient := &mockTaggingClient{
+		resources: []*model.TaggedResource{
+			{
+				ARN:       "arn:aws:dynamodb:us-east-1:123456789012:table/test-table",
+				Namespace: "AWS/DynamoDB",
+				Region:    "us-east-1",
+				Tags: []model.Tag{
+					{Key: "Name", Value: "test-table"},
+				},
+			},
+		},
+	}
+
+	// Create a mock DynamoDB client builder function for testing
+	mockDynamoDBClientBuilder := func(cfg aws.Config) enhancedmetricsDynamoDBService.Client {
+		return &mockDynamoDBClient{
+			tables: []dynamodbTypes.TableDescription{
+				{
+					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table"),
+					TableName: aws.String("test-table"),
+					ItemCount: aws.Int64(1000),
+					GlobalSecondaryIndexes: []dynamodbTypes.GlobalSecondaryIndexDescription{
+						{
+							IndexName: aws.String("GSI1"),
+							ItemCount: aws.Int64(500),
+						},
+						{
+							IndexName: aws.String("GSI2"),
+							ItemCount: aws.Int64(300),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// Register the DynamoDB service with the mock builder in the default registry
+	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/DynamoDB", mockDynamoDBClientBuilder)
+
+	// Create the mock factory that implements both interfaces
+	factory := &mockFactory{
+		accountClient:    mockAcctClient,
+		cloudwatchClient: mockCWClient,
+		taggingClient:    mockTagClient,
+		awsConfig:        testAWSConfig,
+	}
+
+	// Create a test job config with enhanced metrics
+	jobsCfg := model.JobsConfig{
+		DiscoveryJobs: []model.DiscoveryJob{
+			{
+				Regions:   []string{"us-east-1"},
+				Namespace: "AWS/DynamoDB",
+				Roles:     []model.Role{{RoleArn: "arn:aws:iam::123456789012:role/test-role"}},
+				EnhancedMetrics: []*model.EnhancedMetricConfig{
+					{
+						Name: "ItemCount",
+					},
+				},
+				ExportedTagsOnMetrics: []string{"Name"},
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
+	require.NoError(t, err)
+
+	metrics, err := registry.Gather()
+	require.NoError(t, err)
+	require.NotNil(t, metrics)
+	require.Len(t, metrics, 2)
+
+	expectedMetric := `
+		# HELP aws_dynamodb_info Help is not implemented yet.
+		# TYPE aws_dynamodb_info gauge
+		aws_dynamodb_info{name="arn:aws:dynamodb:us-east-1:123456789012:table/test-table",tag_Name="test-table"} 0
+		# HELP aws_dynamodb_item_count Help is not implemented yet.
+		# TYPE aws_dynamodb_item_count gauge
+		aws_dynamodb_item_count{account_alias="test-account",account_id="123456789012",dimension_GlobalSecondaryIndexName="",dimension_TableName="test-table",name="arn:aws:dynamodb:us-east-1:123456789012:table/test-table",region="us-east-1",tag_Name="test-table"} 1000
+		aws_dynamodb_item_count{account_alias="test-account",account_id="123456789012",dimension_GlobalSecondaryIndexName="GSI1",dimension_TableName="test-table",name="arn:aws:dynamodb:us-east-1:123456789012:table/test-table",region="us-east-1",tag_Name="test-table"} 500
+		aws_dynamodb_item_count{account_alias="test-account",account_id="123456789012",dimension_GlobalSecondaryIndexName="GSI2",dimension_TableName="test-table",name="arn:aws:dynamodb:us-east-1:123456789012:table/test-table",region="us-east-1",tag_Name="test-table"} 300
+`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
 	require.NoError(t, err)
 }

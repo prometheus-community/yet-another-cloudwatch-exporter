@@ -61,12 +61,11 @@ func ScrapeAwsData(
 							jobLogger.Error("Couldn't initialize enhanced metrics processor", "err", err)
 						}
 
-						go func() {
-							err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role)
-							if err != nil {
-								jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
-							}
-						}()
+						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role)
+						if err != nil {
+							jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
+						}
+
 					}
 
 					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
