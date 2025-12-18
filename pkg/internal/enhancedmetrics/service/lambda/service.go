@@ -96,7 +96,7 @@ func (s *Lambda) Process(ctx context.Context, logger *slog.Logger, namespace str
 	}
 
 	if s.regionalData == nil {
-		logger.Info("RDS metadata not loaded, skipping metric processing")
+		logger.Info("Lambda metadata not loaded, skipping metric processing")
 		return nil, nil
 	}
 
