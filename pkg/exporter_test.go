@@ -129,6 +129,10 @@ func (m *mockRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
+	// restore the original state after the test, it is important to avoid side effects on other tests.
+	// However, it should be changed to use a separate registry for each test in the future.
+	defer enhancedmetrics.DefaultRegistry.Remove("AWS/RDS").Register(enhancedmetricsService.NewRDSService(nil))
+
 	ctx := context.Background()
 	//logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	logger := slog.Default()
@@ -178,10 +182,6 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	// Register the RDS service with the mock builder in the default registry
 	enhancedmetrics.DefaultRegistry.Remove("AWS/RDS").Register(
 		enhancedmetricsService.NewRDSService(mockRDSClientBuilder))
-
-	// restore the original state after the test, it is important to avoid side effects on other tests.
-	// However, it should be changed to use a separate registry for each test in the future.
-	defer enhancedmetrics.DefaultRegistry.Remove("AWS/RDS").Register(enhancedmetricsService.NewRDSService(nil))
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
