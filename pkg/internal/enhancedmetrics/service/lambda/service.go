@@ -78,6 +78,7 @@ func (s *Lambda) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, r
 		s.regionalData[*instance.FunctionArn] = &instance
 	}
 
+	logger.Info("Loaded Lambda metrics metadata", "region", region)
 	return nil
 }
 
@@ -95,14 +96,14 @@ func (s *Lambda) Process(ctx context.Context, logger *slog.Logger, namespace str
 		return nil, fmt.Errorf("lambda enhanced metrics service cannot process namespace %s", namespace)
 	}
 
+	var result []*model.CloudwatchData
+	s.dataM.RLock()
+	defer s.dataM.RUnlock()
+
 	if s.regionalData == nil {
 		logger.Info("Lambda metadata not loaded, skipping metric processing")
 		return nil, nil
 	}
-
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
 
 	for _, resource := range resources {
 		fn, exists := s.regionalData[resource.ARN]

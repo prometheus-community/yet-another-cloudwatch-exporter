@@ -98,14 +98,14 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 		return nil, fmt.Errorf("RDS enhanced metrics service cannot process namespace %s", namespace)
 	}
 
+	var result []*model.CloudwatchData
+	s.dataM.RLock()
+	defer s.dataM.RUnlock()
+
 	if s.regionalData == nil {
 		logger.Info("RDS metadata not loaded, skipping metric processing")
 		return nil, nil
 	}
-
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
 
 	for _, resource := range resources {
 		dbInstance, exists := s.regionalData[resource.ARN]
