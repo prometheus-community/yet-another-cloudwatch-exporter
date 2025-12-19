@@ -36,7 +36,7 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
-func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.DiscoveryJob, region string, clientTag tagging.Client, clientCloudwatch cloudwatch.Client, gmdProcessor getMetricDataProcessor, enhancedProcessor *em.EnhancedProcessor) ([]*model.TaggedResource, []*model.CloudwatchData) {
+func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.DiscoveryJob, region string, clientTag tagging.Client, clientCloudwatch cloudwatch.Client, gmdProcessor getMetricDataProcessor, enhancedProcessor *em.Processor) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
 	resources, err := clientTag.GetResources(ctx, job, region)

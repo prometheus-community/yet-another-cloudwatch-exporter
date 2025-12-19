@@ -39,7 +39,7 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
-	enhancedProcessor, err := enhancedmetrics.NewEnhancedProcessor(factory)
+	enhancedProcessor, err := enhancedmetrics.NewProcessor(factory)
 	if err != nil {
 		logger.Debug("Couldn't initialize enhanced metrics processor", "err", err)
 		enhancedProcessor = nil
