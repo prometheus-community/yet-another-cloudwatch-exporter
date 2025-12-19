@@ -16,13 +16,13 @@ type MetricsServiceRegistry interface {
 	GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error)
 }
 
-type EnhancedProcessor struct {
+type Processor struct {
 	ConfigProvider          config.RegionalConfigProvider
 	EnhancedMetricsServices map[string]service.EnhancedMetricsService
 	m                       sync.RWMutex
 }
 
-func (ep *EnhancedProcessor) ensureServiceInitialized(namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) (bool, error) {
+func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) (bool, error) {
 	ep.m.Lock()
 	defer ep.m.Unlock()
 	if ep.EnhancedMetricsServices == nil {
@@ -43,10 +43,10 @@ func (ep *EnhancedProcessor) ensureServiceInitialized(namespace string, enhanced
 	return true, nil
 }
 
-func (ep *EnhancedProcessor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) error {
+func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) error {
 	wasInitialized, err := ep.ensureServiceInitialized(namespace, enhancedMetricsServiceRegistry)
 	if err != nil {
-		return fmt.Errorf("EnhancedProcessor LoadMetricsMetadata ensureServiceInitialized error: %w", err)
+		return fmt.Errorf("Processor LoadMetricsMetadata ensureServiceInitialized error: %w", err)
 	}
 
 	logger.Debug("Enhanced metrics service was initialized before", "yes", !wasInitialized)
@@ -63,7 +63,7 @@ func (ep *EnhancedProcessor) LoadMetricsMetadata(ctx context.Context, logger *sl
 	return svc.LoadMetricsMetadata(ctx, logger, region, role, ep.ConfigProvider)
 }
 
-func (ep *EnhancedProcessor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
+func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
 	ep.m.RLock()
 	defer ep.m.RUnlock()
 
@@ -75,15 +75,15 @@ func (ep *EnhancedProcessor) Process(ctx context.Context, logger *slog.Logger, n
 	return svc.Process(ctx, logger, namespace, resources, metrics, exportedTagOnMetrics)
 }
 
-func NewEnhancedProcessor(
+func NewProcessor(
 	factory clients.Factory,
-) (*EnhancedProcessor, error) {
+) (*Processor, error) {
 	emf, ok := factory.(config.RegionalConfigProvider)
 	if !ok {
 		return nil, fmt.Errorf("cannot create enhanced metric processor with a factory type %T", factory)
 	}
 
-	return &EnhancedProcessor{
+	return &Processor{
 		EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 		ConfigProvider:          emf,
 	}, nil
