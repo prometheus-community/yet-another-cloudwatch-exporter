@@ -62,7 +62,7 @@ func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logge
 
 	svc, ok := ep.EnhancedMetricsServices[namespace]
 	if !ok {
-		// should not happen because of ensureServiceInitialized
+		// should not happen because of ensureServiceInitialized call above
 		return fmt.Errorf("enhanced metrics service for namespace %s not initialized", namespace)
 	}
 
