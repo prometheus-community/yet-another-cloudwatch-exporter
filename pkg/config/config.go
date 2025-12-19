@@ -443,7 +443,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
-		job.EnhancedMetrics = svc.ToModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
+		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
 
 		job.ExportedTagsOnMetrics = []string{}
 		if len(c.Discovery.ExportedTagsOnMetrics) > 0 {
