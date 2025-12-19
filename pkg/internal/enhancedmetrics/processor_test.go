@@ -24,7 +24,7 @@ type mockFactory struct {
 	configs map[string]*aws.Config
 }
 
-func (m *mockFactory) GetAWSRegionalConfig(region string, role model.Role) *aws.Config {
+func (m *mockFactory) GetAWSRegionalConfig(region string, _ model.Role) *aws.Config {
 	if m.configs == nil {
 		return &aws.Config{}
 	}
