@@ -180,7 +180,6 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 
 		// Store the value as a single data point
 		GetMetricDataResult: &model.GetMetricDataResult{
-			//Statistic: "Sum",
 			DataPoints: []model.DataPoint{
 				{
 					Value:     &valueInGiB,

@@ -141,7 +141,7 @@ type mockLambdaClient struct {
 	err       error
 }
 
-func (m *mockLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]lambdaTypes.FunctionConfiguration, error) {
+func (m *mockLambdaClient) ListAllFunctions(context.Context, *slog.Logger) ([]lambdaTypes.FunctionConfiguration, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -154,7 +154,7 @@ type mockElastiCacheClient struct {
 	err      error
 }
 
-func (m *mockElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]elasticacheTypes.CacheCluster, error) {
+func (m *mockElastiCacheClient) DescribeAllCacheClusters(context.Context, *slog.Logger) ([]elasticacheTypes.CacheCluster, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -167,7 +167,7 @@ type mockDynamoDBClient struct {
 	err    error
 }
 
-func (m *mockDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]dynamodbTypes.TableDescription, error) {
+func (m *mockDynamoDBClient) DescribeAllTables(context.Context, *slog.Logger) ([]dynamodbTypes.TableDescription, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
