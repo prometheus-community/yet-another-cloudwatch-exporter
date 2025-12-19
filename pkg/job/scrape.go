@@ -39,6 +39,12 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
+	enhancedProcessor, err := enhancedmetrics.NewEnhancedProcessor(factory)
+	if err != nil {
+		logger.Debug("Couldn't initialize enhanced metrics processor", "err", err)
+		enhancedProcessor = nil
+	}
+
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		for _, role := range discoveryJob.Roles {
 			for _, region := range discoveryJob.Regions {
@@ -54,18 +60,11 @@ func ScrapeAwsData(
 					jobLogger = jobLogger.With("account", accountID)
 
 					// at this point we have already all the data to start loading the enhanced metrics if any is configured
-					var enhancedProcessor *enhancedmetrics.EnhancedProcessor
-					if discoveryJob.IsEnhancedMetricsConfigured() {
-						enhancedProcessor, err = enhancedmetrics.NewEnhancedProcessor(discoveryJob.Namespace, factory, enhancedmetrics.DefaultRegistry)
-						if err != nil {
-							jobLogger.Error("Couldn't initialize enhanced metrics processor", "err", err)
-						}
-
-						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role)
+					if discoveryJob.IsEnhancedMetricsConfigured() && enhancedProcessor != nil {
+						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultRegistry)
 						if err != nil {
 							jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
 						}
-
 					}
 
 					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
