@@ -23,7 +23,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 		{
 			name: "success - single page",
 			client: &mockLambdaClient{
-				listFunctionsFunc: func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
+				listFunctionsFunc: func(_ context.Context, _ *lambda.ListFunctionsInput, _ ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
 					return &lambda.ListFunctionsOutput{
 						Functions: []types.FunctionConfiguration{
 							{FunctionName: aws.String("function-1")},
@@ -70,7 +70,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 		{
 			name: "error - API failure",
 			client: &mockLambdaClient{
-				listFunctionsFunc: func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
+				listFunctionsFunc: func(_ context.Context, _ *lambda.ListFunctionsInput, _ ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
 					return nil, fmt.Errorf("API error")
 				},
 			},
