@@ -159,7 +159,7 @@ Refer to the [installation guide](docs/installation.md).
 
 ## Authentication
 
-The exporter will need to be running in an environment which has access to AWS. The exporter uses the [AWS SDK for Go](https://aws.github.io/aws-sdk-go-v2/docs/getting-started/) and supports providing authentication via [AWS's default credential chain](https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/#specifying-credentials). Regardless of the method used to acquire the credentials, some permissions are needed for the exporter to work.
+The exporter will need to be running in an environment which has access to AWS. The exporter uses the [AWS SDK for Go](https://aws.github.io/aws-sdk-go-v2/docs/getting-started/) and supports providing authentication via [AWS's default credential chain](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-auth.html). Regardless of the method used to acquire the credentials, some permissions are needed for the exporter to work.
 
 As a quick start, the following IAM policy can be used to grant the all permissions required by YACE
 ```json
