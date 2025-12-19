@@ -95,7 +95,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 	}
 }
 
-// mockElastiCacheClient is a mock implementation of awsClient
+// mockElastiCacheClient is a mock implementation of AWS ElastiCache Client
 type mockElastiCacheClient struct {
 	describeCacheClustersFunc func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }

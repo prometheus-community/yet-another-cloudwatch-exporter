@@ -10,8 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// todo: change logging to debug where appropriate
-
 type awsClient interface {
 	ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
@@ -30,7 +28,7 @@ func NewDynamoDBClientWithConfig(cfg aws.Config) Client {
 }
 
 // listTables retrieves a list of DynamoDB tables
-func (c *AWSDynamoDBClient) listTables(ctx context.Context, logger *slog.Logger, exclusiveStartTableName *string, limit *int32) ([]string, *string, error) {
+func (c *AWSDynamoDBClient) listTables(ctx context.Context, exclusiveStartTableName *string, limit *int32) ([]string, *string, error) {
 	dynamoInput := &dynamodb.ListTablesInput{
 		ExclusiveStartTableName: exclusiveStartTableName,
 		Limit:                   limit,
@@ -45,7 +43,7 @@ func (c *AWSDynamoDBClient) listTables(ctx context.Context, logger *slog.Logger,
 }
 
 // describeTable retrieves detailed information about a DynamoDB table
-func (c *AWSDynamoDBClient) describeTable(ctx context.Context, logger *slog.Logger, tableName string) (*types.TableDescription, error) {
+func (c *AWSDynamoDBClient) describeTable(ctx context.Context, tableName string) (*types.TableDescription, error) {
 	result, err := c.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(tableName),
 	})
@@ -58,19 +56,19 @@ func (c *AWSDynamoDBClient) describeTable(ctx context.Context, logger *slog.Logg
 
 // DescribeAllTables retrieves all DynamoDB tables with their descriptions
 func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error) {
-	logger.Info("Looking for all DynamoDB tables")
+	logger.Debug("Describing all DynamoDB tables started")
 	var allTables []types.TableDescription
 	var startTableName *string
 	var limit int32 = 100
 
 	for {
-		tableNames, lastEvaluatedTableName, err := c.listTables(ctx, logger, startTableName, &limit)
+		tableNames, lastEvaluatedTableName, err := c.listTables(ctx, startTableName, &limit)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, tableName := range tableNames {
-			tableDesc, err := c.describeTable(ctx, logger, tableName)
+			tableDesc, err := c.describeTable(ctx, tableName)
 			if err != nil {
 				logger.Error("Failed to describe table", "error", err.Error(), "table", tableName)
 				continue
@@ -84,6 +82,6 @@ func (c *AWSDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog.
 		startTableName = lastEvaluatedTableName
 	}
 
-	logger.Info("Looking for all DynamoDB tables finished", "total_tables", len(allTables))
+	logger.Debug("Describing all DynamoDB tables completed", "total_tables", len(allTables))
 	return allTables, nil
 }
