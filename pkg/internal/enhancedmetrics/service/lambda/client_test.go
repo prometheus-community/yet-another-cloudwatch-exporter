@@ -95,7 +95,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 	}
 }
 
-// mockLambdaClient is a mock implementation of awsClient
+// mockLambdaClient is a mock implementation of AWS Lambda Client
 type mockLambdaClient struct {
 	listFunctionsFunc func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }

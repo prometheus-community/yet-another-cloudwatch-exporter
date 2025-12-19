@@ -10,8 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 )
 
-// todo: change logging to debug where appropriate
-
 type awsClient interface {
 	DescribeCacheClusters(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }
@@ -40,7 +38,7 @@ func (c *AWSElastiCacheClient) describeCacheClusters(ctx context.Context, input 
 
 // DescribeAllCacheClusters retrieves all cache clusters with pagination support
 func (c *AWSElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error) {
-	logger.Info("Looking for all ElastiCache clusters")
+	logger.Debug("Describing all ElastiCache cache clusters")
 	var allClusters []types.CacheCluster
 	var marker *string
 	var maxRecords int32 = 100
@@ -63,6 +61,8 @@ func (c *AWSElastiCacheClient) DescribeAllCacheClusters(ctx context.Context, log
 		}
 		marker = output.Marker
 	}
+
+	logger.Debug("Completed describing ElastiCache cache clusters", slog.Int("totalClusters", len(allClusters)))
 
 	return allClusters, nil
 }

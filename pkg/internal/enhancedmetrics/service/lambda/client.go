@@ -10,8 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
-// todo: change logging to debug where appropriate
-
 type awsClient interface {
 	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }
@@ -40,7 +38,7 @@ func (c *AWSLambdaClient) listFunctions(ctx context.Context, input *lambda.ListF
 
 // ListAllFunctions retrieves all Lambda regionalData by handling pagination
 func (c *AWSLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]types.FunctionConfiguration, error) {
-	logger.Info("Looking for all Lambda regionalData")
+	logger.Debug("Listing all Lambda functions")
 	var allFunctions []types.FunctionConfiguration
 	var marker *string
 	var maxItems int32 = 50
@@ -62,5 +60,6 @@ func (c *AWSLambdaClient) ListAllFunctions(ctx context.Context, logger *slog.Log
 		marker = output.NextMarker
 	}
 
+	logger.Debug("Completed listing all Lambda functions", slog.Int("totalFunctions", len(allFunctions)))
 	return allFunctions, nil
 }
