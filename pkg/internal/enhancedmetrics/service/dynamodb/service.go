@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -27,6 +28,7 @@ type DynamoDB struct {
 	dataM        sync.RWMutex
 
 	supportedMetrics map[string]buildDynamoDBMetricFunc
+	buildClientFunc  func(cfg aws.Config) Client
 }
 
 func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
@@ -34,7 +36,8 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 		buildClientFunc = NewDynamoDBClientWithConfig
 	}
 	svc := &DynamoDB{
-		clients: clients.NewClients[Client](buildClientFunc),
+		clients:         clients.NewClients[Client](buildClientFunc),
+		buildClientFunc: buildClientFunc,
 	}
 
 	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
@@ -214,4 +217,8 @@ func (s *DynamoDB) ListSupportedMetrics() []string {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func (s *DynamoDB) Instance() service.EnhancedMetricsService {
+	return NewDynamoDBService(s.buildClientFunc)
 }
