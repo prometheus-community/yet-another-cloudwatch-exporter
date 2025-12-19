@@ -13,12 +13,12 @@ import (
 )
 
 type MetricsServiceRegistry interface {
-	GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error)
+	GetEnhancedMetricsService(namespace string) (service.MetricsService, error)
 }
 
 type Processor struct {
 	ConfigProvider          config.RegionalConfigProvider
-	EnhancedMetricsServices map[string]service.EnhancedMetricsService
+	EnhancedMetricsServices map[string]service.MetricsService
 	m                       sync.RWMutex
 }
 
@@ -26,7 +26,7 @@ func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsS
 	ep.m.Lock()
 	defer ep.m.Unlock()
 	if ep.EnhancedMetricsServices == nil {
-		ep.EnhancedMetricsServices = make(map[string]service.EnhancedMetricsService)
+		ep.EnhancedMetricsServices = make(map[string]service.MetricsService)
 	}
 
 	_, exists := ep.EnhancedMetricsServices[namespace]
@@ -84,7 +84,7 @@ func NewProcessor(
 	}
 
 	return &Processor{
-		EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
+		EnhancedMetricsServices: make(map[string]service.MetricsService),
 		ConfigProvider:          emf,
 	}, nil
 }

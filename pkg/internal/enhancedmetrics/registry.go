@@ -18,13 +18,13 @@ var DefaultRegistry = (&Registry{}).
 	Register(elasticache.NewElastiCacheService(nil))
 
 type MetricsService interface {
-	Instance() service.EnhancedMetricsService
+	Instance() service.MetricsService
 	GetNamespace() string
 }
 type Registry struct {
 	m sync.RWMutex
 
-	templates map[string]func() service.EnhancedMetricsService
+	templates map[string]func() service.MetricsService
 }
 
 func (receiver *Registry) Register(t MetricsService) *Registry {
@@ -32,14 +32,14 @@ func (receiver *Registry) Register(t MetricsService) *Registry {
 	defer receiver.m.Unlock()
 
 	if receiver.templates == nil {
-		receiver.templates = map[string]func() service.EnhancedMetricsService{}
+		receiver.templates = map[string]func() service.MetricsService{}
 	}
 	receiver.templates[t.GetNamespace()] = t.Instance
 
 	return receiver
 }
 
-func (receiver *Registry) GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error) {
+func (receiver *Registry) GetEnhancedMetricsService(namespace string) (service.MetricsService, error) {
 	receiver.m.RLock()
 	defer receiver.m.RUnlock()
 

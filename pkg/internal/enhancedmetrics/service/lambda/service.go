@@ -184,6 +184,6 @@ func (s *Lambda) ListSupportedMetrics() []string {
 	return metrics
 }
 
-func (s *Lambda) Instance() service.EnhancedMetricsService {
+func (s *Lambda) Instance() service.MetricsService {
 	return NewLambdaService(s.buildClientFunc)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-type EnhancedMetricsService interface {
+type MetricsService interface {
 	// LoadMetricsMetadata should load any metadata needed for the enhanced metrics service. It should be concurrent safe.
 	LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) error
 
