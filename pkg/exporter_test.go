@@ -175,7 +175,9 @@ func (m *mockDynamoDBClient) DescribeAllTables(ctx context.Context, logger *slog
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
-	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/RDS")
+	defer enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsService.NewRDSService(nil),
+	)
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -222,7 +224,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	}
 
 	// Register the RDS service with the mock builder in the default registry
-	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/RDS", mockRDSClientBuilder)
+	enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsService.NewRDSService(mockRDSClientBuilder),
+	)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
@@ -273,7 +277,10 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
-	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/Lambda")
+	defer enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsLambdaService.NewLambdaService(nil),
+	)
+
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -320,7 +327,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	}
 
 	// Register the Lambda service with the mock builder in the default registry
-	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/Lambda", mockLambdaClientBuilder)
+	enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsLambdaService.NewLambdaService(mockLambdaClientBuilder),
+	)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
@@ -371,7 +380,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
-	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/ElastiCache")
+	defer enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsElastiCacheService.NewElastiCacheService(nil),
+	)
 
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -419,7 +430,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 	}
 
 	// Register the ElastiCache service with the mock builder in the default registry
-	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/ElastiCache", mockElastiCacheClientBuilder)
+	enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsElastiCacheService.NewElastiCacheService(mockElastiCacheClientBuilder),
+	)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{
@@ -470,7 +483,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
-	defer enhancedmetrics.DefaultRegistry.DeleteCustomBuildClientFunctions("AWS/DynamoDB")
+	defer enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsDynamoDBService.NewDynamoDBService(nil),
+	)
 
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -528,7 +543,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 	}
 
 	// Register the DynamoDB service with the mock builder in the default registry
-	enhancedmetrics.DefaultRegistry.SetCustomBuildClientFunctions("AWS/DynamoDB", mockDynamoDBClientBuilder)
+	enhancedmetrics.DefaultRegistry.Register(
+		enhancedmetricsDynamoDBService.NewDynamoDBService(mockDynamoDBClientBuilder),
+	)
 
 	// Create the mock factory that implements both interfaces
 	factory := &mockFactory{

@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -29,6 +30,7 @@ type Lambda struct {
 	dataM sync.RWMutex
 
 	supportedMetrics map[string]buildLambdaMetricFunc
+	buildClientFunc  func(cfg aws.Config) Client
 }
 
 func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
@@ -36,7 +38,8 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		buildClientFunc = NewLambdaClientWithConfig
 	}
 	svc := &Lambda{
-		clients: clients.NewClients[Client](buildClientFunc),
+		clients:         clients.NewClients[Client](buildClientFunc),
+		buildClientFunc: buildClientFunc,
 	}
 
 	svc.supportedMetrics = map[string]buildLambdaMetricFunc{
@@ -173,4 +176,8 @@ func (s *Lambda) ListSupportedMetrics() []string {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func (s *Lambda) Instance() service.EnhancedMetricsService {
+	return NewLambdaService(s.buildClientFunc)
 }

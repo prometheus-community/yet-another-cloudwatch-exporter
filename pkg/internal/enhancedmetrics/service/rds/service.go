@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -29,6 +30,7 @@ type RDS struct {
 	dataM sync.RWMutex
 
 	supportedMetrics map[string]buildRDSMetricFunc
+	buildClientFunc  func(cfg aws.Config) Client
 }
 
 func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
@@ -37,7 +39,8 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	}
 
 	rds := &RDS{
-		clients: clients.NewClients[Client](buildClientFunc),
+		clients:         clients.NewClients[Client](buildClientFunc),
+		buildClientFunc: buildClientFunc,
 	}
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{
@@ -194,4 +197,8 @@ func (s *RDS) ListSupportedMetrics() []string {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func (s *RDS) Instance() service.EnhancedMetricsService {
+	return NewRDSService(s.buildClientFunc)
 }

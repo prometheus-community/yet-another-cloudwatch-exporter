@@ -1,4 +1,4 @@
-package enhancedmetrics
+package service
 
 import (
 	"context"
