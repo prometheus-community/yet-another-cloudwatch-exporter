@@ -95,7 +95,7 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 	}
 }
 
-// mockRDSClient is a mock implementation of awsClient
+// mockRDSClient is a mock implementation of AWS RDS Client
 type mockRDSClient struct {
 	describeDBInstancesFunc func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }

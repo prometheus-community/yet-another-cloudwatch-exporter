@@ -128,7 +128,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 	}
 }
 
-// mockDynamoDBClient is a mock implementation of awsClient
+// mockDynamoDBClient is a mock implementation of sdk AWS DynamoDB Client
 type mockDynamoDBClient struct {
 	listTablesFunc    func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	describeTableFunc func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)

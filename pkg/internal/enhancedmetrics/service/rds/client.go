@@ -10,8 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 )
 
-// todo: change logging to debug where appropriate
-
 type awsClient interface {
 	DescribeDBInstances(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
@@ -39,7 +37,7 @@ func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.Descr
 
 // DescribeAllDBInstances retrieves all DB instances by handling pagination
 func (c *AWSRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error) {
-	logger.Info("Looking for all DB instances")
+	logger.Debug("Describing all RDS DB instances")
 	var allInstances []types.DBInstance
 	var marker *string
 	maxRecords := aws.Int32(100)
@@ -61,5 +59,6 @@ func (c *AWSRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog.
 		marker = output.Marker
 	}
 
+	logger.Debug("Completed describing RDS DB instances", slog.Int("totalInstances", len(allInstances)))
 	return allInstances, nil
 }
