@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -29,6 +30,7 @@ type ElastiCache struct {
 	dataM sync.RWMutex
 
 	supportedMetrics map[string]buildElastiCacheMetricFunc
+	buildClientFunc  func(cfg aws.Config) Client
 }
 
 func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiCache {
@@ -36,7 +38,8 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 		buildClientFunc = NewElastiCacheClientWithConfig
 	}
 	svc := &ElastiCache{
-		clients: clients.NewClients[Client](buildClientFunc),
+		clients:         clients.NewClients[Client](buildClientFunc),
+		buildClientFunc: buildClientFunc,
 	}
 
 	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{
@@ -179,4 +182,8 @@ func (s *ElastiCache) ListSupportedMetrics() []string {
 		metrics = append(metrics, metric)
 	}
 	return metrics
+}
+
+func (s *ElastiCache) Instance() service.EnhancedMetricsService {
+	return NewElastiCacheService(s.buildClientFunc)
 }

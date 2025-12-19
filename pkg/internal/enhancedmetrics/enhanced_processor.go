@@ -8,16 +8,17 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-type EnhancedMetricsServiceRegistry interface {
-	GetEnhancedMetricsService(namespace string) (EnhancedMetricsService, error)
+type MetricsServiceRegistry interface {
+	GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error)
 }
 
 // todo: do we need to have this type?
 type EnhancedProcessor struct {
-	EnhancedMetricsService
+	service.EnhancedMetricsService
 	ConfigProvider config.RegionalConfigProvider
 }
 
@@ -32,7 +33,7 @@ func (ep *EnhancedProcessor) LoadMetricsMetadata(ctx context.Context, logger *sl
 func NewEnhancedProcessor(
 	namespace string,
 	factory clients.Factory,
-	enhancedMetricsServiceRegistry EnhancedMetricsServiceRegistry,
+	enhancedMetricsServiceRegistry MetricsServiceRegistry,
 ) (*EnhancedProcessor, error) {
 	emf, ok := factory.(config.RegionalConfigProvider)
 	if !ok {
