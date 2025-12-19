@@ -101,6 +101,16 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 		return nil, fmt.Errorf("RDS enhanced metrics service cannot process namespace %s", namespace)
 	}
 
+	// filter only supported enhanced metrics
+	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
+	for _, em := range enhancedMetrics {
+		if s.isMetricSupported(em.Name) {
+			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
+		} else {
+			logger.Warn("enhanced metric not supported, skipping", "metric", em.Name)
+		}
+	}
+
 	var result []*model.CloudwatchData
 	s.dataM.RLock()
 	defer s.dataM.RUnlock()
@@ -117,13 +127,9 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 			continue
 		}
 
-		for _, enhancedMetric := range enhancedMetrics {
-			if !s.isMetricSupported(enhancedMetric.Name) {
-				logger.Warn("RDS enhanced metric not supported", "metric", enhancedMetric.Name)
-				continue
-			}
+		for _, enhancedMetric := range enhancedMetricsFiltered {
 			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, dbInstance, exportedTagOnMetrics)
-			if err != nil {
+			if err != nil || em == nil {
 				logger.Warn("Error building RDS enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
 			}
