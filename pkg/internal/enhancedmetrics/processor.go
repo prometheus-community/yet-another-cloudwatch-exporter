@@ -12,10 +12,15 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+// MetricsServiceRegistry defines an interface to get enhanced metrics services by namespace
 type MetricsServiceRegistry interface {
 	GetEnhancedMetricsService(namespace string) (service.MetricsService, error)
 }
 
+// Processor is responsible for processing enhanced metrics using appropriate services. It manages multiple enhanced metrics services for different namespaces.
+// It ensures that each service is initialized only once and provides thread-safe access to these services.
+// The Processor uses a RegionalConfigProvider to obtain AWS configurations for different regions and roles.
+// It is intended to be used in the scope of a single scrape operation.
 type Processor struct {
 	ConfigProvider          config.RegionalConfigProvider
 	EnhancedMetricsServices map[string]service.MetricsService
@@ -43,10 +48,11 @@ func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsS
 	return true, nil
 }
 
+// LoadMetricsMetadata loads the metrics metadata for the specified namespace using the appropriate enhanced metrics service.
 func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) error {
 	wasInitialized, err := ep.ensureServiceInitialized(namespace, enhancedMetricsServiceRegistry)
 	if err != nil {
-		return fmt.Errorf("Processor LoadMetricsMetadata ensureServiceInitialized error: %w", err)
+		return fmt.Errorf("processor LoadMetricsMetadata ensureServiceInitialized error: %w", err)
 	}
 
 	logger.Debug("Enhanced metrics service was initialized before", "yes", !wasInitialized)
@@ -63,6 +69,7 @@ func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logge
 	return svc.LoadMetricsMetadata(ctx, logger, region, role, ep.ConfigProvider)
 }
 
+// Process processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
 func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
 	ep.m.RLock()
 	defer ep.m.RUnlock()
