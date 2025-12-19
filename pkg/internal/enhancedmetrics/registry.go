@@ -24,17 +24,17 @@ type MetricsService interface {
 type Registry struct {
 	m sync.RWMutex
 
-	templates map[string]func() service.MetricsService
+	services map[string]func() service.MetricsService
 }
 
 func (receiver *Registry) Register(t MetricsService) *Registry {
 	receiver.m.Lock()
 	defer receiver.m.Unlock()
 
-	if receiver.templates == nil {
-		receiver.templates = map[string]func() service.MetricsService{}
+	if receiver.services == nil {
+		receiver.services = map[string]func() service.MetricsService{}
 	}
-	receiver.templates[t.GetNamespace()] = t.Instance
+	receiver.services[t.GetNamespace()] = t.Instance
 
 	return receiver
 }
@@ -43,7 +43,7 @@ func (receiver *Registry) GetEnhancedMetricsService(namespace string) (service.M
 	receiver.m.RLock()
 	defer receiver.m.RUnlock()
 
-	if constructor, exists := receiver.templates[namespace]; exists {
+	if constructor, exists := receiver.services[namespace]; exists {
 		return constructor(), nil
 	}
 
