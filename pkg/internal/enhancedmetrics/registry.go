@@ -17,7 +17,7 @@ var DefaultRegistry = (&Registry{}).
 	Register(dynamodb.NewDynamoDBService(nil)).
 	Register(elasticache.NewElastiCacheService(nil))
 
-type MetricsServiceFactory interface {
+type MetricsService interface {
 	Instance() service.EnhancedMetricsService
 	GetNamespace() string
 }
@@ -27,7 +27,7 @@ type Registry struct {
 	templates map[string]func() service.EnhancedMetricsService
 }
 
-func (receiver *Registry) Register(t MetricsServiceFactory) *Registry {
+func (receiver *Registry) Register(t MetricsService) *Registry {
 	receiver.m.Lock()
 	defer receiver.m.Unlock()
 
