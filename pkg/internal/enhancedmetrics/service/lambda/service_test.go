@@ -26,7 +26,7 @@ func TestNewLambdaService(t *testing.T) {
 		},
 		{
 			name: "with custom buildClientFunc",
-			buildClientFunc: func(cfg aws.Config) Client {
+			buildClientFunc: func(_ aws.Config) Client {
 				return nil
 			},
 		},

@@ -23,7 +23,7 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 		{
 			name: "success - single page",
 			client: &mockRDSClient{
-				describeDBInstancesFunc: func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+				describeDBInstancesFunc: func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 					return &rds.DescribeDBInstancesOutput{
 						DBInstances: []types.DBInstance{
 							{DBInstanceIdentifier: aws.String("db-1")},
@@ -40,9 +40,9 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 		{
 			name: "success - multiple pages",
 			client: &mockRDSClient{
-				describeDBInstancesFunc: func() func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+				describeDBInstancesFunc: func() func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 					callCount := 0
-					return func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					return func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 						callCount++
 						if callCount == 1 {
 							return &rds.DescribeDBInstancesOutput{
@@ -70,7 +70,7 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 		{
 			name: "error - API failure",
 			client: &mockRDSClient{
-				describeDBInstancesFunc: func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+				describeDBInstancesFunc: func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 					return nil, fmt.Errorf("API error")
 				},
 			},
