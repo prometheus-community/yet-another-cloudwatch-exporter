@@ -3,7 +3,6 @@ package rds
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -83,7 +82,7 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 			c := &AWSRDSClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeAllDBInstances(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+			got, err := c.DescribeAllDBInstances(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DescribeAllDBInstances() error = %v, wantErr %v", err, tt.wantErr)
 				return

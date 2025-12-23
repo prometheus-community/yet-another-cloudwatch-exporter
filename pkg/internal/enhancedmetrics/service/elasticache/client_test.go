@@ -3,7 +3,6 @@ package elasticache
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -23,7 +22,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 		{
 			name: "success - single page",
 			client: &mockElastiCacheClient{
-				describeCacheClustersFunc: func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
+				describeCacheClustersFunc: func(_ context.Context, _ *elasticache.DescribeCacheClustersInput, _ ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
 					return &elasticache.DescribeCacheClustersOutput{
 						CacheClusters: []types.CacheCluster{
 							{CacheClusterId: aws.String("cluster-1")},
@@ -40,9 +39,9 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 		{
 			name: "success - multiple pages",
 			client: &mockElastiCacheClient{
-				describeCacheClustersFunc: func() func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
+				describeCacheClustersFunc: func() func(_ context.Context, _ *elasticache.DescribeCacheClustersInput, _ ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
 					callCount := 0
-					return func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
+					return func(_ context.Context, _ *elasticache.DescribeCacheClustersInput, _ ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
 						callCount++
 						if callCount == 1 {
 							return &elasticache.DescribeCacheClustersOutput{
@@ -70,7 +69,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 		{
 			name: "error - API failure",
 			client: &mockElastiCacheClient{
-				describeCacheClustersFunc: func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
+				describeCacheClustersFunc: func(_ context.Context, _ *elasticache.DescribeCacheClustersInput, _ ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error) {
 					return nil, fmt.Errorf("API error")
 				},
 			},
@@ -83,7 +82,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 			c := &AWSElastiCacheClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeAllCacheClusters(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+			got, err := c.DescribeAllCacheClusters(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DescribeAllCacheClusters() error = %v, wantErr %v", err, tt.wantErr)
 				return

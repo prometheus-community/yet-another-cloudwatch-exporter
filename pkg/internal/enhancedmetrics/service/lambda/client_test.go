@@ -3,7 +3,6 @@ package lambda
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -40,9 +39,9 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 		{
 			name: "success - multiple pages",
 			client: &mockLambdaClient{
-				listFunctionsFunc: func() func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
+				listFunctionsFunc: func() func(_ context.Context, _ *lambda.ListFunctionsInput, _ ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
 					callCount := 0
-					return func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
+					return func(_ context.Context, _ *lambda.ListFunctionsInput, _ ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error) {
 						callCount++
 						if callCount == 1 {
 							return &lambda.ListFunctionsOutput{
@@ -83,7 +82,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 			c := &AWSLambdaClient{
 				client: tt.client,
 			}
-			got, err := c.ListAllFunctions(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+			got, err := c.ListAllFunctions(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ListAllFunctions() error = %v, wantErr %v", err, tt.wantErr)
 				return

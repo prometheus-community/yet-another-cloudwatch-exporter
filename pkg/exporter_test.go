@@ -2,7 +2,6 @@ package exporter
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -13,6 +12,10 @@ import (
 	elasticacheTypes "github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/require"
+
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
@@ -22,9 +25,6 @@ import (
 	enhancedmetricsLambdaService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	enhancedmetricsService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 // mockFactory is a local mock that implements both clients.Factory and config.RegionalConfigProvider
@@ -128,7 +128,7 @@ type mockRDSClient struct {
 	err       error
 }
 
-func (m *mockRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error) {
+func (m *mockRDSClient) DescribeAllDBInstances(context.Context, *slog.Logger) ([]types.DBInstance, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -179,7 +179,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 		enhancedmetricsService.NewRDSService(nil),
 	)
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -211,7 +211,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	}
 
 	// Create a mock RDS client builder function for testing
-	mockRDSClientBuilder := func(cfg aws.Config) enhancedmetricsService.Client {
+	mockRDSClientBuilder := func(_ aws.Config) enhancedmetricsService.Client {
 		return &mockRDSClient{
 			instances: []types.DBInstance{
 				{
@@ -282,7 +282,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -314,7 +314,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	}
 
 	// Create a mock Lambda client builder function for testing
-	mockLambdaClientBuilder := func(cfg aws.Config) enhancedmetricsLambdaService.Client {
+	mockLambdaClientBuilder := func(_ aws.Config) enhancedmetricsLambdaService.Client {
 		return &mockLambdaClient{
 			functions: []lambdaTypes.FunctionConfiguration{
 				{
@@ -385,7 +385,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -417,7 +417,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 	}
 
 	// Create a mock ElastiCache client builder function for testing
-	mockElastiCacheClientBuilder := func(cfg aws.Config) enhancedmetricsElastiCacheService.Client {
+	mockElastiCacheClientBuilder := func(_ aws.Config) enhancedmetricsElastiCacheService.Client {
 		return &mockElastiCacheClient{
 			clusters: []elasticacheTypes.CacheCluster{
 				{
@@ -488,7 +488,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	// Create a test AWS config
 	testAWSConfig := &aws.Config{
@@ -520,7 +520,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 	}
 
 	// Create a mock DynamoDB client builder function for testing
-	mockDynamoDBClientBuilder := func(cfg aws.Config) enhancedmetricsDynamoDBService.Client {
+	mockDynamoDBClientBuilder := func(_ aws.Config) enhancedmetricsDynamoDBService.Client {
 		return &mockDynamoDBClient{
 			tables: []dynamodbTypes.TableDescription{
 				{

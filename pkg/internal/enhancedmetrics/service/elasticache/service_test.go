@@ -3,14 +3,14 @@ package elasticache
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func TestNewElastiCacheService(t *testing.T) {
@@ -26,7 +26,7 @@ func TestNewElastiCacheService(t *testing.T) {
 		},
 		{
 			name: "with custom buildClientFunc",
-			buildClientFunc: func(cfg aws.Config) Client {
+			buildClientFunc: func(_ aws.Config) Client {
 				return nil
 			},
 		},
@@ -118,13 +118,13 @@ func TestElastiCache_LoadMetricsMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			var service *ElastiCache
 
 			if tt.setupMock == nil {
 				service = NewElastiCacheService(nil)
 			} else {
-				service = NewElastiCacheService(func(cfg aws.Config) Client {
+				service = NewElastiCacheService(func(_ aws.Config) Client {
 					return tt.setupMock()
 				})
 			}
@@ -273,9 +273,9 @@ func TestElastiCache_Process(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			service := NewElastiCacheService(
-				func(cfg aws.Config) Client {
+				func(_ aws.Config) Client {
 					return nil
 				},
 			)
@@ -309,7 +309,6 @@ func TestElastiCache_Process(t *testing.T) {
 type mockServiceElastiCacheClient struct {
 	clusters    []types.CacheCluster
 	describeErr bool
-	initErr     bool
 }
 
 func (m *mockServiceElastiCacheClient) DescribeAllCacheClusters(_ context.Context, _ *slog.Logger) ([]types.CacheCluster, error) {
