@@ -283,6 +283,11 @@ func (c *CachingFactory) Clear() {
 	c.cleared.Store(true)
 }
 
+// GetAWSRegionalConfig returns the aws.Config for the given region and role. It implements the RegionalConfigProvider interface.
+func (c *CachingFactory) GetAWSRegionalConfig(region string, role model.Role) *aws.Config {
+	return c.clients[role][region].awsConfig
+}
+
 func (c *CachingFactory) createCloudwatchClient(regionConfig *aws.Config) *cloudwatch.Client {
 	return cloudwatch.NewFromConfig(*regionConfig, func(options *cloudwatch.Options) {
 		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
