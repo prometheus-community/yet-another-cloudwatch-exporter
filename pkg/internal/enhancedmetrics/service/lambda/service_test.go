@@ -3,14 +3,14 @@ package lambda
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func TestNewLambdaService(t *testing.T) {
@@ -118,13 +118,13 @@ func TestLambda_LoadMetricsMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			var service *Lambda
 
 			if tt.setupMock == nil {
 				service = NewLambdaService(nil)
 			} else {
-				service = NewLambdaService(func(cfg aws.Config) Client {
+				service = NewLambdaService(func(_ aws.Config) Client {
 					return tt.setupMock()
 				})
 			}
@@ -270,9 +270,9 @@ func TestLambda_Process(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			service := NewLambdaService(
-				func(cfg aws.Config) Client {
+				func(_ aws.Config) Client {
 					return nil
 				},
 			)
@@ -306,7 +306,6 @@ func TestLambda_Process(t *testing.T) {
 type mockServiceLambdaClient struct {
 	functions []types.FunctionConfiguration
 	listErr   bool
-	initErr   bool
 }
 
 func (m *mockServiceLambdaClient) ListAllFunctions(_ context.Context, _ *slog.Logger) ([]types.FunctionConfiguration, error) {

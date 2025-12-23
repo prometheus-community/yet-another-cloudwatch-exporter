@@ -3,14 +3,14 @@ package dynamodb
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func TestNewDynamoDBService(t *testing.T) {
@@ -26,7 +26,7 @@ func TestNewDynamoDBService(t *testing.T) {
 		},
 		{
 			name: "with custom buildClientFunc",
-			buildClientFunc: func(cfg aws.Config) Client {
+			buildClientFunc: func(_ aws.Config) Client {
 				return nil
 			},
 		},
@@ -119,13 +119,13 @@ func TestDynamoDB_LoadMetricsMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			var service *DynamoDB
 
 			if tt.setupMock == nil {
 				service = NewDynamoDBService(nil)
 			} else {
-				service = NewDynamoDBService(func(cfg aws.Config) Client {
+				service = NewDynamoDBService(func(_ aws.Config) Client {
 					return tt.setupMock()
 				})
 			}
@@ -301,7 +301,7 @@ func TestDynamoDB_Process(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			service := NewDynamoDBService(nil)
 			// we directly set the regionalData for testing
 			service.regionalData = tt.regionalData
@@ -332,7 +332,6 @@ func TestDynamoDB_Process(t *testing.T) {
 type mockServiceDynamoDBClient struct {
 	tables      []types.TableDescription
 	describeErr bool
-	initErr     bool
 }
 
 func (m *mockServiceDynamoDBClient) DescribeAllTables(_ context.Context, _ *slog.Logger) ([]types.TableDescription, error) {

@@ -3,7 +3,6 @@ package dynamodb
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -23,13 +22,13 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 		{
 			name: "success - single page",
 			client: &mockDynamoDBClient{
-				listTablesFunc: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+				listTablesFunc: func(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 					return &dynamodb.ListTablesOutput{
 						TableNames:             []string{"table-1"},
 						LastEvaluatedTableName: nil,
 					}, nil
 				},
-				describeTableFunc: func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
+				describeTableFunc: func(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 					return &dynamodb.DescribeTableOutput{
 						Table: &types.TableDescription{
 							TableName: aws.String("table-1"),
@@ -45,9 +44,9 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 		{
 			name: "success - multiple pages",
 			client: &mockDynamoDBClient{
-				listTablesFunc: func() func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+				listTablesFunc: func() func(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 					callCount := 0
-					return func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+					return func(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 						callCount++
 						if callCount == 1 {
 							return &dynamodb.ListTablesOutput{
@@ -61,7 +60,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 						}, nil
 					}
 				}(),
-				describeTableFunc: func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
+				describeTableFunc: func(_ context.Context, params *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 					return &dynamodb.DescribeTableOutput{
 						Table: &types.TableDescription{
 							TableName: params.TableName,
@@ -78,7 +77,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 		{
 			name: "error - ListTables failure",
 			client: &mockDynamoDBClient{
-				listTablesFunc: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+				listTablesFunc: func(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 					return nil, fmt.Errorf("API error")
 				},
 			},
@@ -88,13 +87,13 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 		{
 			name: "partial success - DescribeTable failure",
 			client: &mockDynamoDBClient{
-				listTablesFunc: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+				listTablesFunc: func(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 					return &dynamodb.ListTablesOutput{
 						TableNames:             []string{"table-1", "table-2"},
 						LastEvaluatedTableName: nil,
 					}, nil
 				},
-				describeTableFunc: func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
+				describeTableFunc: func(_ context.Context, params *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 					if *params.TableName == "table-1" {
 						return nil, fmt.Errorf("describe error")
 					}
@@ -116,7 +115,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 			c := &AWSDynamoDBClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeAllTables(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+			got, err := c.DescribeAllTables(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DescribeAllTables() error = %v, wantErr %v", err, tt.wantErr)
 				return
