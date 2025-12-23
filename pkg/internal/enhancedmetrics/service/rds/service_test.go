@@ -3,14 +3,14 @@ package rds
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func TestNewRDSService(t *testing.T) {
@@ -118,7 +118,7 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			var service *RDS
 
 			if tt.setupMock == nil {
@@ -275,7 +275,7 @@ func TestRDS_Process(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			service := NewRDSService(nil)
 			// we directly set the regionalData for testing
 			service.regionalData = tt.regionalData
@@ -307,7 +307,6 @@ func TestRDS_Process(t *testing.T) {
 type mockServiceRDSClient struct {
 	instances   []types.DBInstance
 	describeErr bool
-	initErr     bool
 }
 
 func (m *mockServiceRDSClient) DescribeAllDBInstances(_ context.Context, _ *slog.Logger) ([]types.DBInstance, error) {

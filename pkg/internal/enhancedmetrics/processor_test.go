@@ -3,14 +3,13 @@ package enhancedmetrics
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"sync"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
@@ -155,7 +154,7 @@ func TestNewProcessor(t *testing.T) {
 
 func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	region := "us-east-1"
 	role := model.Role{RoleArn: "arn:aws:iam::123456789012:role/test"}
 	namespace := "AWS/RDS"
@@ -282,7 +281,7 @@ func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 
 func TestProcessor_Process(t *testing.T) {
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	namespace := "AWS/RDS"
 	resources := []*model.TaggedResource{
 		{
@@ -392,7 +391,7 @@ func TestProcessor_Process(t *testing.T) {
 func TestProcessor_Concurrency(t *testing.T) {
 	// Test that the Processor can handle concurrent LoadMetricsMetadata and Process calls safely
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	namespace1 := "AWS/RDS"
 	namespace2 := "AWS/ElastiCache"
 	region := "us-east-1"
