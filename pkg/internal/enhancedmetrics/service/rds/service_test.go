@@ -26,7 +26,7 @@ func TestNewRDSService(t *testing.T) {
 		},
 		{
 			name: "with custom buildClientFunc",
-			buildClientFunc: func(cfg aws.Config) Client {
+			buildClientFunc: func(_ aws.Config) Client {
 				return nil
 			},
 		},
@@ -124,7 +124,7 @@ func TestRDS_LoadMetricsMetadata(t *testing.T) {
 			if tt.setupMock == nil {
 				service = NewRDSService(nil)
 			} else {
-				service = NewRDSService(func(cfg aws.Config) Client {
+				service = NewRDSService(func(_ aws.Config) Client {
 					return tt.setupMock()
 				})
 			}

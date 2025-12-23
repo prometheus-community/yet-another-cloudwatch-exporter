@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
@@ -16,7 +18,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-	"github.com/stretchr/testify/require"
 )
 
 // mockFactory is a mock implementation of clients.Factory that also implements config.RegionalConfigProvider
