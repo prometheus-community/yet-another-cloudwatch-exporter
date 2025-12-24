@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -43,6 +44,7 @@ func runDiscoveryJob(
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
+	enhancedProcessor *em.Processor,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
@@ -62,15 +64,27 @@ func runDiscoveryJob(
 
 	svc := config.SupportedServices.GetService(job.Namespace)
 	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
-	if len(getMetricDatas) == 0 {
+
+	if len(getMetricDatas) > 0 {
+		getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
+		if err != nil {
+			logger.Error("Failed to get metric data", "err", err)
+			return nil, nil
+		}
+	} else {
 		logger.Info("No metrics data found")
-		return resources, nil
 	}
 
-	getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
-	if err != nil {
-		logger.Error("Failed to get metric data", "err", err)
-		return nil, nil
+	// Fetch enhanced metrics if configured
+	if enhancedProcessor != nil && len(job.EnhancedMetrics) > 0 {
+		logger.Debug("Fetching enhanced metrics", "count", len(job.EnhancedMetrics))
+		enhancedData, err := enhancedProcessor.Process(ctx, logger, svc.Namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
+		if err != nil {
+			logger.Warn("Failed to get enhanced metrics", "err", err)
+		} else if len(enhancedData) > 0 {
+			logger.Debug("Got enhanced metrics", "count", len(enhancedData))
+			getMetricDatas = append(getMetricDatas, enhancedData...)
+		}
 	}
 
 	return resources, getMetricDatas
