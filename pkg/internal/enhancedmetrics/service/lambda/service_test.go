@@ -69,12 +69,12 @@ func TestLambda_ListRequiredPermissions(t *testing.T) {
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestLambda_ListSupportedMetrics(t *testing.T) {
+func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewLambdaService(nil)
 	expectedMetrics := []string{
 		"Timeout",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
+	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
 func TestLambda_LoadMetricsMetadata(t *testing.T) {

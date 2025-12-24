@@ -70,12 +70,12 @@ func TestDynamoDB_ListRequiredPermissions(t *testing.T) {
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestDynamoDB_ListSupportedMetrics(t *testing.T) {
+func TestDynamoDB_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewDynamoDBService(nil)
 	expectedMetrics := []string{
 		"ItemCount",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
+	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
 func TestDynamoDB_LoadMetricsMetadata(t *testing.T) {
