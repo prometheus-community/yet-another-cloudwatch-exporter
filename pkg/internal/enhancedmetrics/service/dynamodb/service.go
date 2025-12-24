@@ -230,7 +230,7 @@ func (s *DynamoDB) ListRequiredPermissions() []string {
 	}
 }
 
-func (s *DynamoDB) ListSupportedMetrics() []string {
+func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
 	var metrics []string
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)

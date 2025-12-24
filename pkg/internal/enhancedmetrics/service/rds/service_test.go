@@ -69,12 +69,12 @@ func TestRDS_ListRequiredPermissions(t *testing.T) {
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestRDS_ListSupportedMetrics(t *testing.T) {
+func TestRDS_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewRDSService(nil)
 	expectedMetrics := []string{
 		"AllocatedStorage",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
+	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
 func TestRDS_LoadMetricsMetadata(t *testing.T) {

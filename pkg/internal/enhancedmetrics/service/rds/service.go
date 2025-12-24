@@ -209,7 +209,7 @@ func (s *RDS) ListRequiredPermissions() []string {
 	}
 }
 
-func (s *RDS) ListSupportedMetrics() []string {
+func (s *RDS) ListSupportedEnhancedMetrics() []string {
 	var metrics []string
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)
