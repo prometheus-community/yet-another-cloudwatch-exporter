@@ -195,7 +195,7 @@ func (s *ElastiCache) ListRequiredPermissions() []string {
 	}
 }
 
-func (s *ElastiCache) ListSupportedMetrics() []string {
+func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {
 	var metrics []string
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)

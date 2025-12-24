@@ -189,7 +189,7 @@ func (s *Lambda) ListRequiredPermissions() []string {
 	}
 }
 
-func (s *Lambda) ListSupportedMetrics() []string {
+func (s *Lambda) ListSupportedEnhancedMetrics() []string {
 	var metrics []string
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)

@@ -69,12 +69,12 @@ func TestElastiCache_ListRequiredPermissions(t *testing.T) {
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
 
-func TestElastiCache_ListSupportedMetrics(t *testing.T) {
+func TestElastiCache_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewElastiCacheService(nil)
 	expectedMetrics := []string{
 		"NumCacheNodes",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedMetrics())
+	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
 func TestElastiCache_LoadMetricsMetadata(t *testing.T) {
