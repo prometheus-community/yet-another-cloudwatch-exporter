@@ -39,13 +39,27 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
-	enhancedMetricsProcessor, err := enhancedmetrics.NewProcessor(factory)
-	if err != nil {
-		logger.Debug("Couldn't initialize enhanced metrics processor", "err", err)
-		enhancedMetricsProcessor = nil
-	}
+	var enhancedMetricsProcessorErr error
+	var enhancedMetricsProcessor *enhancedmetrics.Processor
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+		// initialize enhanced metrics processor only if:
+		// - the current discovery job has enhanced metrics configured
+		// - the enhanced metrics processor is not already initialized
+		// - there was no error initializing the enhanced metrics processor previously
+		//
+		// if the initialization fails, we log the error and continue without enhanced metrics
+		if discoveryJob.HasEnhancedMetrics() &&
+			enhancedMetricsProcessor == nil &&
+			enhancedMetricsProcessorErr == nil {
+
+			enhancedMetricsProcessor, enhancedMetricsProcessorErr = enhancedmetrics.NewProcessor(factory)
+			if enhancedMetricsProcessorErr != nil {
+				logger.Warn("Couldn't initialize enhanced metrics processor", "err", enhancedMetricsProcessorErr)
+				enhancedMetricsProcessor = nil
+			}
+		}
+
 		for _, role := range discoveryJob.Roles {
 			for _, region := range discoveryJob.Regions {
 				wg.Add(1)
@@ -74,7 +88,18 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor, enhancedMetricsProcessor)
+
+					resources, metrics := runDiscoveryJob(
+						ctx,
+						jobLogger,
+						discoveryJob,
+						region,
+						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
+						cloudwatchClient,
+						gmdProcessor,
+						enhancedMetricsProcessor,
+					)
+
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0
