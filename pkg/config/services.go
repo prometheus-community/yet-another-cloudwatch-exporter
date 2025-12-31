@@ -43,8 +43,8 @@ type ServiceConfig struct {
 func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 	dr := []model.DimensionsRegexp{}
 
-	for _, regexp := range sc.DimensionRegexps {
-		names := regexp.SubexpNames()
+	for _, dimensionRegexp := range sc.DimensionRegexps {
+		names := dimensionRegexp.SubexpNames()
 		dimensionNames := make([]string, 0, len(names)-1)
 
 		// skip first name, it's always an empty string
@@ -54,7 +54,7 @@ func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 		}
 
 		dr = append(dr, model.DimensionsRegexp{
-			Regexp:          regexp,
+			Regexp:          dimensionRegexp,
 			DimensionsNames: dimensionNames,
 		})
 	}
