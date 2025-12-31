@@ -75,7 +75,6 @@ func runDiscoveryJob(
 		logger.Info("No metrics data found")
 	}
 
-	// Fetch enhanced metrics if configured
 	if enhancedProcessor != nil && len(job.EnhancedMetrics) > 0 {
 		logger.Debug("Fetching enhanced metrics", "count", len(job.EnhancedMetrics))
 		enhancedData, err := enhancedProcessor.Process(ctx, logger, svc.Namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
