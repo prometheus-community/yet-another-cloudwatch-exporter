@@ -18,10 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/elasticache"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -42,9 +38,6 @@ type ServiceConfig struct {
 	// In cases where the dimension name has a space, it should be
 	// replaced with an underscore (`_`).
 	DimensionRegexps []*regexp.Regexp
-	// AvailableEnhancedMetrics is list of supported enhanced metric names
-	// built from the data of service APIs instead of CloudWatch.
-	AvailableEnhancedMetrics []string
 }
 
 func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
@@ -349,7 +342,6 @@ var SupportedServices = serviceConfigs{
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":table/(?P<TableName>[^/]+)"),
 		},
-		AvailableEnhancedMetrics: dynamodb.NewDynamoDBService(nil).ListSupportedEnhancedMetrics(),
 	},
 	{
 		Namespace: "AWS/EBS",
@@ -372,7 +364,6 @@ var SupportedServices = serviceConfigs{
 			regexp.MustCompile("cluster:(?P<CacheClusterId>[^/]+)"),
 			regexp.MustCompile("serverlesscache:(?P<clusterId>[^/]+)"),
 		},
-		AvailableEnhancedMetrics: elasticache.NewElastiCacheService(nil).ListSupportedEnhancedMetrics(),
 	},
 	{
 		Namespace: "AWS/MemoryDB",
@@ -638,7 +629,6 @@ var SupportedServices = serviceConfigs{
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":function:(?P<FunctionName>[^/]+)"),
 		},
-		AvailableEnhancedMetrics: lambda.NewLambdaService(nil).ListSupportedEnhancedMetrics(),
 	},
 	{
 		Namespace: "AWS/Logs",
@@ -802,7 +792,6 @@ var SupportedServices = serviceConfigs{
 			regexp.MustCompile(":db:(?P<DBInstanceIdentifier>[^/]+)"),
 			regexp.MustCompile(":db-proxy:(?P<ProxyIdentifier>[^/]+)"),
 		},
-		AvailableEnhancedMetrics: rds.NewRDSService(nil).ListSupportedEnhancedMetrics(),
 	},
 	{
 		Namespace: "AWS/Redshift",
