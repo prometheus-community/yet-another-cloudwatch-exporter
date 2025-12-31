@@ -48,7 +48,7 @@ type DiscoveryJob struct {
 	EnhancedMetrics []*EnhancedMetricConfig
 }
 
-func (d *DiscoveryJob) IsEnhancedMetricsConfigured() bool {
+func (d *DiscoveryJob) HasEnhancedMetrics() bool {
 	return len(d.EnhancedMetrics) > 0
 }
 
