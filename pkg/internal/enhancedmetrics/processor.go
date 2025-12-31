@@ -26,7 +26,7 @@ import (
 
 // MetricsServiceRegistry defines an interface to get enhanced metrics services by namespace
 type MetricsServiceRegistry interface {
-	GetEnhancedMetricsService(namespace string) (service.MetricsService, error)
+	GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error)
 }
 
 // Processor is responsible for processing enhanced metrics using appropriate services. It manages multiple enhanced metrics services for different namespaces.
@@ -35,7 +35,7 @@ type MetricsServiceRegistry interface {
 // It is intended to be used in the scope of a single scrape operation.
 type Processor struct {
 	ConfigProvider          config.RegionalConfigProvider
-	EnhancedMetricsServices map[string]service.MetricsService
+	EnhancedMetricsServices map[string]service.EnhancedMetricsService
 	m                       sync.RWMutex
 }
 
@@ -43,7 +43,7 @@ func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsS
 	ep.m.Lock()
 	defer ep.m.Unlock()
 	if ep.EnhancedMetricsServices == nil {
-		ep.EnhancedMetricsServices = make(map[string]service.MetricsService)
+		ep.EnhancedMetricsServices = make(map[string]service.EnhancedMetricsService)
 	}
 
 	_, exists := ep.EnhancedMetricsServices[namespace]
@@ -103,7 +103,7 @@ func NewProcessor(
 	}
 
 	return &Processor{
-		EnhancedMetricsServices: make(map[string]service.MetricsService),
+		EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 		ConfigProvider:          emf,
 	}, nil
 }

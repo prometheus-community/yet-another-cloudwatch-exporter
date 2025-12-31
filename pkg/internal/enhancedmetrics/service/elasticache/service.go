@@ -203,6 +203,6 @@ func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {
 	return metrics
 }
 
-func (s *ElastiCache) Instance() service.MetricsService {
+func (s *ElastiCache) Instance() service.EnhancedMetricsService {
 	return NewElastiCacheService(s.buildClientFunc)
 }
