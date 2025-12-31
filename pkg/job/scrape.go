@@ -61,7 +61,7 @@ func ScrapeAwsData(
 
 					// at this point we have already all the data to start loading the enhanced metrics if any is configured
 					if discoveryJob.IsEnhancedMetricsConfigured() && enhancedProcessor != nil {
-						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultRegistry)
+						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultEnhancedMetricsService)
 						if err != nil {
 							jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
 						}
