@@ -20,8 +20,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-// MetricsService is the interface that enhanced metrics services should implement to be used by the enhanced metrics processor.
-type MetricsService interface {
+// EnhancedMetricsService is the interface that enhanced metrics services should implement to be used by the enhanced metrics processor.
+type EnhancedMetricsService interface {
 	// LoadMetricsMetadata should load any metadata needed for the enhanced metrics service. It should be concurrent safe.
 	LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) error
 

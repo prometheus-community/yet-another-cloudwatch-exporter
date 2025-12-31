@@ -73,7 +73,7 @@ func (m *mockNonRegionalFactory) GetAccountClient(string, model.Role) account.Cl
 	return nil
 }
 
-// mockMetricsService is a mock implementation of service.MetricsService
+// mockMetricsService is a mock implementation of service.EnhancedMetricsService
 type mockMetricsService struct {
 	loadMetadataCalled int
 	processCalled      int
@@ -111,11 +111,11 @@ func (m *mockMetricsService) getProcessCalled() int {
 
 // mockMetricsServiceRegistry is a mock implementation of MetricsServiceRegistry
 type mockMetricsServiceRegistry struct {
-	services map[string]service.MetricsService
+	services map[string]service.EnhancedMetricsService
 	getErr   error
 }
 
-func (m *mockMetricsServiceRegistry) GetEnhancedMetricsService(namespace string) (service.MetricsService, error) {
+func (m *mockMetricsServiceRegistry) GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -186,12 +186,12 @@ func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 			setupProcessor: func() *Processor {
 				return &Processor{
 					ConfigProvider:          &mockFactory{},
-					EnhancedMetricsServices: make(map[string]service.MetricsService),
+					EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 				}
 			},
 			setupRegistry: func() *mockMetricsServiceRegistry {
 				return &mockMetricsServiceRegistry{
-					services: map[string]service.MetricsService{
+					services: map[string]service.EnhancedMetricsService{
 						namespace: &mockMetricsService{},
 					},
 				}
@@ -207,14 +207,14 @@ func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 				svc := &mockMetricsService{}
 				return &Processor{
 					ConfigProvider: &mockFactory{},
-					EnhancedMetricsServices: map[string]service.MetricsService{
+					EnhancedMetricsServices: map[string]service.EnhancedMetricsService{
 						namespace: svc,
 					},
 				}
 			},
 			setupRegistry: func() *mockMetricsServiceRegistry {
 				return &mockMetricsServiceRegistry{
-					services: map[string]service.MetricsService{
+					services: map[string]service.EnhancedMetricsService{
 						namespace: &mockMetricsService{},
 					},
 				}
@@ -229,7 +229,7 @@ func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 			setupProcessor: func() *Processor {
 				return &Processor{
 					ConfigProvider:          &mockFactory{},
-					EnhancedMetricsServices: make(map[string]service.MetricsService),
+					EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 				}
 			},
 			setupRegistry: func() *mockMetricsServiceRegistry {
@@ -246,12 +246,12 @@ func TestProcessor_LoadMetricsMetadata(t *testing.T) {
 			setupProcessor: func() *Processor {
 				return &Processor{
 					ConfigProvider:          &mockFactory{},
-					EnhancedMetricsServices: make(map[string]service.MetricsService),
+					EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 				}
 			},
 			setupRegistry: func() *mockMetricsServiceRegistry {
 				return &mockMetricsServiceRegistry{
-					services: map[string]service.MetricsService{
+					services: map[string]service.EnhancedMetricsService{
 						namespace: &mockMetricsService{
 							loadMetadataErr: errors.New("load metadata error"),
 						},
@@ -328,7 +328,7 @@ func TestProcessor_Process(t *testing.T) {
 				}
 				return &Processor{
 					ConfigProvider: &mockFactory{},
-					EnhancedMetricsServices: map[string]service.MetricsService{
+					EnhancedMetricsServices: map[string]service.EnhancedMetricsService{
 						namespace: &mockMetricsService{
 							processResult: expectedData,
 						},
@@ -351,7 +351,7 @@ func TestProcessor_Process(t *testing.T) {
 			setupProcessor: func() *Processor {
 				return &Processor{
 					ConfigProvider:          &mockFactory{},
-					EnhancedMetricsServices: make(map[string]service.MetricsService),
+					EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 				}
 			},
 			namespace: namespace,
@@ -363,7 +363,7 @@ func TestProcessor_Process(t *testing.T) {
 			setupProcessor: func() *Processor {
 				return &Processor{
 					ConfigProvider: &mockFactory{},
-					EnhancedMetricsServices: map[string]service.MetricsService{
+					EnhancedMetricsServices: map[string]service.EnhancedMetricsService{
 						namespace: &mockMetricsService{
 							processErr: errors.New("process error"),
 						},
@@ -411,11 +411,11 @@ func TestProcessor_Concurrency(t *testing.T) {
 
 	processor := &Processor{
 		ConfigProvider:          &mockFactory{},
-		EnhancedMetricsServices: make(map[string]service.MetricsService),
+		EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
 	}
 
 	registry := &mockMetricsServiceRegistry{
-		services: map[string]service.MetricsService{
+		services: map[string]service.EnhancedMetricsService{
 			namespace1: &mockMetricsService{},
 			namespace2: &mockMetricsService{},
 		},

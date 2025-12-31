@@ -37,7 +37,7 @@ var DefaultEnhancedMetricServiceRegistry = (&Registry{}).
 // MetricsService represents an enhanced metrics service with methods to get its instance and namespace.
 // Services implementing this interface can be registered in the Registry.
 type MetricsService interface {
-	Instance() service.MetricsService
+	Instance() service.EnhancedMetricsService
 	GetNamespace() string
 }
 
@@ -45,7 +45,7 @@ type MetricsService interface {
 type Registry struct {
 	m sync.RWMutex
 
-	services map[string]func() service.MetricsService
+	services map[string]func() service.EnhancedMetricsService
 }
 
 // Register adds a new enhanced metrics service to the registry or replaces an existing one with the same namespace.
@@ -54,7 +54,7 @@ func (receiver *Registry) Register(t MetricsService) *Registry {
 	defer receiver.m.Unlock()
 
 	if receiver.services == nil {
-		receiver.services = map[string]func() service.MetricsService{}
+		receiver.services = map[string]func() service.EnhancedMetricsService{}
 	}
 	receiver.services[t.GetNamespace()] = t.Instance
 
@@ -62,7 +62,7 @@ func (receiver *Registry) Register(t MetricsService) *Registry {
 }
 
 // GetEnhancedMetricsService retrieves an enhanced metrics service by its namespace.
-func (receiver *Registry) GetEnhancedMetricsService(namespace string) (service.MetricsService, error) {
+func (receiver *Registry) GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error) {
 	receiver.m.RLock()
 	defer receiver.m.RUnlock()
 

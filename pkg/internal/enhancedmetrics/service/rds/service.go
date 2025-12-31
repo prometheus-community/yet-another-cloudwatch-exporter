@@ -217,6 +217,6 @@ func (s *RDS) ListSupportedEnhancedMetrics() []string {
 	return metrics
 }
 
-func (s *RDS) Instance() service.MetricsService {
+func (s *RDS) Instance() service.EnhancedMetricsService {
 	return NewRDSService(s.buildClientFunc)
 }

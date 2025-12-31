@@ -238,6 +238,6 @@ func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
 	return metrics
 }
 
-func (s *DynamoDB) Instance() service.MetricsService {
+func (s *DynamoDB) Instance() service.EnhancedMetricsService {
 	return NewDynamoDBService(s.buildClientFunc)
 }

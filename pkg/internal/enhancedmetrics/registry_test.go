@@ -27,7 +27,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-// registryMockMetricsService is a mock implementation of service.MetricsService for testing the registry
+// registryMockMetricsService is a mock implementation of service.EnhancedMetricsService for testing the registry
 type registryMockMetricsService struct {
 	namespace string
 	loadFunc  func(ctx context.Context, logger *slog.Logger, region string, role model.Role, provider config.RegionalConfigProvider) error
@@ -58,7 +58,7 @@ func (m *registryMockMetricsServiceWrapper) GetNamespace() string {
 	return m.namespace
 }
 
-func (m *registryMockMetricsServiceWrapper) Instance() service.MetricsService {
+func (m *registryMockMetricsServiceWrapper) Instance() service.EnhancedMetricsService {
 	return m.service
 }
 
@@ -286,16 +286,16 @@ func TestRegistry_ServiceFactory(t *testing.T) {
 		customWrapper := &struct {
 			MetricsService
 			namespace string
-			factory   func() service.MetricsService
+			factory   func() service.EnhancedMetricsService
 		}{
 			namespace: "AWS/Test",
-			factory: func() service.MetricsService {
+			factory: func() service.EnhancedMetricsService {
 				callCount++
 				return originalInstance
 			},
 		}
 
-		registry.services = map[string]func() service.MetricsService{
+		registry.services = map[string]func() service.EnhancedMetricsService{
 			"AWS/Test": customWrapper.factory,
 		}
 
