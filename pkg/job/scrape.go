@@ -39,10 +39,10 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
-	enhancedProcessor, err := enhancedmetrics.NewProcessor(factory)
+	enhancedMetricsProcessor, err := enhancedmetrics.NewProcessor(factory)
 	if err != nil {
 		logger.Debug("Couldn't initialize enhanced metrics processor", "err", err)
-		enhancedProcessor = nil
+		enhancedMetricsProcessor = nil
 	}
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
@@ -60,8 +60,8 @@ func ScrapeAwsData(
 					jobLogger = jobLogger.With("account", accountID)
 
 					// at this point we have already all the data to start loading the enhanced metrics if any is configured
-					if discoveryJob.HasEnhancedMetrics() && enhancedProcessor != nil {
-						err := enhancedProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultEnhancedMetricServiceRegistry)
+					if discoveryJob.HasEnhancedMetrics() && enhancedMetricsProcessor != nil {
+						err := enhancedMetricsProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultEnhancedMetricServiceRegistry)
 						if err != nil {
 							jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
 						}
@@ -74,7 +74,7 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor, enhancedProcessor)
+					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor, enhancedMetricsProcessor)
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0
