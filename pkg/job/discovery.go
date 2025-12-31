@@ -65,7 +65,7 @@ func runDiscoveryJob(
 	svc := config.SupportedServices.GetService(job.Namespace)
 	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
 
-	if len(getMetricDatas) > 0 {
+	if len(getMetricDatas) > 0 && svc != nil {
 		getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
 		if err != nil {
 			logger.Error("Failed to get metric data", "err", err)
