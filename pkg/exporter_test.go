@@ -175,7 +175,7 @@ func (m *mockDynamoDBClient) DescribeAllTables(context.Context, *slog.Logger) ([
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
-	defer enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	defer enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsService.NewRDSService(nil),
 	)
 	ctx := context.Background()
@@ -224,7 +224,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	}
 
 	// Register the RDS service with the mock builder in the default registry
-	enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsService.NewRDSService(mockRDSClientBuilder),
 	)
 
@@ -277,7 +277,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
-	defer enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	defer enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsLambdaService.NewLambdaService(nil),
 	)
 
@@ -327,7 +327,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	}
 
 	// Register the Lambda service with the mock builder in the default registry
-	enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsLambdaService.NewLambdaService(mockLambdaClientBuilder),
 	)
 
@@ -380,7 +380,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
-	defer enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	defer enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsElastiCacheService.NewElastiCacheService(nil),
 	)
 
@@ -430,7 +430,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 	}
 
 	// Register the ElastiCache service with the mock builder in the default registry
-	enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsElastiCacheService.NewElastiCacheService(mockElastiCacheClientBuilder),
 	)
 
@@ -483,7 +483,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 }
 
 func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
-	defer enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	defer enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsDynamoDBService.NewDynamoDBService(nil),
 	)
 
@@ -543,7 +543,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 	}
 
 	// Register the DynamoDB service with the mock builder in the default registry
-	enhancedmetrics.DefaultEnhancedMetricsService.Register(
+	enhancedmetrics.DefaultEnhancedMetricServiceRegistry.Register(
 		enhancedmetricsDynamoDBService.NewDynamoDBService(mockDynamoDBClientBuilder),
 	)
 

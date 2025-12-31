@@ -23,12 +23,12 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 )
 
-// DefaultEnhancedMetricsService is the default registry containing all built-in enhanced metrics services
+// DefaultEnhancedMetricServiceRegistry is the default registry containing all built-in enhanced metrics services
 // It allows registering additional services if needed, or replacing existing ones, e.g. for testing purposes.
 //
 // Note:In the future, it can be removed in favor of being injected via dependency injection.
 // However, it will require changes in the YACE's API.
-var DefaultEnhancedMetricsService = (&Registry{}).
+var DefaultEnhancedMetricServiceRegistry = (&Registry{}).
 	Register(rds.NewRDSService(nil)).
 	Register(lambda.NewLambdaService(nil)).
 	Register(dynamodb.NewDynamoDBService(nil)).

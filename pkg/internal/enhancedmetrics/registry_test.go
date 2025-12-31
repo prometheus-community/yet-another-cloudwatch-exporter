@@ -239,14 +239,14 @@ func TestDefaultRegistry(t *testing.T) {
 		}
 
 		for _, namespace := range expectedNamespaces {
-			svc, err := DefaultEnhancedMetricsService.GetEnhancedMetricsService(namespace)
+			svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService(namespace)
 			assert.NoError(t, err, "Expected namespace %s to be registered", namespace)
 			assert.NotNil(t, svc, "Expected service for namespace %s to be non-nil", namespace)
 		}
 	})
 
 	t.Run("default registry returns error for unknown namespace", func(t *testing.T) {
-		svc, err := DefaultEnhancedMetricsService.GetEnhancedMetricsService("AWS/Unknown")
+		svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService("AWS/Unknown")
 		assert.Error(t, err)
 		assert.Nil(t, svc)
 	})
