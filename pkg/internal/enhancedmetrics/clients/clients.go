@@ -23,6 +23,8 @@ import (
 )
 
 // separator is NULL byte (0x00)
+// This is an arbitrary choice of a character that is unlikely to appear in region names or role ARNs/ExternalIDs.
+// It is used to separate different components in the client key in the map when generating unique keys for region-role combinations.
 const separator = "\x00"
 
 // Clients manages AWS service clients per region and role.
