@@ -76,12 +76,12 @@ func runDiscoveryJob(
 	}
 
 	if enhancedProcessor != nil && len(job.EnhancedMetrics) > 0 && svc != nil {
-		logger.Debug("Fetching enhanced metrics", "count", len(job.EnhancedMetrics))
+		logger.Debug("Fetching enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
 		enhancedData, err := enhancedProcessor.Process(ctx, logger, svc.Namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
 		if err != nil {
-			logger.Warn("Failed to get enhanced metrics", "err", err)
+			logger.Warn("Failed to get enhanced metrics", "err", err, "namespace", svc.Namespace)
 		} else if len(enhancedData) > 0 {
-			logger.Debug("Got enhanced metrics", "count", len(enhancedData))
+			logger.Debug("Got enhanced metrics", "count", len(enhancedData), "namespace", svc.Namespace)
 			getMetricDatas = append(getMetricDatas, enhancedData...)
 		}
 	}
