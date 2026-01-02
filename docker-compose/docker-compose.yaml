@@ -54,7 +54,7 @@ services:
       - 8080
     volumes:
       - ./yace-config.yaml:/tmp/config.yml
-      - $HOME/.aws:/exporter/.aws:ro
+      - $HOME/.aws:/home/.aws:ro
     command:
       - -listen-address=:8080
       - -config.file=/tmp/config.yml
