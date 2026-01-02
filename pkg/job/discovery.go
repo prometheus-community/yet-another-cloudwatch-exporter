@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	em "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -36,6 +35,10 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
+type enhancedProcessorProcessor interface {
+	Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error)
+}
+
 func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -44,7 +47,7 @@ func runDiscoveryJob(
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
-	enhancedProcessor *em.Processor,
+	enhancedProcessor enhancedProcessorProcessor,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
