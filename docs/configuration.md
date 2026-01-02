@@ -118,7 +118,7 @@ dimensionNameRequirements:
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
 [ includeContextOnInfoMetrics: <boolean> ]
 
-# Enables enhanced metrics for specific services within this discovery job (optional).
+# (optional) This is an experimental feature that can be used to enable enhanced metrics for specific services within this discovery job. It might be subject to changes in future releases.
 # Currently supported enhanced metrics are:
 # - AWS/Lambda (Timeout)
 # - AWS/DynamoDB (ItemCount)
