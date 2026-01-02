@@ -7,6 +7,8 @@
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
 
+* [FEATURE] Implement Enhanced Metrics (EM) for AWS Services by @andriikushch. 
+
 ## 0.63.0 / 2025-09-25
 
 **Important news and breaking changes**
