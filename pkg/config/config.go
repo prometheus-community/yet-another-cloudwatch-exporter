@@ -243,7 +243,7 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 	if len(j.Regions) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Regions should not be empty", j.Type, jobIdx)
 	}
-	if len(j.Metrics) == 0 {
+	if len(j.Metrics) == 0 && len(j.EnhancedMetrics) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Metrics should not be empty", j.Type, jobIdx)
 	}
 	for metricIdx, metric := range j.Metrics {
