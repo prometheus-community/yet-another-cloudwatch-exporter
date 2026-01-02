@@ -118,6 +118,15 @@ dimensionNameRequirements:
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
 [ includeContextOnInfoMetrics: <boolean> ]
 
+# Enables enhanced metrics for specific services within this discovery job (optional).
+# Currently supported enhanced metrics are:
+# - AWS/Lambda (Timeout)
+# - AWS/DynamoDB (ItemCount)
+# - AWS/RDS (AllocatedStorage)
+# - AWS/ElastiCache (NumCacheNodes)
+enhancedMetrics:
+    [ - <enhanced_metrics_config> ... ]
+
 # List of statistic types, e.g. "Minimum", "Maximum", etc (General Setting for all metrics in this job)
 statistics:
   [ - <string> ... ]
@@ -414,4 +423,20 @@ This is an example of the `dimensions_config` block:
 dimensions:
   - name: AutoScalingGroupName
     value: MyGroup
+```
+
+### `enhanced_metrics_config`
+
+The `enhanced_metrics_config` block allows enabling enhanced metrics for specific metrics within a discovery job.
+
+Currently supported enhanced metrics are:
+
+- AWS/Lambda (Timeout)
+- AWS/DynamoDB (ItemCount)
+- AWS/RDS (AllocatedStorage)
+- AWS/ElastiCache (NumCacheNodes)
+
+```yaml
+enhancedMetrics:
+    - name: ItemCount
 ```
