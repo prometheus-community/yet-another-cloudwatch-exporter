@@ -16,7 +16,7 @@ To pull and run the image locally use:
 
 ```shell
 docker run -d --rm \
-  -v $PWD/credentials:/exporter/.aws/credentials \
+  -v $PWD/credentials:/home/.aws/credentials \
   -v $PWD/config.yml:/tmp/config.yml \
   -p 5000:5000 \
   --name yace quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:latest

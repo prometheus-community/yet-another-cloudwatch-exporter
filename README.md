@@ -297,7 +297,7 @@ predict_linear(aws_es_free_storage_space_minimum[2d], 86400 * 7) + on (name) gro
 ## Override AWS endpoint urls
 to support local testing all AWS urls can be overridden with by setting an environment variable `AWS_ENDPOINT_URL`
 ```shell
-docker run -d --rm -v $PWD/credentials:/exporter/.aws/credentials -v $PWD/config.yml:/tmp/config.yml \
+docker run -d --rm -v $PWD/credentials:/home/.aws/credentials -v $PWD/config.yml:/tmp/config.yml \
 -e AWS_ENDPOINT_URL=http://localhost:4766 -p 5000:5000 --name yace quay.io/prometheuscommunity/yet-another-cloudwatch-exporter:latest
 ```
 
