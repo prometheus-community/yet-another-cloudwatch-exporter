@@ -1,0 +1,120 @@
+// Copyright The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package tagging
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"github.com/valkey-io/valkey-go"
+)
+
+type fakeValkeyBackend struct {
+	getFn   func(ctx context.Context, key string) (string, error)
+	setExFn func(ctx context.Context, key string, value string, ttl time.Duration) error
+}
+
+func (b fakeValkeyBackend) Get(ctx context.Context, key string) (string, error) {
+	if b.getFn == nil {
+		return "", valkey.Nil
+	}
+	return b.getFn(ctx, key)
+}
+
+func (b fakeValkeyBackend) SetEX(ctx context.Context, key string, value string, ttl time.Duration) error {
+	if b.setExFn == nil {
+		return nil
+	}
+	return b.setExFn(ctx, key, value, ttl)
+}
+
+func (b fakeValkeyBackend) Close() {}
+
+func TestValkeyCache_GetMissReturnsNilSlice(t *testing.T) {
+	cache := &ValkeyCache{
+		backend: fakeValkeyBackend{getFn: func(_ context.Context, _ string) (string, error) {
+			return "", valkey.Nil
+		}},
+		logger: slog.New(slog.DiscardHandler),
+	}
+
+	mappings, err := cache.Get(context.Background(), "missing")
+	require.NoError(t, err)
+	require.Nil(t, mappings)
+}
+
+func TestValkeyCache_SetThenGetRoundTrip(t *testing.T) {
+	stored := map[string]string{}
+
+	cache := &ValkeyCache{
+		backend: fakeValkeyBackend{
+			getFn: func(_ context.Context, key string) (string, error) {
+				value, ok := stored[key]
+				if !ok {
+					return "", valkey.Nil
+				}
+				return value, nil
+			},
+			setExFn: func(_ context.Context, key string, value string, _ time.Duration) error {
+				stored[key] = value
+				return nil
+			},
+		},
+		logger: slog.New(slog.DiscardHandler),
+	}
+
+	key := "somekey"
+	original := []ResourceTagMappingCache{
+		{ResourceARN: "arn:aws:ec2:us-east-1:123456789012:instance/i-123", Tags: map[string]string{"env": "prod"}},
+		{ResourceARN: "arn:aws:s3:::bucket", Tags: map[string]string{"team": "core"}},
+	}
+
+	require.NoError(t, cache.Set(context.Background(), key, original, 2*time.Minute))
+	loaded, err := cache.Get(context.Background(), key)
+	require.NoError(t, err)
+	require.Equal(t, original, loaded)
+}
+
+func TestValkeyCache_GetInvalidJSONReturnsError(t *testing.T) {
+	cache := &ValkeyCache{
+		backend: fakeValkeyBackend{getFn: func(_ context.Context, _ string) (string, error) {
+			return "not-json", nil
+		}},
+		logger: slog.New(slog.DiscardHandler),
+	}
+
+	_, err := cache.Get(context.Background(), "bad")
+	require.Error(t, err)
+}
+
+func TestValkeyCache_SetStoresJSON(t *testing.T) {
+	var storedValue string
+	cache := &ValkeyCache{
+		backend: fakeValkeyBackend{setExFn: func(_ context.Context, _ string, value string, _ time.Duration) error {
+			storedValue = value
+			return nil
+		}},
+		logger: slog.New(slog.DiscardHandler),
+	}
+
+	original := []ResourceTagMappingCache{{ResourceARN: "arn:aws:s3:::bucket", Tags: map[string]string{"team": "core"}}}
+	require.NoError(t, cache.Set(context.Background(), "k", original, time.Minute))
+
+	var decoded []ResourceTagMappingCache
+	require.NoError(t, json.Unmarshal([]byte(storedValue), &decoded))
+	require.Equal(t, original, decoded)
+}

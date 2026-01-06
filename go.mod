@@ -30,6 +30,7 @@ require (
 	github.com/r3labs/diff/v3 v3.0.2
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
+	github.com/valkey-io/valkey-go v1.0.78
 	go.uber.org/atomic v1.11.0
 	go.yaml.in/yaml/v2 v2.4.4
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
@@ -62,6 +63,6 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

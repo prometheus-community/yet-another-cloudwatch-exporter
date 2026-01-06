@@ -29,6 +29,7 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
@@ -66,6 +67,10 @@ var (
 	metricsPerQuery           int
 	labelsSnakeCase           bool
 	profilingEnabled          bool
+	valkeyAddress             string
+	valkeyUsername            string
+	valkeyPassword            string
+	valkeyDB                  int
 
 	logger *slog.Logger
 )
@@ -212,6 +217,34 @@ func NewYACEApp() *cli.App {
 			Name:  enableFeatureFlag,
 			Usage: "Comma-separated list of enabled features",
 		},
+		&cli.StringFlag{
+			Name:        "valkey.address",
+			Value:       "",
+			Usage:       "Valkey server address (e.g., localhost:6379). If not set, tagging API caching is disabled.",
+			Destination: &valkeyAddress,
+			EnvVars:     []string{"VALKEY_ADDRESS"},
+		},
+		&cli.StringFlag{
+			Name:        "valkey.username",
+			Value:       "",
+			Usage:       "Valkey username for authentication (optional)",
+			Destination: &valkeyUsername,
+			EnvVars:     []string{"VALKEY_USERNAME"},
+		},
+		&cli.StringFlag{
+			Name:        "valkey.password",
+			Value:       "",
+			Usage:       "Valkey password for authentication (optional)",
+			Destination: &valkeyPassword,
+			EnvVars:     []string{"VALKEY_PASSWORD"},
+		},
+		&cli.IntFlag{
+			Name:        "valkey.db",
+			Value:       0,
+			Usage:       "Valkey database number to use",
+			Destination: &valkeyDB,
+			EnvVars:     []string{"VALKEY_DB"},
+		},
 	}
 
 	yace.Commands = []*cli.Command{
@@ -283,7 +316,20 @@ func startScraper(c *cli.Context) error {
 
 	s := NewScraper(cfg)
 
-	cachingFactory, err := clients.NewFactory(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled)
+	// Create Valkey cache if configured
+	valkeyCache, err := createValkeyCache(context.Background(), logger)
+	if err != nil {
+		logger.Warn("Failed to create valkey cache, continuing without caching", "error", err)
+	} else if valkeyCache != nil {
+		logger.Info("Valkey cache enabled", "address", valkeyAddress)
+	}
+
+	var cachingFactory *clients.CachingFactory
+	if valkeyCache != nil {
+		cachingFactory, err = clients.NewFactoryWithCache(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled, valkeyCache)
+	} else {
+		cachingFactory, err = clients.NewFactory(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
@@ -332,7 +378,18 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		cache, err := clients.NewFactory(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled)
+		var newValkeyCache tagging.Cache
+		newValkeyCache, err = createValkeyCache(context.Background(), logger)
+		if err != nil {
+			logger.Warn("Failed to create valkey cache, continuing without caching", "error", err)
+		}
+
+		var cache *clients.CachingFactory
+		if newValkeyCache != nil {
+			cache, err = clients.NewFactoryWithCache(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled, newValkeyCache)
+		} else {
+			cache, err = clients.NewFactory(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled)
+		}
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", cfg.ScrapeConfigFile)
 			return
@@ -347,6 +404,24 @@ func startScraper(c *cli.Context) error {
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
+}
+
+// createValkeyCache creates a Valkey cache if configured, otherwise returns nil
+func createValkeyCache(ctx context.Context, logger *slog.Logger) (tagging.Cache, error) {
+	if valkeyAddress == "" {
+		return nil, nil
+	}
+
+	cache, err := tagging.NewValkeyCache(ctx, logger, tagging.ValkeyConfig{
+		Address:  valkeyAddress,
+		Username: valkeyUsername,
+		Password: valkeyPassword,
+		DB:       valkeyDB,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create valkey cache: %w", err)
+	}
+	return cache, nil
 }
 
 func newLogger(format, level string) *slog.Logger {

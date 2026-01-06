@@ -66,6 +66,7 @@ type CachingFactory struct {
 	cleared             *atomic.Bool
 	fipsEnabled         bool
 	endpointURLOverride string
+	taggingCache        tagging.Cache
 }
 
 type cachedClients struct {
@@ -81,6 +82,12 @@ type cachedClients struct {
 var _ Factory = &CachingFactory{}
 
 func NewFactory(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
+	return NewFactoryWithCache(logger, scrapeMetrics, jobsCfg, fips, nil)
+}
+
+// NewFactoryWithCache creates a new client factory with optional tagging cache support.
+// If taggingCache is nil, the factory will create tagging clients without caching.
+func NewFactoryWithCache(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobsCfg model.JobsConfig, fips bool, taggingCache tagging.Cache) (*CachingFactory, error) {
 	if scrapeMetrics == nil {
 		scrapeMetrics = promutil.Discard
 	}
@@ -171,6 +178,7 @@ func NewFactory(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobs
 		endpointURLOverride: endpointURLOverride,
 		cleared:             atomic.NewBool(false),
 		refreshed:           atomic.NewBool(false),
+		taggingCache:        taggingCache,
 	}, nil
 }
 
@@ -191,7 +199,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		c.mu.Lock()
 		defer c.mu.Unlock()
 	}
-	client := tagging.NewClient(
+	client := tagging.NewClientWithCache(
 		c.logger,
 		c.scrapeMetrics,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
@@ -203,6 +211,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
 		c.createStorageGatewayClient(c.clients[role][region].awsConfig),
 		c.createShieldClient(c.clients[role][region].awsConfig),
+		c.taggingCache,
 	)
 	return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 }
