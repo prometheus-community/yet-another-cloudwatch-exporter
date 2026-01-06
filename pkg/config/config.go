@@ -56,16 +56,17 @@ type JobLevelMetricFields struct {
 }
 
 type Job struct {
-	Regions                     []string  `yaml:"regions"`
-	Type                        string    `yaml:"type"`
-	Roles                       []Role    `yaml:"roles"`
-	SearchTags                  []Tag     `yaml:"searchTags"`
-	CustomTags                  []Tag     `yaml:"customTags"`
-	DimensionNameRequirements   []string  `yaml:"dimensionNameRequirements"`
-	Metrics                     []*Metric `yaml:"metrics"`
-	RoundingPeriod              *int64    `yaml:"roundingPeriod"`
-	RecentlyActiveOnly          bool      `yaml:"recentlyActiveOnly"`
-	IncludeContextOnInfoMetrics bool      `yaml:"includeContextOnInfoMetrics"`
+	Regions                     []string          `yaml:"regions"`
+	Type                        string            `yaml:"type"`
+	Roles                       []Role            `yaml:"roles"`
+	SearchTags                  []Tag             `yaml:"searchTags"`
+	CustomTags                  []Tag             `yaml:"customTags"`
+	DimensionNameRequirements   []string          `yaml:"dimensionNameRequirements"`
+	Metrics                     []*Metric         `yaml:"metrics"`
+	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
+	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
+	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
+	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
 	JobLevelMetricFields        `yaml:",inline"`
 }
 
@@ -106,6 +107,11 @@ type Metric struct {
 type Dimension struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
+}
+
+type EnhancedMetric struct {
+	Name    string `yaml:"name"`
+	Enabled *bool  `yaml:"enabled"`
 }
 
 type Role struct {
@@ -211,7 +217,7 @@ func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 		return model.JobsConfig{}, fmt.Errorf("unknown apiVersion value '%s'", c.APIVersion)
 	}
 
-	return c.toModelConfig(), nil
+	return c.ToModelConfig(), nil
 }
 
 func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
@@ -419,7 +425,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 	return nil
 }
 
-func (c *ScrapeConf) toModelConfig() model.JobsConfig {
+func (c *ScrapeConf) ToModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
 
@@ -438,6 +444,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
+		job.EnhancedMetrics = toModelEnhancedMetrics(discoveryJob.EnhancedMetrics)
 
 		job.ExportedTagsOnMetrics = []string{}
 		if len(c.Discovery.ExportedTagsOnMetrics) > 0 {
@@ -536,6 +543,21 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 			NilToZero:              aws.BoolValue(m.NilToZero),
 			AddCloudwatchTimestamp: aws.BoolValue(m.AddCloudwatchTimestamp),
 			ExportAllDataPoints:    aws.BoolValue(m.ExportAllDataPoints),
+		})
+	}
+	return ret
+}
+
+func toModelEnhancedMetrics(metrics []*EnhancedMetric) []model.EnhancedMetricConfig {
+	ret := make([]model.EnhancedMetricConfig, 0, len(metrics))
+	for _, m := range metrics {
+		enabled := true
+		if m.Enabled != nil {
+			enabled = *m.Enabled
+		}
+		ret = append(ret, model.EnhancedMetricConfig{
+			Name:    m.Name,
+			Enabled: enabled,
 		})
 	}
 	return ret

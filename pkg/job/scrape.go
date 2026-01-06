@@ -14,12 +14,19 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	rdsclient "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/enhanced/rds"
+	v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/enhanced"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/enhanced/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -32,11 +39,20 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
+	enhancedMetricsConcurrency int,
 ) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
+
+	// Create enhanced metrics processor if any job has enhanced metrics configured
+	var enhancedProcessor *enhanced.Processor
+	if hasEnhancedMetricsConfigured(jobsCfg) {
+		enhancedProcessor = enhanced.NewProcessor(logger)
+		// Register RDS clients for all regions and roles
+		registerEnhancedMetricsClients(enhancedProcessor, jobsCfg, factory)
+	}
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		for _, role := range discoveryJob.Roles {
@@ -59,7 +75,7 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
+					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor, enhancedProcessor)
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0
@@ -169,4 +185,75 @@ func ScrapeAwsData(
 	}
 	wg.Wait()
 	return awsInfoData, cwData
+}
+
+func hasEnhancedMetricsConfigured(cfg model.JobsConfig) bool {
+	for _, job := range cfg.DiscoveryJobs {
+		if len(job.EnhancedMetrics) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func registerEnhancedMetricsClients(processor *enhanced.Processor, cfg model.JobsConfig, factory clients.Factory) {
+	if processor == nil {
+		return
+	}
+
+	// Track which regions we've already registered clients for
+	rdsRegions := make(map[string]bool)
+
+	for _, job := range cfg.DiscoveryJobs {
+		// Only register clients for jobs that have enhanced metrics
+		if len(job.EnhancedMetrics) == 0 {
+			continue
+		}
+
+		// Check if this job is for a namespace that supports enhanced metrics
+		if job.Namespace == "AWS/RDS" {
+			// Get the RDS service from the processor
+			if svc := processor.GetService("AWS/RDS"); svc != nil {
+				rdsSvc, ok := svc.(*rds.Service)
+				if ok {
+					// Register RDS clients for each region/role combination
+					for _, role := range job.Roles {
+						for _, region := range job.Regions {
+							key := region + "-" + role.RoleArn
+							if !rdsRegions[key] {
+								// Try to get RDS client from factory if it supports it (for testing)
+								if testFactory, ok := factory.(interface {
+									GetRDSClient() rdsclient.ClientInterface
+								}); ok {
+									client := testFactory.GetRDSClient()
+									if client != nil {
+										rdsSvc.RegisterClient(region, client)
+										rdsRegions[key] = true
+										continue
+									}
+								}
+
+								// Get AWS config from factory (production path)
+								awsCfg := getAWSConfigFromFactory(factory, region, role)
+								if awsCfg != nil {
+									client := rdsclient.NewClient(*awsCfg)
+									rdsSvc.RegisterClient(region, client)
+									rdsRegions[key] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func getAWSConfigFromFactory(factory clients.Factory, region string, role model.Role) *aws.Config {
+	// Try v2 factory first (most common)
+	if v2Factory, ok := factory.(*v2.CachingFactory); ok {
+		return v2Factory.GetAWSConfig(region, role)
+	}
+	// v1 factory doesn't expose AWS config, so we can't support enhanced metrics with v1
+	return nil
 }
