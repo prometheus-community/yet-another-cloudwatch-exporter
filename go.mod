@@ -23,7 +23,7 @@ require (
 	github.com/grafana/regexp v0.0.0-20240607082908-2cb410fa05da
 	github.com/prometheus/client_golang v1.23.1
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.67.2
+	github.com/prometheus/common v0.67.4
 	github.com/r3labs/diff/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
