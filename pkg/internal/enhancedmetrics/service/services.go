@@ -22,13 +22,18 @@ import (
 
 // EnhancedMetricsService is the interface that enhanced metrics services should implement to be used by the enhanced metrics processor.
 type EnhancedMetricsService interface {
-	// LoadMetricsMetadata should load any metadata needed for the enhanced metrics service. It should be concurrent safe.
-	// The data loaded here will be used during the Process call. Therefore, service's implementation should store the loaded data in a way that it can be accessed concurrently.
-	// If an error occurs during loading, it should be returned.
-	LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) error
-
 	// Process processes the given resources and metrics, returning CloudWatch data points.
 	// metrics should be filtered by the implementation to only include metrics supported by this service.
 	// It should be concurrent safe.
-	Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error)
+	Process(
+		ctx context.Context,
+		logger *slog.Logger,
+		namespace string,
+		resources []*model.TaggedResource,
+		metrics []*model.EnhancedMetricConfig,
+		exportedTagOnMetrics []string,
+		region string,
+		role model.Role,
+		regionalConfigProvider config.RegionalConfigProvider,
+	) ([]*model.CloudwatchData, error)
 }

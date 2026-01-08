@@ -30,20 +30,12 @@ import (
 // registryMockMetricsService is a mock implementation of service.EnhancedMetricsService for testing the registry
 type registryMockMetricsService struct {
 	namespace string
-	loadFunc  func(ctx context.Context, logger *slog.Logger, region string, role model.Role, provider config.RegionalConfigProvider) error
-	procFunc  func(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error)
+	procFunc  func(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error)
 }
 
-func (m *registryMockMetricsService) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, provider config.RegionalConfigProvider) error {
-	if m.loadFunc != nil {
-		return m.loadFunc(ctx, logger, region, role, provider)
-	}
-	return nil
-}
-
-func (m *registryMockMetricsService) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (m *registryMockMetricsService) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	if m.procFunc != nil {
-		return m.procFunc(ctx, logger, namespace, resources, enhancedMetricConfigs, exportedTags)
+		return m.procFunc(ctx, logger, namespace, resources, metrics, exportedTagOnMetrics, region, role, regionalConfigProvider)
 	}
 	return nil, nil
 }
