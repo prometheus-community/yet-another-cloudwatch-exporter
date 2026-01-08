@@ -33,12 +33,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-var (
-	_ account.Client    = &mockAccountClient{}
-	_ cloudwatch.Client = &mockCloudwatchClient{}
-	_ tagging.Client    = &mockTaggingClient{}
-)
-
 // mockFactory implements the clients.Factory interface for testing
 type mockFactory struct {
 	cloudwatchClient mockCloudwatchClient

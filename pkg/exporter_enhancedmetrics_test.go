@@ -26,6 +26,12 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+var (
+	_ account.Client    = &mockAccountClient{}
+	_ cloudwatch.Client = &mockCloudwatchClient{}
+	_ tagging.Client    = &mockTaggingClient{}
+)
+
 // mockFactory is a local mock that implements both clients.Factory and config.RegionalConfigProvider
 type mockFactoryForEnhancedMetrics struct {
 	accountClient    account.Client
