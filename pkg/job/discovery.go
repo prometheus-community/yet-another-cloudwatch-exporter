@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -37,18 +38,10 @@ type getMetricDataProcessor interface {
 
 type enhancedProcessorProcessor interface {
 	Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error)
+	LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry enhancedmetrics.MetricsServiceRegistry) error
 }
 
-func runDiscoveryJob(
-	ctx context.Context,
-	logger *slog.Logger,
-	job model.DiscoveryJob,
-	region string,
-	clientTag tagging.Client,
-	clientCloudwatch cloudwatch.Client,
-	gmdProcessor getMetricDataProcessor,
-	enhancedProcessor enhancedProcessorProcessor,
-) ([]*model.TaggedResource, []*model.CloudwatchData) {
+func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.DiscoveryJob, region string, clientTag tagging.Client, clientCloudwatch cloudwatch.Client, gmdProcessor getMetricDataProcessor, enhancedMetricsProcessor enhancedProcessorProcessor, role model.Role) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
 	resources, err := clientTag.GetResources(ctx, job, region)
@@ -72,24 +65,52 @@ func runDiscoveryJob(
 		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
 		if err != nil {
 			logger.Error("Failed to get metric data", "err", err)
-			return nil, nil
+
+			// ensure we do not return cw metrics on data processing failure
+			metricData = nil
 		}
 	} else {
 		logger.Info("No metrics data found")
 	}
 
-	if enhancedProcessor != nil && len(job.EnhancedMetrics) > 0 && svc != nil {
-		logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
-		enhancedMetricData, err := enhancedProcessor.Process(ctx, logger, svc.Namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
-		if err != nil {
-			logger.Warn("Failed to get enhanced metrics", "err", err, "namespace", svc.Namespace)
-		} else if len(enhancedMetricData) > 0 {
-			logger.Debug("Got enhanced metrics", "count", len(enhancedMetricData), "namespace", svc.Namespace)
-			metricData = append(metricData, enhancedMetricData...)
-		}
+	if enhancedMetricsProcessor == nil || !job.HasEnhancedMetrics() || svc == nil {
+		return resources, metricData
 	}
 
+	enhancedMetricData, err := getEnhancedMetricData(ctx, logger, job, svc.Namespace, region, role, resources, enhancedMetricsProcessor)
+	if err != nil {
+		logger.Error("Failed to get enhanced metrics", "err", err)
+		return resources, metricData
+	}
+
+	metricData = append(metricData, enhancedMetricData...)
+
 	return resources, metricData
+}
+
+func getEnhancedMetricData(
+	ctx context.Context,
+	logger *slog.Logger,
+	job model.DiscoveryJob,
+	namespace string,
+	region string,
+	role model.Role,
+	resources []*model.TaggedResource,
+	enhancedMetricsProcessor enhancedProcessorProcessor,
+) ([]*model.CloudwatchData, error) {
+	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", namespace)
+
+	err := enhancedMetricsProcessor.LoadMetricsMetadata(ctx, logger, region, role, namespace, enhancedmetrics.DefaultEnhancedMetricServiceRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't load enhanced metrics metadata: %v", err)
+	}
+
+	enhancedMetricData, err := enhancedMetricsProcessor.Process(ctx, logger, namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enhanced metrics: %v", err)
+	}
+
+	return enhancedMetricData, nil
 }
 
 func getMetricDataForQueries(

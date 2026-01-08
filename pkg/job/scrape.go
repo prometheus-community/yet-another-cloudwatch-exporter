@@ -73,14 +73,6 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					// at this point we have already all the data to start loading the enhanced metrics if any is configured
-					if discoveryJob.HasEnhancedMetrics() && enhancedMetricsProcessor != nil {
-						err := enhancedMetricsProcessor.LoadMetricsMetadata(ctx, jobLogger, region, role, discoveryJob.Namespace, enhancedmetrics.DefaultEnhancedMetricServiceRegistry)
-						if err != nil {
-							jobLogger.Error("Couldn't load enhanced metrics metadata", "err", err)
-						}
-					}
-
 					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
 					if err != nil {
 						jobLogger.Warn("Couldn't get account alias", "err", err)
@@ -98,6 +90,7 @@ func ScrapeAwsData(
 						cloudwatchClient,
 						gmdProcessor,
 						enhancedMetricsProcessor,
+						role,
 					)
 
 					addDataToOutput := len(metrics) != 0
