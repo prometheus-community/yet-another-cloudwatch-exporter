@@ -119,7 +119,7 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 		regionalConfigProvider,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't load elasticache metrics metadata: %v", err)
+		return nil, fmt.Errorf("couldn't load elasticache metrics metadata: %w", err)
 	}
 
 	var result []*model.CloudwatchData
