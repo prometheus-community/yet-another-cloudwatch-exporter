@@ -57,6 +57,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	}
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{
+		// The storage capacity in gibibytes (GiB) allocated for the DB instance.
 		"AllocatedStorage": rds.buildAllocatedStorageMetric,
 	}
 

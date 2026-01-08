@@ -120,10 +120,10 @@ dimensionNameRequirements:
 
 # (optional) This is an experimental feature that can be used to enable enhanced metrics for specific services within this discovery job. It might be subject to changes in future releases.
 # Currently supported enhanced metrics are:
-# - AWS/Lambda (Timeout)
-# - AWS/DynamoDB (ItemCount)
-# - AWS/RDS (AllocatedStorage)
-# - AWS/ElastiCache (NumCacheNodes)
+# - AWS/Lambda (Timeout) The maximum execution duration permitted for the function before termination.
+# - AWS/DynamoDB (ItemCount) The count of items in the table, updated approximately every six hours; may not reflect recent changes.
+# - AWS/RDS (AllocatedStorage) The storage capacity in gibibytes (GiB) allocated for the DB instance.
+# - AWS/ElastiCache (NumCacheNodes) The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
 enhancedMetrics:
     [ - <enhanced_metrics_config> ... ]
 

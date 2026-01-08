@@ -56,6 +56,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 	}
 
 	svc.supportedMetrics = map[string]buildLambdaMetricFunc{
+		// The maximum execution duration permitted for the function before termination.
 		"Timeout": svc.buildTimeoutMetric,
 	}
 
