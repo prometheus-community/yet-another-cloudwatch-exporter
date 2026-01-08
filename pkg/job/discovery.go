@@ -31,10 +31,28 @@ type resourceAssociator interface {
 	AssociateMetricToResource(cwMetric *model.Metric) (*model.TaggedResource, bool)
 }
 
+// getMetricDataProcessor defines the interface for fetching CloudWatch metric data in batches.
+//
+// Implementations must process CloudWatch metric requests by:
+// - Fetching actual metric data from AWS CloudWatch using GetMetricData API
+// - Populating the GetMetricDataResult field in each successful request
+// - Handling batching and concurrency efficiently
+// - Filtering out requests that failed to retrieve data
+//
+// The Run method modifies the input requests in-place and returns only those that successfully
+// retrieved metric data. It should return an error only if a fatal error occurs during processing.
 type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
+// runDiscoveryJob orchestrates the discovery and retrieval of CloudWatch metrics for a given job.
+// It performs the following steps:
+// 1. Discovers AWS resources matching the job's tag filters in the specified region
+// 2. Generates metric data queries based on available CloudWatch metrics for those resources
+// 3. Fetches actual metric data from CloudWatch using the provided processor
+//
+// Returns the discovered tagged resources and their associated CloudWatch metric data.
+// If any step fails, appropriate errors are logged and partial results may be returned.
 func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -76,6 +94,22 @@ func runDiscoveryJob(
 	return resources, getMetricDatas
 }
 
+// getMetricDataForQueries retrieves and processes CloudWatch metrics for a discovery job.
+// It performs the following operations:
+// 1. Sets up a resource associator based on available dimension regex patterns and discovered resources:
+//   - If both dimension regexes and resources exist, uses maxdimassociator for intelligent resource matching
+//   - Otherwise, uses a no-op associator that doesn't skip any metrics
+//
+// 2. Concurrently calls the CloudWatch ListMetrics API for each metric defined in the discovery job:
+//   - Fetches all existing dimension combinations with available data
+//   - Optionally filters for recently active metrics only
+//   - Processes results in paginated batches via callback
+//
+// 3. For each page of metrics, filters and associates them with resources to create CloudwatchData requests
+// 4. Aggregates all metric data requests from concurrent operations in a thread-safe manner
+//
+// Returns a consolidated list of CloudwatchData requests ready for metric data retrieval.
+// Errors from individual ListMetrics calls are logged but don't halt processing of other metrics.
 func getMetricDataForQueries(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -129,6 +163,21 @@ func (ns nopAssociator) AssociateMetricToResource(_ *model.Metric) (*model.Tagge
 	return nil, false
 }
 
+// getFilteredMetricDatas processes a list of CloudWatch metrics and generates metric data requests.
+// It performs the following operations:
+// 1. Filters metrics based on dimension name requirements to match only those with expected dimensions
+// 2. Associates each metric with a specific AWS resource using the provided associator:
+//   - The associator matches metrics to tagged resources based on dimension values and regex patterns
+//   - If a metric matches a resource, it inherits that resource's tags for export
+//   - If a metric cannot be associated with any resource, it uses a global placeholder resource
+//   - Metrics explicitly skipped by the associator (no match found when matching is required) are excluded
+//
+// 3. Creates CloudwatchData requests for each metric statistic, including:
+//   - Resource tags filtered by the exportedTagsOnMetrics list
+//   - Query parameters (period, length, delay, statistic)
+//   - Migration settings (nilToZero, timestamp handling, data point export)
+//
+// Returns a list of CloudwatchData requests ready for metric data retrieval from CloudWatch.
 func getFilteredMetricDatas(
 	logger *slog.Logger,
 	namespace string,
