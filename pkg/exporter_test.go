@@ -1,1 +1,255 @@
+// Copyright 2026 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package exporter
+
+import (
+	"context"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/grafana/regexp"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/prometheus/common/promslog"
+	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+)
+
+// mockFactory implements the clients.Factory interface for testing
+type mockFactory struct {
+	cloudwatchClient mockCloudwatchClient
+	taggingClient    mockTaggingClient
+	accountClient    mockAccountClient
+}
+
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+	return &f.cloudwatchClient
+}
+
+func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Client {
+	return f.taggingClient
+}
+
+func (f *mockFactory) GetAccountClient(_ string, _ model.Role) account.Client {
+	return f.accountClient
+}
+
+// mockAccountClient implements the account.Client interface
+type mockAccountClient struct {
+	accountID    string
+	accountAlias string
+	err          error
+}
+
+func (m mockAccountClient) GetAccount(_ context.Context) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.accountID, nil
+}
+
+func (m mockAccountClient) GetAccountAlias(_ context.Context) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.accountAlias, nil
+}
+
+// mockTaggingClient implements the tagging.Client interface
+type mockTaggingClient struct {
+	resources []*model.TaggedResource
+	err       error
+}
+
+func (m mockTaggingClient) GetResources(_ context.Context, _ model.DiscoveryJob, _ string) ([]*model.TaggedResource, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.resources, nil
+}
+
+// mockCloudwatchClient implements the cloudwatch.Client interface
+type mockCloudwatchClient struct {
+	metrics           []*model.Metric
+	metricDataResults []cloudwatch.MetricDataResult
+	err               error
+}
+
+func (m *mockCloudwatchClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ bool, fn func(page []*model.Metric)) error {
+	if m.err != nil {
+		return m.err
+	}
+	if len(m.metrics) > 0 {
+		fn(m.metrics)
+	}
+	return nil
+}
+
+func (m *mockCloudwatchClient) GetMetricData(_ context.Context, _ []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
+	return m.metricDataResults
+}
+
+func (m *mockCloudwatchClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.MetricStatisticsResult {
+	// Return a simple metric statistics result for testing
+	now := time.Now()
+	avg := 42.0
+	return []*model.MetricStatisticsResult{
+		{
+			Timestamp: &now,
+			Average:   &avg,
+		},
+	}
+}
+
+func TestUpdateMetrics_StaticJob(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	// Create a simple static job configuration
+	jobsCfg := model.JobsConfig{
+		StaticJobs: []model.StaticJob{
+			{
+				Name:      "test-static-job",
+				Regions:   []string{"us-east-1"},
+				Roles:     []model.Role{{}},
+				Namespace: "AWS/EC2",
+				Dimensions: []model.Dimension{
+					{Name: "InstanceId", Value: "i-1234567890abcdef0"},
+				},
+				Metrics: []*model.MetricConfig{
+					{
+						Name:       "CPUUtilization",
+						Statistics: []string{"Average"},
+						Period:     300,
+						Length:     300,
+					},
+				},
+			},
+		},
+	}
+
+	factory := &mockFactory{
+		accountClient: mockAccountClient{
+			accountID:    "123456789012",
+			accountAlias: "test-account",
+		},
+		cloudwatchClient: mockCloudwatchClient{},
+	}
+
+	registry := prometheus.NewRegistry()
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
+	require.NoError(t, err)
+
+	// Verify the expected metric exists using testutil
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_alias="test-account",account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="test-static-job",region="us-east-1"} 42
+	`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
+}
+
+func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	// Create a discovery job configuration
+	svc := config.SupportedServices.GetService("AWS/EC2")
+	jobsCfg := model.JobsConfig{
+		DiscoveryJobs: []model.DiscoveryJob{
+			{
+				Namespace: "AWS/EC2",
+				Regions:   []string{"us-east-1"},
+				Roles:     []model.Role{{}},
+				SearchTags: []model.SearchTag{
+					{Key: "Environment", Value: regexp.MustCompile(".*")},
+				},
+				Metrics: []*model.MetricConfig{
+					{
+						Name:       "CPUUtilization",
+						Statistics: []string{"Average"},
+						Period:     300,
+						Length:     300,
+					},
+				},
+				DimensionsRegexps: svc.ToModelDimensionsRegexp(),
+			},
+		},
+	}
+
+	factory := &mockFactory{
+		accountClient: mockAccountClient{
+			accountID:    "123456789012",
+			accountAlias: "test-account",
+		},
+		taggingClient: mockTaggingClient{
+			resources: []*model.TaggedResource{
+				{
+					ARN:       "arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",
+					Namespace: "AWS/EC2",
+					Region:    "us-east-1",
+					Tags: []model.Tag{
+						{Key: "Environment", Value: "production"},
+						{Key: "Name", Value: "test-instance"},
+					},
+				},
+			},
+		},
+		cloudwatchClient: mockCloudwatchClient{
+			metrics: []*model.Metric{
+				{
+					MetricName: "CPUUtilization",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-1234567890abcdef0"},
+					},
+				},
+			},
+			metricDataResults: []cloudwatch.MetricDataResult{
+				{
+					ID: "id_0",
+					DataPoints: []cloudwatch.DataPoint{
+						{Value: aws.Float64(42.5), Timestamp: time.Now()},
+					},
+				},
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, registry, factory)
+	require.NoError(t, err)
+
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_alias="test-account", account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",region="us-east-1"} 42.5
+		# HELP aws_ec2_info Help is not implemented yet.
+		# TYPE aws_ec2_info gauge
+                aws_ec2_info{name="arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0",tag_Environment="production",tag_Name="test-instance"} 0
+	`
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err)
+}
