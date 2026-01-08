@@ -62,8 +62,8 @@ func (s *RDS) GetNamespace() string {
 	return "AWS/RDS"
 }
 
-// LoadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
-func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.DBInstance, error) {
+// loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
+func (s *RDS) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.DBInstance, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
@@ -124,7 +124,7 @@ func (s *RDS) Process(ctx context.Context,
 		return nil, nil
 	}
 
-	data, err := s.LoadMetricsMetadata(
+	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
 		region,

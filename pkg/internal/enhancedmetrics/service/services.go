@@ -24,7 +24,6 @@ import (
 type EnhancedMetricsService interface {
 	// Process processes the given resources and metrics, returning CloudWatch data points.
 	// metrics should be filtered by the implementation to only include metrics supported by this service.
-	// It should be concurrent safe.
 	Process(
 		ctx context.Context,
 		logger *slog.Logger,
