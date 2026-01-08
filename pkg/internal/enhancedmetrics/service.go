@@ -48,7 +48,6 @@ func (ep *Service) GetMetrics(
 	role model.Role,
 	enhancedMetricsServiceRegistry MetricsServiceRegistry,
 ) ([]*model.CloudwatchData, error) {
-
 	svc, err := enhancedMetricsServiceRegistry.GetEnhancedMetricsService(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get enhanced metric service for namespace %s: %w", namespace, err)
