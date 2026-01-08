@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/amp"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
@@ -382,6 +383,7 @@ var ServiceFilters = map[string]ServiceFilter{
 							Namespace: job.Namespace,
 							Region:    region,
 							Tags:      []model.Tag{{Key: "ProtectionArn", Value: protectionArn}},
+							Metadata:  make(map[string]string),
 						}
 						output = append(output, taggedResource)
 					}
@@ -389,6 +391,42 @@ var ServiceFilters = map[string]ServiceFilter{
 			}
 
 			return output, nil
+		},
+	},
+	"AWS/DynamoDB": {
+		// Fetch service-specific metadata for DynamoDB tables
+		FilterFunc: func(ctx context.Context, client client, inputResources []*model.TaggedResource) ([]*model.TaggedResource, error) {
+			// Create DynamoDB client
+			dynamoClient := dynamodb.NewFromConfig(client.config)
+			
+			// Process each DynamoDB table resource
+			for _, resource := range inputResources {
+				// Extract table name from ARN: arn:aws:dynamodb:region:account:table/TableName
+				arnParts := strings.Split(resource.ARN, "/")
+				if len(arnParts) < 2 {
+					continue
+				}
+				tableName := arnParts[len(arnParts)-1]
+				
+				// Fetch table description to get service-specific metadata
+				tableResult, err := dynamoClient.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+					TableName: &tableName,
+				})
+				if err != nil {
+					// Log warning but don't fail the entire operation
+					continue
+				}
+				
+				// Extract and store service-specific metadata
+				if tableResult.Table != nil {
+					// Extract Table Class if available
+					if tableResult.Table.TableClassSummary != nil {
+						resource.Metadata["table_class"] = string(tableResult.Table.TableClassSummary.TableClass)
+					}
+				}
+			}
+			
+			return inputResources, nil
 		},
 	},
 }
