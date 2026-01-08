@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -34,7 +33,6 @@ type Client interface {
 type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type RDS struct {
-	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildRDSMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -45,7 +43,6 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	}
 
 	rds := &RDS{
-		clients:         clients.NewClients[Client](buildClientFunc),
 		buildClientFunc: buildClientFunc,
 	}
 
@@ -64,14 +61,7 @@ func (s *RDS) GetNamespace() string {
 
 // loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
 func (s *RDS) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.DBInstance, error) {
-	var err error
-	client := s.clients.GetClient(region, role)
-	if client == nil {
-		client, err = s.clients.InitializeClient(region, role, configProvider)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing RDS client for region %s: %w", region, err)
-		}
-	}
+	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
 	instances, err := client.DescribeAllDBInstances(ctx, logger)
 	if err != nil {
@@ -92,7 +82,7 @@ func (s *RDS) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *RDS) Process(ctx context.Context,
+func (s *RDS) GetMetrics(ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
 	resources []*model.TaggedResource,

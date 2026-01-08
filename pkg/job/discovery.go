@@ -36,8 +36,8 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
-type enhancedProcessorProcessor interface {
-	Process(
+type enhancedMetricsService interface {
+	GetMetrics(
 		ctx context.Context,
 		logger *slog.Logger,
 		namespace string,
@@ -50,7 +50,17 @@ type enhancedProcessorProcessor interface {
 	) ([]*model.CloudwatchData, error)
 }
 
-func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.DiscoveryJob, region string, clientTag tagging.Client, clientCloudwatch cloudwatch.Client, gmdProcessor getMetricDataProcessor, enhancedMetricsProcessor enhancedProcessorProcessor, role model.Role) ([]*model.TaggedResource, []*model.CloudwatchData) {
+func runDiscoveryJob(
+	ctx context.Context,
+	logger *slog.Logger,
+	job model.DiscoveryJob,
+	region string,
+	clientTag tagging.Client,
+	clientCloudwatch cloudwatch.Client,
+	gmdProcessor getMetricDataProcessor,
+	enhancedMetricsService enhancedMetricsService,
+	role model.Role,
+) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
 	resources, err := clientTag.GetResources(ctx, job, region)
@@ -82,12 +92,12 @@ func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.Discove
 		logger.Info("No metrics data found")
 	}
 
-	if enhancedMetricsProcessor == nil || !job.HasEnhancedMetrics() || svc == nil {
+	if enhancedMetricsService == nil || !job.HasEnhancedMetrics() || svc == nil {
 		return resources, metricData
 	}
 
 	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
-	enhancedMetricData, err := enhancedMetricsProcessor.Process(
+	enhancedMetricData, err := enhancedMetricsService.GetMetrics(
 		ctx,
 		logger,
 		svc.Namespace,

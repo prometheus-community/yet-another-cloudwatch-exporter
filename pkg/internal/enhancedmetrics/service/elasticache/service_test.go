@@ -27,10 +27,8 @@ import (
 
 func TestNewElastiCacheService(t *testing.T) {
 	tests := []struct {
-		name             string
-		buildClientFunc  func(cfg aws.Config) Client
-		wantNilClients   bool
-		wantMetricsCount int
+		name            string
+		buildClientFunc func(cfg aws.Config) Client
 	}{
 		{
 			name:            "with nil buildClientFunc",
@@ -47,7 +45,6 @@ func TestNewElastiCacheService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewElastiCacheService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.NotNil(t, got.clients)
 			require.Len(t, got.supportedMetrics, 1)
 			require.NotNil(t, got.supportedMetrics["NumCacheNodes"])
 		})
@@ -192,7 +189,7 @@ func TestElastiCache_Process(t *testing.T) {
 				c: &aws.Config{Region: "us-east-1"},
 			}
 
-			result, err := service.Process(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, nil, "us-east-1", model.Role{}, mockConfig)
+			result, err := service.GetMetrics(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, nil, "us-east-1", model.Role{}, mockConfig)
 
 			if tt.wantErr {
 				require.Error(t, err)

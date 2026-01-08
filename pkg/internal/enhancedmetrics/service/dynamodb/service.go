@@ -20,8 +20,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -34,7 +32,6 @@ type Client interface {
 type buildDynamoDBMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type DynamoDB struct {
-	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildDynamoDBMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -44,7 +41,6 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 		buildClientFunc = NewDynamoDBClientWithConfig
 	}
 	svc := &DynamoDB{
-		clients:         clients.NewClients[Client](buildClientFunc),
 		buildClientFunc: buildClientFunc,
 	}
 
@@ -61,14 +57,7 @@ func (s *DynamoDB) GetNamespace() string {
 }
 
 func (s *DynamoDB) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.TableDescription, error) {
-	var err error
-	client := s.clients.GetClient(region, role)
-	if client == nil {
-		client, err = s.clients.InitializeClient(region, role, configProvider)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing DynamoDB client for region %s: %w", region, err)
-		}
-	}
+	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
 	tables, err := client.DescribeAllTables(ctx, logger)
 	if err != nil {
@@ -89,7 +78,7 @@ func (s *DynamoDB) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *DynamoDB) Process(
+func (s *DynamoDB) GetMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
