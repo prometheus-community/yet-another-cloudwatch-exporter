@@ -100,8 +100,8 @@ func (s *DynamoDB) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetrics []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
-	if len(resources) == 0 || len(enhancedMetrics) == 0 {
+func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
 	}
 
@@ -111,7 +111,7 @@ func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace s
 
 	// filter only supported enhanced metrics
 	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
-	for _, em := range enhancedMetrics {
+	for _, em := range enhancedMetricConfigs {
 		if s.isMetricSupported(em.Name) {
 			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
 		} else {

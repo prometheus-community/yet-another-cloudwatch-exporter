@@ -82,7 +82,7 @@ func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logge
 }
 
 // Process processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
-func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metricConfig []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
+func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
 	ep.m.RLock()
 	defer ep.m.RUnlock()
 
@@ -91,7 +91,7 @@ func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace
 		return nil, fmt.Errorf("enhanced metrics service for namespace %s not initialized", namespace)
 	}
 
-	return svc.Process(ctx, logger, namespace, resources, metrics, exportedTagOnMetrics)
+	return svc.Process(ctx, logger, namespace, resources, enhancedMetricConfigs, exportedTagOnMetrics)
 }
 
 func NewProcessor(
