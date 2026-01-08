@@ -22,13 +22,13 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-var ec2IpamPool = &model.TaggedResource{
-	ARN:       "arn:aws:ec2::123456789012:ipam-pool/ipam-pool-1ff5e4e9ad2c28b7b",
+var ec2Ipam = &model.TaggedResource{
+	ARN:       "arn:aws:ec2::123456789012:ipam/ipam-1ff5e4e9ad2c28b7b",
 	Namespace: "AWS/IPAM",
 }
 
 var ipamResources = []*model.TaggedResource{
-	ec2IpamPool,
+	ec2Ipam,
 }
 
 func TestAssociatorIpam(t *testing.T) {
@@ -47,7 +47,7 @@ func TestAssociatorIpam(t *testing.T) {
 
 	testcases := []testCase{
 		{
-			name: "should match with IpamPoolId dimension",
+			name: "should match with IpamId dimension",
 			args: args{
 				dimensionRegexps: config.SupportedServices.GetService("AWS/IPAM").ToModelDimensionsRegexp(),
 				resources:        ipamResources,
@@ -55,15 +55,15 @@ func TestAssociatorIpam(t *testing.T) {
 					MetricName: "VpcIPUsage",
 					Namespace:  "AWS/IPAM",
 					Dimensions: []model.Dimension{
-						{Name: "IpamPoolId", Value: "ipam-pool-1ff5e4e9ad2c28b7b"},
+						{Name: "IpamId", Value: "ipam-1ff5e4e9ad2c28b7b"},
 					},
 				},
 			},
 			expectedSkip:     false,
-			expectedResource: ec2IpamPool,
+			expectedResource: ec2Ipam,
 		},
 		{
-			name: "should skip with unmatched IpamPoolId dimension",
+			name: "should skip with unmatched IpamId dimension",
 			args: args{
 				dimensionRegexps: config.SupportedServices.GetService("AWS/IPAM").ToModelDimensionsRegexp(),
 				resources:        ipamResources,
@@ -71,7 +71,7 @@ func TestAssociatorIpam(t *testing.T) {
 					MetricName: "VpcIPUsage",
 					Namespace:  "AWS/IPAM",
 					Dimensions: []model.Dimension{
-						{Name: "IpamPoolId", Value: "ipam-pool-blahblah"},
+						{Name: "IpamId", Value: "ipam-blahblah"},
 					},
 				},
 			},
