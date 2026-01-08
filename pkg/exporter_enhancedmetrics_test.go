@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -28,98 +27,31 @@ import (
 )
 
 // mockFactory is a local mock that implements both clients.Factory and config.RegionalConfigProvider
-type mockFactory struct {
+type mockFactoryForEnhancedMetrics struct {
 	accountClient    account.Client
 	cloudwatchClient cloudwatch.Client
 	taggingClient    tagging.Client
 	awsConfig        *aws.Config
 }
 
-// Ensure mockFactory implements both interfaces at compile time
-var (
-	_ account.Client    = &mockAccountClient{}
-	_ cloudwatch.Client = &mockCloudwatchClient{}
-	_ tagging.Client    = &mockTaggingClient{}
-)
-
 // GetAccountClient implements clients.Factory
-func (m *mockFactory) GetAccountClient(string, model.Role) account.Client {
+func (m *mockFactoryForEnhancedMetrics) GetAccountClient(string, model.Role) account.Client {
 	return m.accountClient
 }
 
 // GetCloudwatchClient implements clients.Factory
-func (m *mockFactory) GetCloudwatchClient(string, model.Role, cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+func (m *mockFactoryForEnhancedMetrics) GetCloudwatchClient(string, model.Role, cloudwatch.ConcurrencyConfig) cloudwatch.Client {
 	return m.cloudwatchClient
 }
 
 // GetTaggingClient implements clients.Factory
-func (m *mockFactory) GetTaggingClient(string, model.Role, int) tagging.Client {
+func (m *mockFactoryForEnhancedMetrics) GetTaggingClient(string, model.Role, int) tagging.Client {
 	return m.taggingClient
 }
 
 // GetAWSRegionalConfig implements config.RegionalConfigProvider
-func (m *mockFactory) GetAWSRegionalConfig(string, model.Role) *aws.Config {
+func (m *mockFactoryForEnhancedMetrics) GetAWSRegionalConfig(string, model.Role) *aws.Config {
 	return m.awsConfig
-}
-
-// mockAccountClient implements account.Client
-type mockAccountClient struct {
-	accountID    string
-	accountAlias string
-	err          error
-}
-
-func (m *mockAccountClient) GetAccount(_ context.Context) (string, error) {
-	if m.err != nil {
-		return "", m.err
-	}
-	return m.accountID, nil
-}
-
-func (m *mockAccountClient) GetAccountAlias(_ context.Context) (string, error) {
-	if m.err != nil {
-		return "", m.err
-	}
-	return m.accountAlias, nil
-}
-
-// mockCloudwatchClient implements cloudwatch.Client
-type mockCloudwatchClient struct {
-	listMetricsResult       []*model.Metric
-	getMetricDataResult     []cloudwatch.MetricDataResult
-	getMetricStatisticsData []*model.MetricStatisticsResult
-	err                     error
-}
-
-func (m *mockCloudwatchClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ bool, fn func([]*model.Metric)) error {
-	if m.err != nil {
-		return m.err
-	}
-	if fn != nil {
-		fn(m.listMetricsResult)
-	}
-	return nil
-}
-
-func (m *mockCloudwatchClient) GetMetricData(context.Context, []*model.CloudwatchData, string, time.Time, time.Time) []cloudwatch.MetricDataResult {
-	return m.getMetricDataResult
-}
-
-func (m *mockCloudwatchClient) GetMetricStatistics(context.Context, *slog.Logger, []model.Dimension, string, *model.MetricConfig) []*model.MetricStatisticsResult {
-	return m.getMetricStatisticsData
-}
-
-// mockTaggingClient implements tagging.Client
-type mockTaggingClient struct {
-	resources []*model.TaggedResource
-	err       error
-}
-
-func (m *mockTaggingClient) GetResources(context.Context, model.DiscoveryJob, string) ([]*model.TaggedResource, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.resources, nil
 }
 
 // mockRDSClient implements the RDS Client interface for testing
@@ -193,8 +125,8 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 	}
 
 	mockCWClient := &mockCloudwatchClient{
-		listMetricsResult:   []*model.Metric{},
-		getMetricDataResult: []cloudwatch.MetricDataResult{},
+		metrics:           []*model.Metric{},
+		metricDataResults: []cloudwatch.MetricDataResult{},
 	}
 
 	mockTagClient := &mockTaggingClient{
@@ -228,8 +160,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 		enhancedmetricsService.NewRDSService(mockRDSClientBuilder),
 	)
 
-	// Create the mock factory that implements both interfaces
-	factory := &mockFactory{
+	factory := &mockFactoryForEnhancedMetrics{
 		accountClient:    mockAcctClient,
 		cloudwatchClient: mockCWClient,
 		taggingClient:    mockTagClient,
@@ -296,8 +227,8 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 	}
 
 	mockCWClient := &mockCloudwatchClient{
-		listMetricsResult:   []*model.Metric{},
-		getMetricDataResult: []cloudwatch.MetricDataResult{},
+		metrics:           []*model.Metric{},
+		metricDataResults: []cloudwatch.MetricDataResult{},
 	}
 
 	mockTagClient := &mockTaggingClient{
@@ -331,8 +262,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_Lambda(t *testing.T) {
 		enhancedmetricsLambdaService.NewLambdaService(mockLambdaClientBuilder),
 	)
 
-	// Create the mock factory that implements both interfaces
-	factory := &mockFactory{
+	factory := &mockFactoryForEnhancedMetrics{
 		accountClient:    mockAcctClient,
 		cloudwatchClient: mockCWClient,
 		taggingClient:    mockTagClient,
@@ -399,8 +329,8 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 	}
 
 	mockCWClient := &mockCloudwatchClient{
-		listMetricsResult:   []*model.Metric{},
-		getMetricDataResult: []cloudwatch.MetricDataResult{},
+		metrics:           []*model.Metric{},
+		metricDataResults: []cloudwatch.MetricDataResult{},
 	}
 
 	mockTagClient := &mockTaggingClient{
@@ -434,8 +364,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_ElastiCache(t *testing.T) {
 		enhancedmetricsElastiCacheService.NewElastiCacheService(mockElastiCacheClientBuilder),
 	)
 
-	// Create the mock factory that implements both interfaces
-	factory := &mockFactory{
+	factory := &mockFactoryForEnhancedMetrics{
 		accountClient:    mockAcctClient,
 		cloudwatchClient: mockCWClient,
 		taggingClient:    mockTagClient,
@@ -502,8 +431,8 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 	}
 
 	mockCWClient := &mockCloudwatchClient{
-		listMetricsResult:   []*model.Metric{},
-		getMetricDataResult: []cloudwatch.MetricDataResult{},
+		metrics:           []*model.Metric{},
+		metricDataResults: []cloudwatch.MetricDataResult{},
 	}
 
 	mockTagClient := &mockTaggingClient{
@@ -547,8 +476,7 @@ func TestUpdateMetrics_WithEnhancedMetrics_DynamoDB(t *testing.T) {
 		enhancedmetricsDynamoDBService.NewDynamoDBService(mockDynamoDBClientBuilder),
 	)
 
-	// Create the mock factory that implements both interfaces
-	factory := &mockFactory{
+	factory := &mockFactoryForEnhancedMetrics{
 		accountClient:    mockAcctClient,
 		cloudwatchClient: mockCWClient,
 		taggingClient:    mockTagClient,
