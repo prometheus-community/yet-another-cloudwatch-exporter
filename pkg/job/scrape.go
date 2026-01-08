@@ -40,7 +40,7 @@ func ScrapeAwsData(
 	var wg sync.WaitGroup
 
 	var enhancedMetricsProcessorErr error
-	var enhancedMetricsProcessor *enhancedmetrics.Processor
+	var enhancedMetricsProcessor *enhancedmetrics.Service
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		// initialize enhanced metrics processor only if:
@@ -53,7 +53,7 @@ func ScrapeAwsData(
 			enhancedMetricsProcessor == nil &&
 			enhancedMetricsProcessorErr == nil {
 
-			enhancedMetricsProcessor, enhancedMetricsProcessorErr = enhancedmetrics.NewProcessor(factory)
+			enhancedMetricsProcessor, enhancedMetricsProcessorErr = enhancedmetrics.NewService(factory)
 			if enhancedMetricsProcessorErr != nil {
 				logger.Warn("Couldn't initialize enhanced metrics processor", "err", enhancedMetricsProcessorErr)
 				enhancedMetricsProcessor = nil

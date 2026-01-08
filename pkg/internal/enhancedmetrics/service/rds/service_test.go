@@ -27,10 +27,8 @@ import (
 
 func TestNewRDSService(t *testing.T) {
 	tests := []struct {
-		name             string
-		buildClientFunc  func(cfg aws.Config) Client
-		wantNilClients   bool
-		wantMetricsCount int
+		name            string
+		buildClientFunc func(cfg aws.Config) Client
 	}{
 		{
 			name:            "with nil buildClientFunc",
@@ -47,7 +45,6 @@ func TestNewRDSService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewRDSService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.NotNil(t, got.clients)
 			require.Len(t, got.supportedMetrics, 1)
 			require.NotNil(t, got.supportedMetrics["AllocatedStorage"])
 		})
@@ -164,7 +161,7 @@ func TestRDS_Process(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service := newTestRDSService(tt.regionalData)
-			result, err := service.Process(
+			result, err := service.GetMetrics(
 				context.Background(),
 				slog.New(slog.DiscardHandler),
 				tt.namespace,

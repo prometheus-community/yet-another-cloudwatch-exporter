@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -34,7 +33,6 @@ type Client interface {
 type buildElastiCacheMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
 type ElastiCache struct {
-	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildElastiCacheMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -44,7 +42,6 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 		buildClientFunc = NewElastiCacheClientWithConfig
 	}
 	svc := &ElastiCache{
-		clients:         clients.NewClients[Client](buildClientFunc),
 		buildClientFunc: buildClientFunc,
 	}
 
@@ -61,14 +58,7 @@ func (s *ElastiCache) GetNamespace() string {
 }
 
 func (s *ElastiCache) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.CacheCluster, error) {
-	var err error
-	client := s.clients.GetClient(region, role)
-	if client == nil {
-		client, err = s.clients.InitializeClient(region, role, configProvider)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing ElastiCache client for region %s: %w", region, err)
-		}
-	}
+	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
 	instances, err := client.DescribeAllCacheClusters(ctx, logger)
 	if err != nil {
@@ -89,7 +79,7 @@ func (s *ElastiCache) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *ElastiCache) Process(ctx context.Context,
+func (s *ElastiCache) GetMetrics(ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
 	resources []*model.TaggedResource,

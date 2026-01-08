@@ -27,10 +27,8 @@ import (
 
 func TestNewLambdaService(t *testing.T) {
 	tests := []struct {
-		name             string
-		buildClientFunc  func(cfg aws.Config) Client
-		wantNilClients   bool
-		wantMetricsCount int
+		name            string
+		buildClientFunc func(cfg aws.Config) Client
 	}{
 		{
 			name:            "with nil buildClientFunc",
@@ -47,7 +45,6 @@ func TestNewLambdaService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewLambdaService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.NotNil(t, got.clients)
 			require.Len(t, got.supportedMetrics, 1)
 			require.NotNil(t, got.supportedMetrics["Timeout"])
 		})
@@ -157,7 +154,7 @@ func TestLambda_Process(t *testing.T) {
 				return &mockServiceLambdaClient{functions: tt.functions}
 			})
 
-			result, err := service.Process(
+			result, err := service.GetMetrics(
 				context.Background(),
 				slog.New(slog.DiscardHandler),
 				tt.namespace,

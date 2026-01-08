@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -34,7 +33,6 @@ type Client interface {
 type buildLambdaMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
 type Lambda struct {
-	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildLambdaMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -44,7 +42,6 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		buildClientFunc = NewLambdaClientWithConfig
 	}
 	svc := &Lambda{
-		clients:         clients.NewClients[Client](buildClientFunc),
 		buildClientFunc: buildClientFunc,
 	}
 
@@ -61,14 +58,7 @@ func (s *Lambda) GetNamespace() string {
 }
 
 func (s *Lambda) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.FunctionConfiguration, error) {
-	var err error
-	client := s.clients.GetClient(region, role)
-	if client == nil {
-		client, err = s.clients.InitializeClient(region, role, configProvider)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing Lambda client for region %s: %w", region, err)
-		}
-	}
+	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
 	instances, err := client.ListAllFunctions(ctx, logger)
 	if err != nil {
@@ -89,7 +79,7 @@ func (s *Lambda) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *Lambda) Process(ctx context.Context,
+func (s *Lambda) GetMetrics(ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
 	resources []*model.TaggedResource,

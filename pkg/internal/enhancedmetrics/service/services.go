@@ -20,16 +20,15 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-// EnhancedMetricsService is the interface that enhanced metrics services should implement to be used by the enhanced metrics processor.
 type EnhancedMetricsService interface {
-	// Process processes the given resources and metrics, returning CloudWatch data points.
-	// metrics should be filtered by the implementation to only include metrics supported by this service.
-	Process(
+	// GetMetrics returns enhanced metrics for the given resources and enhancedMetricConfigs.
+	// EnhancedMetricConfigs should be filtered by the implementation to only include metrics supported by this service.
+	GetMetrics(
 		ctx context.Context,
 		logger *slog.Logger,
 		namespace string,
 		resources []*model.TaggedResource,
-		metrics []*model.EnhancedMetricConfig,
+		enhancedMetricConfigs []*model.EnhancedMetricConfig,
 		exportedTagOnMetrics []string,
 		region string,
 		role model.Role,

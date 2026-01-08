@@ -75,13 +75,13 @@ func (m *mockNonRegionalFactory) GetAccountClient(string, model.Role) account.Cl
 
 // mockMetricsService is a mock implementation of service.EnhancedMetricsService
 type mockMetricsService struct {
-	processCalled int
-	processErr    error
-	processResult []*model.CloudwatchData
-	mu            sync.Mutex
+	getMetricsCalled int
+	err              error
+	result           []*model.CloudwatchData
+	mu               sync.Mutex
 }
 
-func (m *mockMetricsService) Process(
+func (m *mockMetricsService) GetMetrics(
 	context.Context,
 	*slog.Logger,
 	string,
@@ -94,14 +94,14 @@ func (m *mockMetricsService) Process(
 ) ([]*model.CloudwatchData, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.processCalled++
-	return m.processResult, m.processErr
+	m.getMetricsCalled++
+	return m.result, m.err
 }
 
-func (m *mockMetricsService) getProcessCalled() int {
+func (m *mockMetricsService) getGetMetricsCalled() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.processCalled
+	return m.getMetricsCalled
 }
 
 // mockMetricsServiceRegistry is a mock implementation of MetricsServiceRegistry
@@ -120,7 +120,7 @@ func (m *mockMetricsServiceRegistry) GetEnhancedMetricsService(namespace string)
 	return nil, errors.New("service not found")
 }
 
-func TestNewProcessor(t *testing.T) {
+func TestNewService(t *testing.T) {
 	tests := []struct {
 		name    string
 		factory clients.Factory
@@ -136,30 +136,28 @@ func TestNewProcessor(t *testing.T) {
 			name:    "failure with factory not implementing RegionalConfigProvider",
 			factory: &mockNonRegionalFactory{},
 			wantErr: true,
-			errMsg:  "cannot create enhanced metric processor with a factory type",
+			errMsg:  "cannot create enhanced metric service with a factory type",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor, err := NewProcessor(tt.factory)
+			svc, err := NewService(tt.factory)
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Nil(t, processor)
+				require.Nil(t, svc)
 				require.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				require.NoError(t, err)
-				require.NotNil(t, processor)
-				require.NotNil(t, processor.ConfigProvider)
-				require.NotNil(t, processor.EnhancedMetricsServices)
-				require.Empty(t, processor.EnhancedMetricsServices)
+				require.NotNil(t, svc)
+				require.NotNil(t, svc.ConfigProvider)
 			}
 		})
 	}
 }
 
-func TestProcessor_Process(t *testing.T) {
+func TestService_GetMetrics(t *testing.T) {
 	ctx := context.Background()
 	logger := slog.New(slog.DiscardHandler)
 	namespace := "AWS/RDS"
@@ -179,42 +177,30 @@ func TestProcessor_Process(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		setupProcessor    func() *Processor
-		setupRegistry     func() MetricsServiceRegistry
 		namespace         string
+		registry          MetricsServiceRegistry
 		wantErr           bool
 		errMsg            string
 		wantData          []*model.CloudwatchData
 		wantProcessCalled int
 	}{
 		{
-			name: "successfully process metrics",
-			setupProcessor: func() *Processor {
-				expectedData := []*model.CloudwatchData{
-					{
-						MetricName:   "AllocatedStorage",
-						ResourceName: "arn:aws:rds:us-east-1:123456789012:db:test",
-						Namespace:    namespace,
-					},
-				}
-				return &Processor{
-					ConfigProvider: &mockFactory{},
-					EnhancedMetricsServices: map[string]service.EnhancedMetricsService{
-						namespace: &mockMetricsService{
-							processResult: expectedData,
+			name:      "successfully get metrics",
+			namespace: namespace,
+			registry: &mockMetricsServiceRegistry{
+				services: map[string]service.EnhancedMetricsService{
+					namespace: &mockMetricsService{
+						result: []*model.CloudwatchData{
+							{
+								MetricName:   "AllocatedStorage",
+								ResourceName: "arn:aws:rds:us-east-1:123456789012:db:test",
+								Namespace:    namespace,
+							},
 						},
 					},
-				}
+				},
 			},
-			setupRegistry: func() MetricsServiceRegistry {
-				return &mockMetricsServiceRegistry{
-					services: map[string]service.EnhancedMetricsService{
-						namespace: &mockMetricsService{},
-					},
-				}
-			},
-			namespace: namespace,
-			wantErr:   false,
+			wantErr: false,
 			wantData: []*model.CloudwatchData{
 				{
 					MetricName:   "AllocatedStorage",
@@ -225,54 +211,37 @@ func TestProcessor_Process(t *testing.T) {
 			wantProcessCalled: 1,
 		},
 		{
-			name: "failure when service not found in registry",
-			setupProcessor: func() *Processor {
-				return &Processor{
-					ConfigProvider:          &mockFactory{},
-					EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
-				}
-			},
-			setupRegistry: func() MetricsServiceRegistry {
-				return &mockMetricsServiceRegistry{
-					services: map[string]service.EnhancedMetricsService{},
-				}
-			},
+			name:      "failure when service not found in registry",
 			namespace: namespace,
-			wantErr:   true,
-			errMsg:    "service not found",
+			registry: &mockMetricsServiceRegistry{
+				services: map[string]service.EnhancedMetricsService{},
+			},
+			wantErr: true,
+			errMsg:  "service not found",
 		},
 		{
-			name: "failure when service Process returns error",
-			setupProcessor: func() *Processor {
-				return &Processor{
-					ConfigProvider: &mockFactory{},
-					EnhancedMetricsServices: map[string]service.EnhancedMetricsService{
-						namespace: &mockMetricsService{
-							processErr: errors.New("process error"),
-						},
+			name:      "failure when service GetMetrics returns error",
+			namespace: namespace,
+			registry: &mockMetricsServiceRegistry{
+				services: map[string]service.EnhancedMetricsService{
+					namespace: &mockMetricsService{
+						err: errors.New("get metric error"),
 					},
-				}
+				},
 			},
-			setupRegistry: func() MetricsServiceRegistry {
-				return &mockMetricsServiceRegistry{
-					services: map[string]service.EnhancedMetricsService{
-						namespace: &mockMetricsService{},
-					},
-				}
-			},
-			namespace:         namespace,
 			wantErr:           true,
-			errMsg:            "process error",
+			errMsg:            "get metric error",
 			wantProcessCalled: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor := tt.setupProcessor()
-			registry := tt.setupRegistry()
+			svc := &Service{
+				ConfigProvider: &mockFactory{},
+			}
 
-			data, err := processor.Process(ctx, logger, tt.namespace, resources, metrics, exportedTags, region, role, registry)
+			data, err := svc.GetMetrics(ctx, logger, tt.namespace, resources, metrics, exportedTags, region, role, tt.registry)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -284,96 +253,9 @@ func TestProcessor_Process(t *testing.T) {
 			}
 
 			if tt.wantProcessCalled > 0 {
-				svc := processor.EnhancedMetricsServices[tt.namespace].(*mockMetricsService)
-				require.Equal(t, tt.wantProcessCalled, svc.getProcessCalled())
+				mockSvc := tt.registry.(*mockMetricsServiceRegistry).services[tt.namespace].(*mockMetricsService)
+				require.Equal(t, tt.wantProcessCalled, mockSvc.getGetMetricsCalled())
 			}
 		})
 	}
-}
-
-func TestProcessor_Concurrency(t *testing.T) {
-	// Test that the Processor can handle concurrent Process calls safely
-	ctx := context.Background()
-	logger := slog.New(slog.DiscardHandler)
-	namespace1 := "AWS/RDS"
-	namespace2 := "AWS/ElastiCache"
-	region := "us-east-1"
-	role := model.Role{RoleArn: "arn:aws:iam::123456789012:role/test"}
-
-	processor := &Processor{
-		ConfigProvider:          &mockFactory{},
-		EnhancedMetricsServices: make(map[string]service.EnhancedMetricsService),
-	}
-
-	registry := &mockMetricsServiceRegistry{
-		services: map[string]service.EnhancedMetricsService{
-			namespace1: &mockMetricsService{},
-			namespace2: &mockMetricsService{},
-		},
-	}
-
-	resources := []*model.TaggedResource{
-		{
-			ARN:       "arn:aws:rds:us-east-1:123456789012:db:test",
-			Namespace: namespace1,
-			Region:    region,
-		},
-	}
-	metrics := []*model.EnhancedMetricConfig{{Name: "TestMetric"}}
-	exportedTags := []string{"Name"}
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, 40)
-
-	// Run multiple goroutines to test concurrent Process calls
-	for i := 0; i < 10; i++ {
-		wg.Add(4)
-
-		go func() {
-			defer wg.Done()
-			_, err := processor.Process(ctx, logger, namespace1, resources, metrics, exportedTags, region, role, registry)
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			_, err := processor.Process(ctx, logger, namespace2, resources, metrics, exportedTags, region, role, registry)
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			_, err := processor.Process(ctx, logger, namespace1, resources, metrics, exportedTags, region, role, registry)
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			_, err := processor.Process(ctx, logger, namespace2, resources, metrics, exportedTags, region, role, registry)
-			if err != nil {
-				errChan <- err
-			}
-		}()
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	// Check for errors
-	var errs []error
-	for err := range errChan {
-		errs = append(errs, err)
-	}
-	require.Empty(t, errs, "Should not have errors during concurrent Process calls")
-
-	// Verify both services were initialized
-	require.Len(t, processor.EnhancedMetricsServices, 2)
-	require.Contains(t, processor.EnhancedMetricsServices, namespace1)
-	require.Contains(t, processor.EnhancedMetricsServices, namespace2)
 }
