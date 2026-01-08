@@ -54,6 +54,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 	}
 
 	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
+		// The count of items in the table, updated approximately every six hours; may not reflect recent changes.
 		"ItemCount": svc.buildItemCountMetric,
 	}
 

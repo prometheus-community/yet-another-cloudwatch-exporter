@@ -56,6 +56,7 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 	}
 
 	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{
+		// The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
 		"NumCacheNodes": svc.buildNumCacheNodesMetric,
 	}
 
