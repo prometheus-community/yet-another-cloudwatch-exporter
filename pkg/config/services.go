@@ -1104,4 +1104,14 @@ var SupportedServices = serviceConfigs{
 			regexp.MustCompile(":core-network/(?P<CoreNetwork>[^/]+)$"),
 		},
 	},
+	{
+		Namespace: "CloudWatchSynthetics",
+		Alias:     "synthetics",
+		ResourceFilters: []*string{
+			aws.String("synthetics:canary"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":canary:(?P<CanaryName>[^:]+)$"),
+		},
+	},
 }
