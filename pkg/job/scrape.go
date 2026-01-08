@@ -39,8 +39,8 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
-	var enhancedMetricsProcessorErr error
-	var enhancedMetricsProcessor *enhancedmetrics.Service
+	var enhancedMetricsServiceErr error
+	var enhancedMetricsService *enhancedmetrics.Service
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		// initialize enhanced metrics processor only if:
@@ -50,13 +50,13 @@ func ScrapeAwsData(
 		//
 		// if the initialization fails, we log the error and continue without enhanced metrics
 		if discoveryJob.HasEnhancedMetrics() &&
-			enhancedMetricsProcessor == nil &&
-			enhancedMetricsProcessorErr == nil {
+			enhancedMetricsService == nil &&
+			enhancedMetricsServiceErr == nil {
 
-			enhancedMetricsProcessor, enhancedMetricsProcessorErr = enhancedmetrics.NewService(factory)
-			if enhancedMetricsProcessorErr != nil {
-				logger.Warn("Couldn't initialize enhanced metrics processor", "err", enhancedMetricsProcessorErr)
-				enhancedMetricsProcessor = nil
+			enhancedMetricsService, enhancedMetricsServiceErr = enhancedmetrics.NewService(factory)
+			if enhancedMetricsServiceErr != nil {
+				logger.Warn("Couldn't initialize enhanced metrics processor", "err", enhancedMetricsServiceErr)
+				enhancedMetricsService = nil
 			}
 		}
 
@@ -89,7 +89,7 @@ func ScrapeAwsData(
 						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
 						cloudwatchClient,
 						gmdProcessor,
-						enhancedMetricsProcessor,
+						enhancedMetricsService,
 						role,
 					)
 
