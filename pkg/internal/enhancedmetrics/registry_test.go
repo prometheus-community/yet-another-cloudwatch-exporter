@@ -41,9 +41,9 @@ func (m *registryMockMetricsService) LoadMetricsMetadata(ctx context.Context, lo
 	return nil
 }
 
-func (m *registryMockMetricsService) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (m *registryMockMetricsService) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
 	if m.procFunc != nil {
-		return m.procFunc(ctx, logger, namespace, resources, metrics, exportedTags)
+		return m.procFunc(ctx, logger, namespace, resources, enhancedMetricConfigs, exportedTags)
 	}
 	return nil, nil
 }
