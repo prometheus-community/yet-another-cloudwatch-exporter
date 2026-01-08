@@ -60,7 +60,7 @@ func (s *ElastiCache) GetNamespace() string {
 	return "AWS/ElastiCache"
 }
 
-func (s *ElastiCache) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.CacheCluster, error) {
+func (s *ElastiCache) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.CacheCluster, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
@@ -121,7 +121,7 @@ func (s *ElastiCache) Process(ctx context.Context,
 		return nil, nil
 	}
 
-	data, err := s.LoadMetricsMetadata(
+	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
 		region,

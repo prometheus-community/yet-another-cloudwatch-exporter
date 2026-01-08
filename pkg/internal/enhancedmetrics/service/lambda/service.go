@@ -60,7 +60,7 @@ func (s *Lambda) GetNamespace() string {
 	return "AWS/Lambda"
 }
 
-func (s *Lambda) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.FunctionConfiguration, error) {
+func (s *Lambda) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.FunctionConfiguration, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
@@ -121,7 +121,7 @@ func (s *Lambda) Process(ctx context.Context,
 		return nil, nil
 	}
 
-	data, err := s.LoadMetricsMetadata(
+	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
 		region,
