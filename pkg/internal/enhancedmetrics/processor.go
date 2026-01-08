@@ -82,7 +82,7 @@ func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logge
 }
 
 // Process processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
-func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
+func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metricConfig []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
 	ep.m.RLock()
 	defer ep.m.RUnlock()
 
