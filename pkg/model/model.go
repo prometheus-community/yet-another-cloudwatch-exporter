@@ -86,6 +86,7 @@ type MetricConfig struct {
 type DimensionsRegexp struct {
 	Regexp          *regexp.Regexp
 	DimensionsNames []string
+	Namespace       string
 }
 
 type LabelSet map[string]struct{}
