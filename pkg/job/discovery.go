@@ -37,8 +37,17 @@ type getMetricDataProcessor interface {
 }
 
 type enhancedProcessorProcessor interface {
-	Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error)
-	LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry enhancedmetrics.MetricsServiceRegistry) error
+	Process(
+		ctx context.Context,
+		logger *slog.Logger,
+		namespace string,
+		resources []*model.TaggedResource,
+		metrics []*model.EnhancedMetricConfig,
+		exportedTagOnMetrics []string,
+		region string,
+		role model.Role,
+		enhancedMetricsServiceRegistry enhancedmetrics.MetricsServiceRegistry,
+	) ([]*model.CloudwatchData, error)
 }
 
 func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.DiscoveryJob, region string, clientTag tagging.Client, clientCloudwatch cloudwatch.Client, gmdProcessor getMetricDataProcessor, enhancedMetricsProcessor enhancedProcessorProcessor, role model.Role) ([]*model.TaggedResource, []*model.CloudwatchData) {
@@ -77,7 +86,18 @@ func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.Discove
 		return resources, metricData
 	}
 
-	enhancedMetricData, err := getEnhancedMetricData(ctx, logger, job, svc.Namespace, region, role, resources, enhancedMetricsProcessor)
+	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
+	enhancedMetricData, err := enhancedMetricsProcessor.Process(
+		ctx,
+		logger,
+		svc.Namespace,
+		resources,
+		job.EnhancedMetrics,
+		job.ExportedTagsOnMetrics,
+		region,
+		role,
+		enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
+	)
 	if err != nil {
 		logger.Error("Failed to get enhanced metrics", "err", err)
 		return resources, metricData
@@ -86,31 +106,6 @@ func runDiscoveryJob(ctx context.Context, logger *slog.Logger, job model.Discove
 	metricData = append(metricData, enhancedMetricData...)
 
 	return resources, metricData
-}
-
-func getEnhancedMetricData(
-	ctx context.Context,
-	logger *slog.Logger,
-	job model.DiscoveryJob,
-	namespace string,
-	region string,
-	role model.Role,
-	resources []*model.TaggedResource,
-	enhancedMetricsProcessor enhancedProcessorProcessor,
-) ([]*model.CloudwatchData, error) {
-	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", namespace)
-
-	err := enhancedMetricsProcessor.LoadMetricsMetadata(ctx, logger, region, role, namespace, enhancedmetrics.DefaultEnhancedMetricServiceRegistry)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't load enhanced metrics metadata: %v", err)
-	}
-
-	enhancedMetricData, err := enhancedMetricsProcessor.Process(ctx, logger, namespace, resources, job.EnhancedMetrics, job.ExportedTagsOnMetrics)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get enhanced metrics: %v", err)
-	}
-
-	return enhancedMetricData, nil
 }
 
 func getMetricDataForQueries(

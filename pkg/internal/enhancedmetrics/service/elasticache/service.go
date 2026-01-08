@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,13 +34,7 @@ type Client interface {
 type buildElastiCacheMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
 type ElastiCache struct {
-	clients *clients.Clients[Client]
-
-	regionalData map[string]*types.CacheCluster
-
-	// dataM protects access to regionalData, for the concurrent metric processing
-	dataM sync.RWMutex
-
+	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildElastiCacheMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -67,35 +60,28 @@ func (s *ElastiCache) GetNamespace() string {
 	return "AWS/ElastiCache"
 }
 
-func (s *ElastiCache) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
+func (s *ElastiCache) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.CacheCluster, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
 		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
-			return fmt.Errorf("error initializing ElastiCache client for region %s: %w", region, err)
+			return nil, fmt.Errorf("error initializing ElastiCache client for region %s: %w", region, err)
 		}
 	}
 
-	s.dataM.Lock()
-	defer s.dataM.Unlock()
-
-	if s.regionalData != nil {
-		return nil
-	}
-
-	s.regionalData = make(map[string]*types.CacheCluster)
-
 	instances, err := client.DescribeAllCacheClusters(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("error listing cache clusters in region %s: %w", region, err)
+		return nil, fmt.Errorf("error listing cache clusters in region %s: %w", region, err)
 	}
+
+	regionalData := make(map[string]*types.CacheCluster, len(instances))
 
 	for _, instance := range instances {
-		s.regionalData[*instance.ARN] = &instance
+		regionalData[*instance.ARN] = &instance
 	}
 
-	return nil
+	return regionalData, nil
 }
 
 func (s *ElastiCache) isMetricSupported(metricName string) bool {
@@ -103,7 +89,16 @@ func (s *ElastiCache) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *ElastiCache) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (s *ElastiCache) Process(ctx context.Context,
+	logger *slog.Logger,
+	namespace string,
+	resources []*model.TaggedResource,
+	enhancedMetricConfigs []*model.EnhancedMetricConfig,
+	exportedTagOnMetrics []string,
+	region string,
+	role model.Role,
+	regionalConfigProvider config.RegionalConfigProvider,
+) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
 	}
@@ -122,24 +117,32 @@ func (s *ElastiCache) Process(ctx context.Context, logger *slog.Logger, namespac
 		}
 	}
 
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
-
-	if s.regionalData == nil {
-		logger.Info("elasticache metadata not loaded, skipping metric processing")
+	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
+	data, err := s.LoadMetricsMetadata(
+		ctx,
+		logger,
+		region,
+		role,
+		regionalConfigProvider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't load elasticache metrics metadata: %v", err)
+	}
+
+	var result []*model.CloudwatchData
+
 	for _, resource := range resources {
-		cluster, exists := s.regionalData[resource.ARN]
+		cluster, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("elasticache cluster not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, cluster, exportedTags)
+			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, cluster, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building elasticache enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

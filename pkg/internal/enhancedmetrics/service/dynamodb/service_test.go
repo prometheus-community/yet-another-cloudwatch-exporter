@@ -48,7 +48,6 @@ func TestNewDynamoDBService(t *testing.T) {
 			got := NewDynamoDBService(tt.buildClientFunc)
 			require.NotNil(t, got)
 			require.NotNil(t, got.clients)
-			require.Nil(t, got.regionalData)
 			require.Len(t, got.supportedMetrics, 1)
 			require.NotNil(t, got.supportedMetrics["ItemCount"])
 		})
@@ -78,109 +77,23 @@ func TestDynamoDB_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestDynamoDB_LoadMetricsMetadata(t *testing.T) {
-	tests := []struct {
-		name           string
-		setupMock      func() *mockServiceDynamoDBClient
-		region         string
-		existingData   map[string]*types.TableDescription
-		wantErr        bool
-		wantDataLoaded bool
-	}{
-		{
-			name:   "successfully load metadata",
-			region: "us-east-1",
-			setupMock: func() *mockServiceDynamoDBClient {
-				mock := &mockServiceDynamoDBClient{}
-				tableArn := "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"
-				tableName := "test-table"
-				mock.tables = []types.TableDescription{
-					{
-						TableArn:  &tableArn,
-						TableName: &tableName,
-					},
-				}
-				return mock
-			},
-			wantErr:        false,
-			wantDataLoaded: true,
-		},
-		{
-			name:   "describe tables error",
-			region: "us-east-1",
-			setupMock: func() *mockServiceDynamoDBClient {
-				return &mockServiceDynamoDBClient{describeErr: true}
-			},
-			wantErr:        true,
-			wantDataLoaded: false,
-		},
-		{
-			name:   "metadata already loaded - skip loading",
-			region: "us-east-1",
-			existingData: map[string]*types.TableDescription{
-				"existing-arn": {},
-			},
-			setupMock: func() *mockServiceDynamoDBClient {
-				return &mockServiceDynamoDBClient{}
-			},
-			wantErr:        false,
-			wantDataLoaded: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			logger := slog.New(slog.DiscardHandler)
-			var service *DynamoDB
-
-			if tt.setupMock == nil {
-				service = NewDynamoDBService(nil)
-			} else {
-				service = NewDynamoDBService(func(_ aws.Config) Client {
-					return tt.setupMock()
-				})
-			}
-
-			if tt.existingData != nil {
-				service.regionalData = tt.existingData
-			}
-
-			mockConfig := &mockConfigProvider{
-				c: &aws.Config{
-					Region: tt.region,
-				},
-			}
-			err := service.LoadMetricsMetadata(ctx, logger, tt.region, model.Role{}, mockConfig)
-
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			if tt.wantDataLoaded {
-				require.NotEmpty(t, service.regionalData)
-			}
-		})
-	}
-}
-
 func TestDynamoDB_Process(t *testing.T) {
-	rd := map[string]*types.TableDescription{
-		"arn:aws:dynamodb:us-east-1:123456789012:table/test-table": {
+	defaultTables := []types.TableDescription{
+		{
 			TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table"),
 			TableName: aws.String("test-table"),
 			ItemCount: aws.Int64(1000),
 		},
 	}
+
 	tests := []struct {
 		name                 string
 		namespace            string
 		resources            []*model.TaggedResource
 		enhancedMetrics      []*model.EnhancedMetricConfig
 		exportedTagOnMetrics []string
-		regionalData         map[string]*types.TableDescription
+		tables               []types.TableDescription
+		describeErr          bool
 		wantErr              bool
 		wantResultCount      int
 	}{
@@ -189,7 +102,7 @@ func TestDynamoDB_Process(t *testing.T) {
 			namespace:       "AWS/DynamoDB",
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData:    rd,
+			tables:          defaultTables,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
@@ -198,7 +111,7 @@ func TestDynamoDB_Process(t *testing.T) {
 			namespace:       "AWS/DynamoDB",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
-			regionalData:    rd,
+			tables:          defaultTables,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
@@ -207,7 +120,7 @@ func TestDynamoDB_Process(t *testing.T) {
 			namespace:       "AWS/EC2",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData:    rd,
+			tables:          defaultTables,
 			wantErr:         true,
 			wantResultCount: 0,
 		},
@@ -216,8 +129,8 @@ func TestDynamoDB_Process(t *testing.T) {
 			namespace:       "AWS/DynamoDB",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData:    nil,
-			wantErr:         false,
+			describeErr:     true,
+			wantErr:         true,
 			wantResultCount: 0,
 		},
 		{
@@ -227,7 +140,7 @@ func TestDynamoDB_Process(t *testing.T) {
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData:    rd,
+			tables:          defaultTables,
 			wantErr:         false,
 			wantResultCount: 1,
 		},
@@ -238,8 +151,8 @@ func TestDynamoDB_Process(t *testing.T) {
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData: map[string]*types.TableDescription{
-				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi": {
+			tables: []types.TableDescription{
+				{
 					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"),
 					TableName: aws.String("test-table-with-gsi"),
 					ItemCount: aws.Int64(1000),
@@ -265,7 +178,7 @@ func TestDynamoDB_Process(t *testing.T) {
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
-			regionalData:    rd,
+			tables:          defaultTables,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
@@ -276,11 +189,7 @@ func TestDynamoDB_Process(t *testing.T) {
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
-			regionalData: map[string]*types.TableDescription{
-				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table": {
-					ItemCount: aws.Int64(1000),
-				},
-			},
+			tables:          defaultTables,
 			wantErr:         false,
 			wantResultCount: 0,
 		},
@@ -293,13 +202,13 @@ func TestDynamoDB_Process(t *testing.T) {
 			},
 			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			exportedTagOnMetrics: []string{"Name"},
-			regionalData: map[string]*types.TableDescription{
-				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1": {
+			tables: []types.TableDescription{
+				{
 					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1"),
 					TableName: aws.String("test-table-1"),
 					ItemCount: aws.Int64(1000),
 				},
-				"arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2": {
+				{
 					TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2"),
 					TableName: aws.String("test-table-2"),
 					ItemCount: aws.Int64(2000),
@@ -314,11 +223,21 @@ func TestDynamoDB_Process(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			logger := slog.New(slog.DiscardHandler)
-			service := NewDynamoDBService(nil)
-			// we directly set the regionalData for testing
-			service.regionalData = tt.regionalData
 
-			result, err := service.Process(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics)
+			mockClient := &mockServiceDynamoDBClient{
+				tables:      tt.tables,
+				describeErr: tt.describeErr,
+			}
+
+			service := NewDynamoDBService(func(_ aws.Config) Client {
+				return mockClient
+			})
+
+			mockConfig := &mockConfigProvider{
+				c: &aws.Config{Region: "us-east-1"},
+			}
+
+			result, err := service.Process(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics, "us-east-1", model.Role{}, mockConfig)
 
 			if tt.wantErr {
 				require.Error(t, err)

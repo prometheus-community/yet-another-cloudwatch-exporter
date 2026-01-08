@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,11 +34,7 @@ type Client interface {
 type buildDynamoDBMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type DynamoDB struct {
-	clients *clients.Clients[Client]
-
-	regionalData map[string]*types.TableDescription
-	dataM        sync.RWMutex
-
+	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildDynamoDBMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -65,35 +60,28 @@ func (s *DynamoDB) GetNamespace() string {
 	return "AWS/DynamoDB"
 }
 
-func (s *DynamoDB) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
+func (s *DynamoDB) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.TableDescription, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
 		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
-			return fmt.Errorf("error initializing DynamoDB client for region %s: %w", region, err)
+			return nil, fmt.Errorf("error initializing DynamoDB client for region %s: %w", region, err)
 		}
 	}
 
-	s.dataM.Lock()
-	defer s.dataM.Unlock()
-
-	if s.regionalData != nil {
-		return nil
-	}
-
-	s.regionalData = make(map[string]*types.TableDescription)
-
 	tables, err := client.DescribeAllTables(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("error listing DynamoDB tables in region %s: %w", region, err)
+		return nil, fmt.Errorf("error listing DynamoDB tables in region %s: %w", region, err)
 	}
+
+	regionalData := make(map[string]*types.TableDescription, len(tables))
 
 	for _, table := range tables {
-		s.regionalData[*table.TableArn] = &table
+		regionalData[*table.TableArn] = &table
 	}
 
-	return nil
+	return regionalData, nil
 }
 
 func (s *DynamoDB) isMetricSupported(metricName string) bool {
@@ -101,7 +89,17 @@ func (s *DynamoDB) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (s *DynamoDB) Process(
+	ctx context.Context,
+	logger *slog.Logger,
+	namespace string,
+	resources []*model.TaggedResource,
+	enhancedMetricConfigs []*model.EnhancedMetricConfig,
+	exportedTagOnMetrics []string,
+	region string,
+	role model.Role,
+	regionalConfigProvider config.RegionalConfigProvider,
+) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
 	}
@@ -120,24 +118,32 @@ func (s *DynamoDB) Process(ctx context.Context, logger *slog.Logger, namespace s
 		}
 	}
 
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
-
-	if s.regionalData == nil {
-		logger.Info("dynamodb metadata not loaded, skipping metric processing")
+	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
+	data, err := s.loadMetricsMetadata(
+		ctx,
+		logger,
+		region,
+		role,
+		regionalConfigProvider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error loading dynamodb metrics metadata: %w", err)
+	}
+
+	var result []*model.CloudwatchData
+
 	for _, resource := range resources {
-		table, exists := s.regionalData[resource.ARN]
+		table, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("dynamodb table not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, table, exportedTags)
+			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, table, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building dynamodb enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

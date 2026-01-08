@@ -48,7 +48,6 @@ func TestNewLambdaService(t *testing.T) {
 			got := NewLambdaService(tt.buildClientFunc)
 			require.NotNil(t, got)
 			require.NotNil(t, got.clients)
-			require.Nil(t, got.regionalData)
 			require.Len(t, got.supportedMetrics, 1)
 			require.NotNil(t, got.supportedMetrics["Timeout"])
 		})
@@ -77,239 +76,111 @@ func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestLambda_LoadMetricsMetadata(t *testing.T) {
-	tests := []struct {
-		name           string
-		setupMock      func() *mockServiceLambdaClient
-		region         string
-		existingData   map[string]*types.FunctionConfiguration
-		wantErr        bool
-		wantDataLoaded bool
-	}{
-		{
-			name:   "successfully load metadata",
-			region: "us-east-1",
-			setupMock: func() *mockServiceLambdaClient {
-				mock := &mockServiceLambdaClient{}
-				functionArn := "arn:aws:lambda:us-east-1:123456789012:function:test-function"
-				functionName := "test-function"
-				mock.functions = []types.FunctionConfiguration{
-					{
-						FunctionArn:  &functionArn,
-						FunctionName: &functionName,
-					},
-				}
-				return mock
-			},
-			wantErr:        false,
-			wantDataLoaded: true,
-		},
-		{
-			name:   "list functions error",
-			region: "us-east-1",
-			setupMock: func() *mockServiceLambdaClient {
-				return &mockServiceLambdaClient{listErr: true}
-			},
-			wantErr:        true,
-			wantDataLoaded: false,
-		},
-		{
-			name:   "metadata already loaded - skip loading",
-			region: "us-east-1",
-			existingData: map[string]*types.FunctionConfiguration{
-				"existing-arn": {},
-			},
-			setupMock: func() *mockServiceLambdaClient {
-				return &mockServiceLambdaClient{}
-			},
-			wantErr:        false,
-			wantDataLoaded: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			logger := slog.New(slog.DiscardHandler)
-			var service *Lambda
-
-			if tt.setupMock == nil {
-				service = NewLambdaService(nil)
-			} else {
-				service = NewLambdaService(func(_ aws.Config) Client {
-					return tt.setupMock()
-				})
-			}
-
-			if tt.existingData != nil {
-				service.regionalData = tt.existingData
-			}
-
-			mockConfig := &mockConfigProvider{
-				c: &aws.Config{
-					Region: tt.region,
-				},
-			}
-			err := service.LoadMetricsMetadata(ctx, logger, tt.region, model.Role{}, mockConfig)
-
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			if tt.wantDataLoaded {
-				require.NotEmpty(t, service.regionalData)
-			}
-		})
-	}
-}
-
 func TestLambda_Process(t *testing.T) {
-	rd := map[string]*types.FunctionConfiguration{
-		"arn:aws:lambda:us-east-1:123456789012:function:test-function": {
-			FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function"),
-			FunctionName: aws.String("test-function"),
-			Timeout:      aws.Int32(300),
-		},
+	makeFunctionConfiguration := func(name string, timeout int32) types.FunctionConfiguration {
+		arn := fmt.Sprintf("arn:aws:lambda:us-east-1:123456789012:function:%s", name)
+		return types.FunctionConfiguration{
+			FunctionArn:  aws.String(arn),
+			FunctionName: aws.String(name),
+			Timeout:      aws.Int32(timeout),
+		}
 	}
 
 	tests := []struct {
-		name                 string
-		namespace            string
-		resources            []*model.TaggedResource
-		enhancedMetrics      []*model.EnhancedMetricConfig
-		exportedTagOnMetrics []string
-		regionalData         map[string]*types.FunctionConfiguration
-		wantErr              bool
-		wantResultCount      int
+		name            string
+		namespace       string
+		resources       []*model.TaggedResource
+		enhancedMetrics []*model.EnhancedMetricConfig
+		functions       []types.FunctionConfiguration
+		wantErr         bool
+		wantCount       int
 	}{
 		{
-			name:            "empty resources",
+			name:            "empty resources returns empty",
 			namespace:       "AWS/Lambda",
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			regionalData:    rd,
-			wantErr:         false,
-			wantResultCount: 0,
+			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
+			wantCount:       0,
 		},
 		{
-			name:            "empty enhanced metrics",
+			name:            "empty enhanced metrics returns empty",
 			namespace:       "AWS/Lambda",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
-			regionalData:    rd,
-			wantErr:         false,
-			wantResultCount: 0,
+			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
+			wantCount:       0,
 		},
 		{
-			name:            "wrong namespace",
+			name:            "wrong namespace returns error",
 			namespace:       "AWS/EC2",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			regionalData:    rd,
 			wantErr:         true,
-			wantResultCount: 0,
 		},
 		{
-			name:            "metadata not loaded",
-			namespace:       "AWS/Lambda",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			regionalData:    nil,
-			wantErr:         false,
-			wantResultCount: 0,
-		},
-		{
-			name:      "successfully process metric",
+			name:      "successfully process single metric",
 			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			regionalData:    rd,
-			wantErr:         false,
-			wantResultCount: 1,
+			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
+			wantCount:       1,
 		},
 		{
-			name:      "resource not found in metadata",
+			name:      "skips unsupported metrics",
 			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:non-existent"},
-			},
-			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			regionalData:    rd,
-			wantErr:         false,
-			wantResultCount: 0,
-		},
-		{
-			name:      "unsupported metric",
-			namespace: "AWS/Lambda",
-			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
-			regionalData:    rd,
-			wantErr:         false,
-			wantResultCount: 0,
+			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
+			wantCount:       0,
 		},
 		{
-			name:      "multiple resources and metrics",
+			name:      "processes multiple resources",
 			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function-1"},
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-function-2"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func1"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func2"},
 			},
-			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			exportedTagOnMetrics: []string{"Name"},
-			regionalData: map[string]*types.FunctionConfiguration{
-				"arn:aws:lambda:us-east-1:123456789012:function:test-function-1": {
-					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function-1"),
-					FunctionName: aws.String("test-function-1"),
-					Timeout:      aws.Int32(300),
-				},
-				"arn:aws:lambda:us-east-1:123456789012:function:test-function-2": {
-					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-function-2"),
-					FunctionName: aws.String("test-function-2"),
-					Timeout:      aws.Int32(600),
-				},
-			},
-			wantErr:         false,
-			wantResultCount: 2,
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
+			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("func1", 300), makeFunctionConfiguration("func2", 600)},
+			wantCount:       2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			logger := slog.New(slog.DiscardHandler)
-			service := NewLambdaService(
-				func(_ aws.Config) Client {
-					return nil
-				},
-			)
-			// we directly set the regionalData for testing
-			service.regionalData = tt.regionalData
+			service := NewLambdaService(func(_ aws.Config) Client {
+				return &mockServiceLambdaClient{functions: tt.functions}
+			})
 
-			result, err := service.Process(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics)
+			result, err := service.Process(
+				context.Background(),
+				slog.New(slog.DiscardHandler),
+				tt.namespace,
+				tt.resources,
+				tt.enhancedMetrics,
+				nil,
+				"us-east-1",
+				model.Role{},
+				&mockConfigProvider{c: &aws.Config{Region: "us-east-1"}},
+			)
 
 			if tt.wantErr {
 				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
+				return
 			}
 
-			require.Len(t, result, tt.wantResultCount)
+			require.NoError(t, err)
+			require.Len(t, result, tt.wantCount)
 
-			if tt.wantResultCount > 0 {
-				for _, metric := range result {
-					require.NotNil(t, metric)
-					require.Equal(t, "AWS/Lambda", metric.Namespace)
-					require.NotEmpty(t, metric.Dimensions)
-					require.NotNil(t, metric.GetMetricDataResult)
-					require.Empty(t, metric.GetMetricDataResult.Statistic)
-					require.Nil(t, metric.GetMetricStatisticsResult)
-				}
+			for _, metric := range result {
+				require.Equal(t, "AWS/Lambda", metric.Namespace)
+				require.NotEmpty(t, metric.Dimensions)
+				require.NotNil(t, metric.GetMetricDataResult)
 			}
 		})
 	}
@@ -317,13 +188,9 @@ func TestLambda_Process(t *testing.T) {
 
 type mockServiceLambdaClient struct {
 	functions []types.FunctionConfiguration
-	listErr   bool
 }
 
 func (m *mockServiceLambdaClient) ListAllFunctions(_ context.Context, _ *slog.Logger) ([]types.FunctionConfiguration, error) {
-	if m.listErr {
-		return nil, fmt.Errorf("mock list error")
-	}
 	return m.functions, nil
 }
 

@@ -36,62 +36,60 @@ type MetricsServiceRegistry interface {
 type Processor struct {
 	ConfigProvider          config.RegionalConfigProvider
 	EnhancedMetricsServices map[string]service.EnhancedMetricsService
-	m                       sync.RWMutex
+	m                       sync.Mutex
 }
 
-func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) (bool, error) {
+// Process processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
+func (ep *Processor) Process(
+	ctx context.Context,
+	logger *slog.Logger,
+	namespace string,
+	resources []*model.TaggedResource,
+	metrics []*model.EnhancedMetricConfig,
+	exportedTagOnMetrics []string,
+	region string,
+	role model.Role,
+	enhancedMetricsServiceRegistry MetricsServiceRegistry,
+) ([]*model.CloudwatchData, error) {
+
+	svc, err := ep.ensureServiceInitialized(namespace, enhancedMetricsServiceRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("could not get enhanced metric service for namespace %s: %w", namespace, err)
+	}
+
+	return svc.Process(
+		ctx,
+		logger,
+		namespace,
+		resources,
+		metrics,
+		exportedTagOnMetrics,
+		region,
+		role,
+		ep.ConfigProvider,
+	)
+}
+
+func (ep *Processor) ensureServiceInitialized(namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) (service.EnhancedMetricsService, error) {
 	ep.m.Lock()
 	defer ep.m.Unlock()
+
 	if ep.EnhancedMetricsServices == nil {
 		ep.EnhancedMetricsServices = make(map[string]service.EnhancedMetricsService)
 	}
 
-	_, exists := ep.EnhancedMetricsServices[namespace]
+	svc, exists := ep.EnhancedMetricsServices[namespace]
 	if exists {
-		return false, nil
+		return svc, nil
 	}
 
 	svc, err := enhancedMetricsServiceRegistry.GetEnhancedMetricsService(namespace)
 	if err != nil {
-		return false, fmt.Errorf("could not get enhanced metric service for namespace %s: %w", namespace, err)
+		return nil, fmt.Errorf("could not get enhanced metric service for namespace %s: %w", namespace, err)
 	}
 
 	ep.EnhancedMetricsServices[namespace] = svc
-	return true, nil
-}
-
-// LoadMetricsMetadata loads the metrics metadata for the specified namespace using the appropriate enhanced metrics service.
-func (ep *Processor) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, namespace string, enhancedMetricsServiceRegistry MetricsServiceRegistry) error {
-	wasInitialized, err := ep.ensureServiceInitialized(namespace, enhancedMetricsServiceRegistry)
-	if err != nil {
-		return fmt.Errorf("processor LoadMetricsMetadata ensureServiceInitialized error: %w", err)
-	}
-
-	logger.Debug("Enhanced metrics service was initialized before", "yes", !wasInitialized)
-
-	ep.m.RLock()
-	defer ep.m.RUnlock()
-
-	svc, ok := ep.EnhancedMetricsServices[namespace]
-	if !ok {
-		// should not happen because of ensureServiceInitialized call above
-		return fmt.Errorf("enhanced metrics service for namespace %s not initialized", namespace)
-	}
-
-	return svc.LoadMetricsMetadata(ctx, logger, region, role, ep.ConfigProvider)
-}
-
-// Process processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
-func (ep *Processor) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
-	ep.m.RLock()
-	defer ep.m.RUnlock()
-
-	svc, ok := ep.EnhancedMetricsServices[namespace]
-	if !ok {
-		return nil, fmt.Errorf("enhanced metrics service for namespace %s not initialized", namespace)
-	}
-
-	return svc.Process(ctx, logger, namespace, resources, enhancedMetricConfigs, exportedTagOnMetrics)
+	return ep.EnhancedMetricsServices[namespace], nil
 }
 
 func NewProcessor(

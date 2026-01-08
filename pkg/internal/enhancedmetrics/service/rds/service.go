@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,13 +34,7 @@ type Client interface {
 type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type RDS struct {
-	clients *clients.Clients[Client]
-
-	regionalData map[string]*types.DBInstance
-
-	// dataM protects access to regionalData, for the concurrent metric processing
-	dataM sync.RWMutex
-
+	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildRDSMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -70,35 +63,28 @@ func (s *RDS) GetNamespace() string {
 }
 
 // LoadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
-func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
+func (s *RDS) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.DBInstance, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
 		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
-			return fmt.Errorf("error initializing RDS client for region %s: %w", region, err)
+			return nil, fmt.Errorf("error initializing RDS client for region %s: %w", region, err)
 		}
 	}
 
-	s.dataM.Lock()
-	defer s.dataM.Unlock()
-
-	if s.regionalData != nil {
-		return nil
-	}
-
-	s.regionalData = make(map[string]*types.DBInstance)
-
 	instances, err := client.DescribeAllDBInstances(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("error describing RDS DB instances in region %s: %w", region, err)
+		return nil, fmt.Errorf("error describing RDS DB instances in region %s: %w", region, err)
 	}
+
+	regionalData := make(map[string]*types.DBInstance, len(instances))
 
 	for _, instance := range instances {
-		s.regionalData[*instance.DBInstanceArn] = &instance
+		regionalData[*instance.DBInstanceArn] = &instance
 	}
 
-	return nil
+	return regionalData, nil
 }
 
 func (s *RDS) isMetricSupported(metricName string) bool {
@@ -106,7 +92,16 @@ func (s *RDS) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string) ([]*model.CloudwatchData, error) {
+func (s *RDS) Process(ctx context.Context,
+	logger *slog.Logger,
+	namespace string,
+	resources []*model.TaggedResource,
+	enhancedMetricConfigs []*model.EnhancedMetricConfig,
+	exportedTagOnMetrics []string,
+	region string,
+	role model.Role,
+	regionalConfigProvider config.RegionalConfigProvider,
+) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
 	}
@@ -125,17 +120,25 @@ func (s *RDS) Process(ctx context.Context, logger *slog.Logger, namespace string
 		}
 	}
 
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
-
-	if s.regionalData == nil {
-		logger.Info("RDS metadata not loaded, skipping metric processing")
+	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
+	data, err := s.LoadMetricsMetadata(
+		ctx,
+		logger,
+		region,
+		role,
+		regionalConfigProvider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error loading RDS metrics metadata: %w", err)
+	}
+
+	var result []*model.CloudwatchData
+
 	for _, resource := range resources {
-		dbInstance, exists := s.regionalData[resource.ARN]
+		dbInstance, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("RDS DB instance not found in metadata", "arn", resource.ARN)
 			continue

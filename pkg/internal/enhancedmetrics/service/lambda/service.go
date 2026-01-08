@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,13 +34,7 @@ type Client interface {
 type buildLambdaMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
 type Lambda struct {
-	clients *clients.Clients[Client]
-
-	regionalData map[string]*types.FunctionConfiguration
-
-	// dataM protects access to regionalData, for the concurrent metric processing
-	dataM sync.RWMutex
-
+	clients          *clients.Clients[Client]
 	supportedMetrics map[string]buildLambdaMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
 }
@@ -67,36 +60,28 @@ func (s *Lambda) GetNamespace() string {
 	return "AWS/Lambda"
 }
 
-func (s *Lambda) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) error {
+func (s *Lambda) LoadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.FunctionConfiguration, error) {
 	var err error
 	client := s.clients.GetClient(region, role)
 	if client == nil {
 		client, err = s.clients.InitializeClient(region, role, configProvider)
 		if err != nil {
-			return fmt.Errorf("error initializing Lambda client for region %s: %w", region, err)
+			return nil, fmt.Errorf("error initializing Lambda client for region %s: %w", region, err)
 		}
 	}
 
-	s.dataM.Lock()
-	defer s.dataM.Unlock()
-
-	if s.regionalData != nil {
-		return nil
-	}
-
-	s.regionalData = make(map[string]*types.FunctionConfiguration)
-
 	instances, err := client.ListAllFunctions(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("error listing functions in region %s: %w", region, err)
+		return nil, fmt.Errorf("error listing functions in region %s: %w", region, err)
 	}
 
+	regionalData := make(map[string]*types.FunctionConfiguration, len(instances))
 	for _, instance := range instances {
-		s.regionalData[*instance.FunctionArn] = &instance
+		regionalData[*instance.FunctionArn] = &instance
 	}
 
 	logger.Info("Loaded Lambda metrics metadata", "region", region)
-	return nil
+	return regionalData, nil
 }
 
 func (s *Lambda) isMetricSupported(metricName string) bool {
@@ -104,7 +89,16 @@ func (s *Lambda) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *Lambda) Process(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (s *Lambda) Process(ctx context.Context,
+	logger *slog.Logger,
+	namespace string,
+	resources []*model.TaggedResource,
+	enhancedMetricConfigs []*model.EnhancedMetricConfig,
+	exportedTagOnMetrics []string,
+	region string,
+	role model.Role,
+	regionalConfigProvider config.RegionalConfigProvider,
+) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
 	}
@@ -123,24 +117,32 @@ func (s *Lambda) Process(ctx context.Context, logger *slog.Logger, namespace str
 		}
 	}
 
-	var result []*model.CloudwatchData
-	s.dataM.RLock()
-	defer s.dataM.RUnlock()
-
-	if s.regionalData == nil {
-		logger.Info("Lambda metadata not loaded, skipping metric processing")
+	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
+	data, err := s.LoadMetricsMetadata(
+		ctx,
+		logger,
+		region,
+		role,
+		regionalConfigProvider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error loading lambda metrics metadata: %w", err)
+	}
+
+	var result []*model.CloudwatchData
+
 	for _, resource := range resources {
-		fn, exists := s.regionalData[resource.ARN]
+		fn, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("Lambda function not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, fn, exportedTags)
+			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, fn, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building Lambda enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
