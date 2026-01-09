@@ -43,9 +43,9 @@ func ScrapeAwsData(
 	var enhancedMetricsService *enhancedmetrics.Service
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
-		// initialize enhanced metrics processor only if:
+		// initialize enhanced metrics service only if:
 		// - the current discovery job has enhanced metrics configured
-		// - the enhanced metrics processor is not already initialized
+		// - the enhanced metrics service is not already initialized
 		// - there was no error initializing the enhanced metrics processor previously
 		//
 		// if the initialization fails, we log the error and continue without enhanced metrics
