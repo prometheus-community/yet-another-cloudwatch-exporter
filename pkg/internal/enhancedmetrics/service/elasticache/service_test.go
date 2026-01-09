@@ -73,7 +73,7 @@ func TestElastiCache_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestElastiCache_Process(t *testing.T) {
+func TestElastiCache_GetMetrics(t *testing.T) {
 	// Common test data
 	testCluster := types.CacheCluster{
 		ARN:            aws.String("arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"),
@@ -124,7 +124,7 @@ func TestElastiCache_Process(t *testing.T) {
 			wantErr:         true,
 		},
 		{
-			name:            "successfully process metric",
+			name:            "successfully received metric",
 			namespace:       "AWS/ElastiCache",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},

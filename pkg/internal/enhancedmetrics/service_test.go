@@ -176,13 +176,13 @@ func TestService_GetMetrics(t *testing.T) {
 	exportedTags := []string{"Name"}
 
 	tests := []struct {
-		name              string
-		namespace         string
-		registry          MetricsServiceRegistry
-		wantErr           bool
-		errMsg            string
-		wantData          []*model.CloudwatchData
-		wantProcessCalled int
+		name                 string
+		namespace            string
+		registry             MetricsServiceRegistry
+		wantErr              bool
+		errMsg               string
+		wantData             []*model.CloudwatchData
+		wantGetMetricsCalled int
 	}{
 		{
 			name:      "successfully get metrics",
@@ -208,7 +208,7 @@ func TestService_GetMetrics(t *testing.T) {
 					Namespace:    namespace,
 				},
 			},
-			wantProcessCalled: 1,
+			wantGetMetricsCalled: 1,
 		},
 		{
 			name:      "failure when service not found in registry",
@@ -229,9 +229,9 @@ func TestService_GetMetrics(t *testing.T) {
 					},
 				},
 			},
-			wantErr:           true,
-			errMsg:            "get metric error",
-			wantProcessCalled: 1,
+			wantErr:              true,
+			errMsg:               "get metric error",
+			wantGetMetricsCalled: 1,
 		},
 	}
 
@@ -252,9 +252,9 @@ func TestService_GetMetrics(t *testing.T) {
 				require.Equal(t, tt.wantData, data)
 			}
 
-			if tt.wantProcessCalled > 0 {
+			if tt.wantGetMetricsCalled > 0 {
 				mockSvc := tt.registry.(*mockMetricsServiceRegistry).services[tt.namespace].(*mockMetricsService)
-				require.Equal(t, tt.wantProcessCalled, mockSvc.getGetMetricsCalled())
+				require.Equal(t, tt.wantGetMetricsCalled, mockSvc.getGetMetricsCalled())
 			}
 		})
 	}

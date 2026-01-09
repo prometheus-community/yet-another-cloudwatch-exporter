@@ -73,7 +73,7 @@ func TestRDS_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestRDS_Process(t *testing.T) {
+func TestRDS_GetMetrics(t *testing.T) {
 	testInstance := makeTestDBInstance("test-instance", 100)
 	testARN := *testInstance.DBInstanceArn
 
@@ -119,7 +119,7 @@ func TestRDS_Process(t *testing.T) {
 			wantResultCount: 0,
 		},
 		{
-			name:            "successfully process metric",
+			name:            "successfully received metric",
 			namespace:       "AWS/RDS",
 			resources:       []*model.TaggedResource{{ARN: testARN}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},

@@ -73,7 +73,7 @@ func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestLambda_Process(t *testing.T) {
+func TestLambda_GetMetrics(t *testing.T) {
 	makeFunctionConfiguration := func(name string, timeout int32) types.FunctionConfiguration {
 		arn := fmt.Sprintf("arn:aws:lambda:us-east-1:123456789012:function:%s", name)
 		return types.FunctionConfiguration{
@@ -116,7 +116,7 @@ func TestLambda_Process(t *testing.T) {
 			wantErr:         true,
 		},
 		{
-			name:      "successfully process single metric",
+			name:      "successfully received single metric",
 			namespace: "AWS/Lambda",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
