@@ -55,7 +55,7 @@ func ScrapeAwsData(
 
 			enhancedMetricsService, enhancedMetricsServiceErr = enhancedmetrics.NewService(factory)
 			if enhancedMetricsServiceErr != nil {
-				logger.Warn("Couldn't initialize enhanced metrics processor", "err", enhancedMetricsServiceErr)
+				logger.Warn("Couldn't initialize enhanced metrics service", "err", enhancedMetricsServiceErr)
 				enhancedMetricsService = nil
 			}
 		}
