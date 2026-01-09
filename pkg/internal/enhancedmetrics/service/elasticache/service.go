@@ -30,7 +30,7 @@ type Client interface {
 	DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error)
 }
 
-type buildElastiCacheMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
+type buildElastiCacheMetricFunc func(*model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
 type ElastiCache struct {
 	supportedMetrics map[string]buildElastiCacheMetricFunc
@@ -132,7 +132,7 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, cluster, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name](resource, cluster, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building elasticache enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
@@ -145,7 +145,7 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *ElastiCache) buildNumCacheNodesMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *ElastiCache) buildNumCacheNodesMetric(resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
 	if cluster.NumCacheNodes == nil {
 		return nil, fmt.Errorf("NumCacheNodes is nil for ElastiCache cluster %s", resource.ARN)
 	}

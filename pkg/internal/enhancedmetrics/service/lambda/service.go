@@ -30,7 +30,7 @@ type Client interface {
 	ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]types.FunctionConfiguration, error)
 }
 
-type buildLambdaMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
+type buildLambdaMetricFunc func(*model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
 type Lambda struct {
 	supportedMetrics map[string]buildLambdaMetricFunc
@@ -132,7 +132,7 @@ func (s *Lambda) GetMetrics(ctx context.Context,
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, fn, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name](resource, fn, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building Lambda enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
@@ -145,7 +145,7 @@ func (s *Lambda) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *Lambda) buildTimeoutMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *Lambda) buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {
 	if fn.Timeout == nil {
 		return nil, fmt.Errorf("timeout is nil for Lambda function %s", resource.ARN)
 	}

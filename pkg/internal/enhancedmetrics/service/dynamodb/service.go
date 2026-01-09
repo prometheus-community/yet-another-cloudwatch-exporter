@@ -30,7 +30,7 @@ type Client interface {
 	DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error)
 }
 
-type buildDynamoDBMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
+type buildDynamoDBMetricFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type DynamoDB struct {
 	supportedMetrics map[string]buildDynamoDBMetricFunc
@@ -133,7 +133,7 @@ func (s *DynamoDB) GetMetrics(
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, table, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name](resource, table, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building dynamodb enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
@@ -146,7 +146,7 @@ func (s *DynamoDB) GetMetrics(
 	return result, nil
 }
 
-func (s *DynamoDB) buildItemCountMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (s *DynamoDB) buildItemCountMetric(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {
 	if table.ItemCount == nil {
 		return nil, fmt.Errorf("ItemCount is nil for DynamoDB table %s", resource.ARN)
 	}

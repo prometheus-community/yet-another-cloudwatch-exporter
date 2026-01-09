@@ -30,7 +30,7 @@ type Client interface {
 	DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error)
 }
 
-type buildRDSMetricFunc func(context.Context, *slog.Logger, *model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
+type buildRDSMetricFunc func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type RDS struct {
 	supportedMetrics map[string]buildRDSMetricFunc
@@ -135,7 +135,7 @@ func (s *RDS) GetMetrics(ctx context.Context,
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](ctx, logger, resource, dbInstance, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name](resource, dbInstance, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building RDS enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
@@ -148,7 +148,7 @@ func (s *RDS) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *RDS) buildAllocatedStorageMetric(resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
 	if instance.AllocatedStorage == nil {
 		return nil, fmt.Errorf("AllocatedStorage is nil for DB instance %s", resource.ARN)
 	}
