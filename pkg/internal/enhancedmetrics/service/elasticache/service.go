@@ -47,7 +47,7 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 
 	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{
 		// The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
-		"NumCacheNodes": svc.buildNumCacheNodesMetric,
+		"NumCacheNodes": buildNumCacheNodesMetric,
 	}
 
 	return svc
@@ -145,7 +145,25 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *ElastiCache) buildNumCacheNodesMetric(resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *ElastiCache) ListRequiredPermissions() []string {
+	return []string{
+		"elasticache:DescribeCacheClusters",
+	}
+}
+
+func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}
+
+func (s *ElastiCache) Instance() service.EnhancedMetricsService {
+	return NewElastiCacheService(s.buildClientFunc)
+}
+
+func buildNumCacheNodesMetric(resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
 	if cluster.NumCacheNodes == nil {
 		return nil, fmt.Errorf("NumCacheNodes is nil for ElastiCache cluster %s", resource.ARN)
 	}
@@ -181,22 +199,4 @@ func (s *ElastiCache) buildNumCacheNodesMetric(resource *model.TaggedResource, c
 			},
 		},
 	}, nil
-}
-
-func (s *ElastiCache) ListRequiredPermissions() []string {
-	return []string{
-		"elasticache:DescribeCacheClusters",
-	}
-}
-
-func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {
-	var metrics []string
-	for metric := range s.supportedMetrics {
-		metrics = append(metrics, metric)
-	}
-	return metrics
-}
-
-func (s *ElastiCache) Instance() service.EnhancedMetricsService {
-	return NewElastiCacheService(s.buildClientFunc)
 }

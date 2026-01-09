@@ -47,7 +47,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 
 	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
 		// The count of items in the table, updated approximately every six hours; may not reflect recent changes.
-		"ItemCount": svc.buildItemCountMetric,
+		"ItemCount": buildItemCountMetric,
 	}
 
 	return svc
@@ -146,7 +146,26 @@ func (s *DynamoDB) GetMetrics(
 	return result, nil
 }
 
-func (s *DynamoDB) buildItemCountMetric(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {
+func (s *DynamoDB) ListRequiredPermissions() []string {
+	return []string{
+		"dynamodb:DescribeTable",
+		"dynamodb:ListTables",
+	}
+}
+
+func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}
+
+func (s *DynamoDB) Instance() service.EnhancedMetricsService {
+	return NewDynamoDBService(s.buildClientFunc)
+}
+
+func buildItemCountMetric(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {
 	if table.ItemCount == nil {
 		return nil, fmt.Errorf("ItemCount is nil for DynamoDB table %s", resource.ARN)
 	}
@@ -218,23 +237,4 @@ func (s *DynamoDB) buildItemCountMetric(resource *model.TaggedResource, table *t
 	}
 
 	return result, nil
-}
-
-func (s *DynamoDB) ListRequiredPermissions() []string {
-	return []string{
-		"dynamodb:DescribeTable",
-		"dynamodb:ListTables",
-	}
-}
-
-func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
-	var metrics []string
-	for metric := range s.supportedMetrics {
-		metrics = append(metrics, metric)
-	}
-	return metrics
-}
-
-func (s *DynamoDB) Instance() service.EnhancedMetricsService {
-	return NewDynamoDBService(s.buildClientFunc)
 }

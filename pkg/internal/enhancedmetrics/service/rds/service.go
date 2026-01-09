@@ -48,7 +48,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 
 	rds.supportedMetrics = map[string]buildRDSMetricFunc{
 		// The storage capacity in gibibytes (GiB) allocated for the DB instance.
-		"AllocatedStorage": rds.buildAllocatedStorageMetric,
+		"AllocatedStorage": buildAllocatedStorageMetric,
 	}
 
 	return rds
@@ -148,7 +148,25 @@ func (s *RDS) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *RDS) buildAllocatedStorageMetric(resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *RDS) ListRequiredPermissions() []string {
+	return []string{
+		"rds:DescribeDBInstances",
+	}
+}
+
+func (s *RDS) ListSupportedEnhancedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}
+
+func (s *RDS) Instance() service.EnhancedMetricsService {
+	return NewRDSService(s.buildClientFunc)
+}
+
+func buildAllocatedStorageMetric(resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {
 	if instance.AllocatedStorage == nil {
 		return nil, fmt.Errorf("AllocatedStorage is nil for DB instance %s", resource.ARN)
 	}
@@ -196,22 +214,4 @@ func (s *RDS) buildAllocatedStorageMetric(resource *model.TaggedResource, instan
 			},
 		},
 	}, nil
-}
-
-func (s *RDS) ListRequiredPermissions() []string {
-	return []string{
-		"rds:DescribeDBInstances",
-	}
-}
-
-func (s *RDS) ListSupportedEnhancedMetrics() []string {
-	var metrics []string
-	for metric := range s.supportedMetrics {
-		metrics = append(metrics, metric)
-	}
-	return metrics
-}
-
-func (s *RDS) Instance() service.EnhancedMetricsService {
-	return NewRDSService(s.buildClientFunc)
 }
