@@ -176,10 +176,11 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 		})
 	}
 
-	valueInGiB := float64(*instance.AllocatedStorage)
+	// Convert from GiB to bytes
+	valueInBytes := float64(*instance.AllocatedStorage) * 1024 * 1024 * 1024
 
 	return &model.CloudwatchData{
-		MetricName:   "StorageCapacity",
+		MetricName:   "AllocatedStorage",
 		ResourceName: resource.ARN,
 		Namespace:    "AWS/RDS",
 		Dimensions:   dimensions,
@@ -189,7 +190,7 @@ func (s *RDS) buildAllocatedStorageMetric(_ context.Context, _ *slog.Logger, res
 		GetMetricDataResult: &model.GetMetricDataResult{
 			DataPoints: []model.DataPoint{
 				{
-					Value:     &valueInGiB,
+					Value:     &valueInBytes,
 					Timestamp: time.Now(),
 				},
 			},

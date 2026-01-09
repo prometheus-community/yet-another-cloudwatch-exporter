@@ -85,6 +85,7 @@ func TestRDS_GetMetrics(t *testing.T) {
 		regionalData    map[string]*types.DBInstance
 		wantErr         bool
 		wantResultCount int
+		wantValues      []float64 // Expected values in bytes
 	}{
 		{
 			name:            "empty resources",
@@ -125,6 +126,7 @@ func TestRDS_GetMetrics(t *testing.T) {
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
 			wantResultCount: 1,
+			wantValues:      []float64{107374182400}, // 100 GiB in bytes
 		},
 		{
 			name:            "resource not found in metadata",
@@ -155,6 +157,7 @@ func TestRDS_GetMetrics(t *testing.T) {
 				"arn:aws:rds:us-east-1:123456789012:db:test-instance-2": makeTestDBInstance("test-instance-2", 200),
 			},
 			wantResultCount: 2,
+			wantValues:      []float64{107374182400, 214748364800}, // 100 and 200 GiB in bytes
 		},
 	}
 
@@ -181,11 +184,20 @@ func TestRDS_GetMetrics(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, result, tt.wantResultCount)
 
-			for _, metric := range result {
+			for i, metric := range result {
 				require.Equal(t, "AWS/RDS", metric.Namespace)
 				require.NotEmpty(t, metric.Dimensions)
 				require.NotNil(t, metric.GetMetricDataResult)
 				require.Nil(t, metric.GetMetricStatisticsResult)
+
+				// Validate the actual value if wantValues is specified
+				if len(tt.wantValues) > 0 {
+					require.NotNil(t, metric.GetMetricDataResult.DataPoints)
+					require.Len(t, metric.GetMetricDataResult.DataPoints, 1)
+					require.NotNil(t, metric.GetMetricDataResult.DataPoints[0].Value)
+					require.Equal(t, tt.wantValues[i], *metric.GetMetricDataResult.DataPoints[0].Value,
+						"expected value in bytes for AllocatedStorage")
+				}
 			}
 		})
 	}
