@@ -26,6 +26,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+const awsElastiCacheNamespace = "AWS/ElastiCache"
+
 type Client interface {
 	DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error)
 }
@@ -54,7 +56,7 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 }
 
 func (s *ElastiCache) GetNamespace() string {
-	return "AWS/ElastiCache"
+	return awsElastiCacheNamespace
 }
 
 func (s *ElastiCache) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.CacheCluster, error) {

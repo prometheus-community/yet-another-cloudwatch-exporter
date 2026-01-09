@@ -26,6 +26,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+const awsDynamoDBNamespace = "AWS/DynamoDB"
+
 type Client interface {
 	DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error)
 }
@@ -54,7 +56,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 }
 
 func (s *DynamoDB) GetNamespace() string {
-	return "AWS/DynamoDB"
+	return awsDynamoDBNamespace
 }
 
 func (s *DynamoDB) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.TableDescription, error) {

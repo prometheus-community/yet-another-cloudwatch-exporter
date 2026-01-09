@@ -53,7 +53,7 @@ func TestNewDynamoDBService(t *testing.T) {
 
 func TestDynamoDB_GetNamespace(t *testing.T) {
 	service := NewDynamoDBService(nil)
-	expectedNamespace := "AWS/DynamoDB"
+	expectedNamespace := awsDynamoDBNamespace
 	require.Equal(t, expectedNamespace, service.GetNamespace())
 }
 
@@ -96,7 +96,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources",
-			namespace:       "AWS/DynamoDB",
+			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			tables:          defaultTables,
@@ -105,7 +105,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       "AWS/DynamoDB",
+			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			tables:          defaultTables,
@@ -123,7 +123,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "metadata not loaded",
-			namespace:       "AWS/DynamoDB",
+			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			describeErr:     true,
@@ -132,7 +132,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "successfully received metric",
-			namespace: "AWS/DynamoDB",
+			namespace: awsDynamoDBNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
 			},
@@ -143,7 +143,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "successfully received metric with global secondary indexes",
-			namespace: "AWS/DynamoDB",
+			namespace: awsDynamoDBNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"},
 			},
@@ -170,7 +170,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "resource not found in metadata",
-			namespace: "AWS/DynamoDB",
+			namespace: awsDynamoDBNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},
 			},
@@ -181,7 +181,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "unsupported metric",
-			namespace: "AWS/DynamoDB",
+			namespace: awsDynamoDBNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
 			},
@@ -192,7 +192,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "multiple resources and metrics",
-			namespace: "AWS/DynamoDB",
+			namespace: awsDynamoDBNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1"},
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2"},
@@ -247,7 +247,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			if tt.wantResultCount > 0 {
 				for _, metric := range result {
 					require.NotNil(t, metric)
-					require.Equal(t, "AWS/DynamoDB", metric.Namespace)
+					require.Equal(t, awsDynamoDBNamespace, metric.Namespace)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
 					require.Nil(t, metric.GetMetricStatisticsResult)

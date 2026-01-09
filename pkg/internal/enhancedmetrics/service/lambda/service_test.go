@@ -53,7 +53,7 @@ func TestNewLambdaService(t *testing.T) {
 
 func TestLambda_GetNamespace(t *testing.T) {
 	service := NewLambdaService(nil)
-	expectedNamespace := "AWS/Lambda"
+	expectedNamespace := awsLambdaNamespace
 	require.Equal(t, expectedNamespace, service.GetNamespace())
 }
 
@@ -94,7 +94,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources returns empty",
-			namespace:       "AWS/Lambda",
+			namespace:       awsLambdaNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
@@ -102,7 +102,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics returns empty",
-			namespace:       "AWS/Lambda",
+			namespace:       awsLambdaNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
@@ -117,7 +117,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "successfully received single metric",
-			namespace: "AWS/Lambda",
+			namespace: awsLambdaNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
 			},
@@ -127,7 +127,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "skips unsupported metrics",
-			namespace: "AWS/Lambda",
+			namespace: awsLambdaNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
 			},
@@ -137,7 +137,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "processes multiple resources",
-			namespace: "AWS/Lambda",
+			namespace: awsLambdaNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func1"},
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func2"},
@@ -175,7 +175,7 @@ func TestLambda_GetMetrics(t *testing.T) {
 			require.Len(t, result, tt.wantCount)
 
 			for _, metric := range result {
-				require.Equal(t, "AWS/Lambda", metric.Namespace)
+				require.Equal(t, awsLambdaNamespace, metric.Namespace)
 				require.NotEmpty(t, metric.Dimensions)
 				require.NotNil(t, metric.GetMetricDataResult)
 			}

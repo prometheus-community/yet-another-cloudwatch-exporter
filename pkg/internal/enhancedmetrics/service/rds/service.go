@@ -26,6 +26,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+const awsRdsNamespace = "AWS/RDS"
+
 type Client interface {
 	DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error)
 }
@@ -56,7 +58,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 
 // GetNamespace returns the AWS CloudWatch namespace for RDS
 func (s *RDS) GetNamespace() string {
-	return "AWS/RDS"
+	return awsRdsNamespace
 }
 
 // loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
@@ -200,7 +202,7 @@ func buildAllocatedStorageMetric(resource *model.TaggedResource, instance *types
 	return &model.CloudwatchData{
 		MetricName:   "AllocatedStorage",
 		ResourceName: resource.ARN,
-		Namespace:    "AWS/RDS",
+		Namespace:    awsRdsNamespace,
 		Dimensions:   dimensions,
 		Tags:         resource.MetricTags(exportedTags),
 

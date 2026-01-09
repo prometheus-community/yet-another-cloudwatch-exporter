@@ -26,6 +26,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+const awsLambdaNamespace = "AWS/Lambda"
+
 type Client interface {
 	ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]types.FunctionConfiguration, error)
 }
@@ -54,7 +56,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 }
 
 func (s *Lambda) GetNamespace() string {
-	return "AWS/Lambda"
+	return awsLambdaNamespace
 }
 
 func (s *Lambda) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.FunctionConfiguration, error) {
