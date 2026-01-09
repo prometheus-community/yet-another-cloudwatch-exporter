@@ -53,7 +53,7 @@ func TestNewElastiCacheService(t *testing.T) {
 
 func TestElastiCache_GetNamespace(t *testing.T) {
 	service := NewElastiCacheService(nil)
-	expectedNamespace := "AWS/ElastiCache"
+	expectedNamespace := awsElastiCacheNamespace
 	require.Equal(t, expectedNamespace, service.GetNamespace())
 }
 
@@ -93,7 +93,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -101,7 +101,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			clusters:        []types.CacheCluster{testCluster},
@@ -117,7 +117,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "describe error",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			describeErr:     true,
@@ -125,7 +125,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "successfully received metric",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -133,7 +133,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "resource not found in metadata",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:non-existent"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -141,7 +141,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "unsupported metric",
-			namespace:       "AWS/ElastiCache",
+			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -149,7 +149,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:      "multiple resources and metrics",
-			namespace: "AWS/ElastiCache",
+			namespace: awsElastiCacheNamespace,
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1"},
 				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2"},
@@ -202,7 +202,7 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 			if tt.wantResultCount > 0 {
 				for _, metric := range result {
 					require.NotNil(t, metric)
-					require.Equal(t, "AWS/ElastiCache", metric.Namespace)
+					require.Equal(t, awsElastiCacheNamespace, metric.Namespace)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
 					require.Empty(t, metric.GetMetricDataResult.Statistic)
