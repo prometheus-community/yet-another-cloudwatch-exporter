@@ -47,7 +47,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 
 	svc.supportedMetrics = map[string]buildLambdaMetricFunc{
 		// The maximum execution duration permitted for the function before termination.
-		"Timeout": svc.buildTimeoutMetric,
+		"Timeout": buildTimeoutMetric,
 	}
 
 	return svc
@@ -145,7 +145,25 @@ func (s *Lambda) GetMetrics(ctx context.Context,
 	return result, nil
 }
 
-func (s *Lambda) buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {
+func (s *Lambda) ListRequiredPermissions() []string {
+	return []string{
+		"lambda:ListFunctions",
+	}
+}
+
+func (s *Lambda) ListSupportedEnhancedMetrics() []string {
+	var metrics []string
+	for metric := range s.supportedMetrics {
+		metrics = append(metrics, metric)
+	}
+	return metrics
+}
+
+func (s *Lambda) Instance() service.EnhancedMetricsService {
+	return NewLambdaService(s.buildClientFunc)
+}
+
+func buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {
 	if fn.Timeout == nil {
 		return nil, fmt.Errorf("timeout is nil for Lambda function %s", resource.ARN)
 	}
@@ -174,22 +192,4 @@ func (s *Lambda) buildTimeoutMetric(resource *model.TaggedResource, fn *types.Fu
 			},
 		},
 	}, nil
-}
-
-func (s *Lambda) ListRequiredPermissions() []string {
-	return []string{
-		"lambda:ListFunctions",
-	}
-}
-
-func (s *Lambda) ListSupportedEnhancedMetrics() []string {
-	var metrics []string
-	for metric := range s.supportedMetrics {
-		metrics = append(metrics, metric)
-	}
-	return metrics
-}
-
-func (s *Lambda) Instance() service.EnhancedMetricsService {
-	return NewLambdaService(s.buildClientFunc)
 }
