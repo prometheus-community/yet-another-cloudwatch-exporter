@@ -43,6 +43,17 @@ type DiscoveryJob struct {
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
 	DimensionsRegexps           []DimensionsRegexp
+
+	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
+	EnhancedMetrics []*EnhancedMetricConfig
+}
+
+func (d *DiscoveryJob) HasEnhancedMetrics() bool {
+	return len(d.EnhancedMetrics) > 0
+}
+
+type EnhancedMetricConfig struct {
+	Name string
 }
 
 type StaticJob struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -35,6 +36,20 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
+type enhancedMetricsService interface {
+	GetMetrics(
+		ctx context.Context,
+		logger *slog.Logger,
+		namespace string,
+		resources []*model.TaggedResource,
+		metrics []*model.EnhancedMetricConfig,
+		exportedTagOnMetrics []string,
+		region string,
+		role model.Role,
+		enhancedMetricsServiceRegistry enhancedmetrics.MetricsServiceRegistry,
+	) ([]*model.CloudwatchData, error)
+}
+
 func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -43,6 +58,8 @@ func runDiscoveryJob(
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
+	enhancedMetricsService enhancedMetricsService,
+	role model.Role,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
@@ -61,19 +78,44 @@ func runDiscoveryJob(
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
-	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
-	if len(getMetricDatas) == 0 {
+	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
+
+	if len(metricData) > 0 && svc != nil {
+		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
+		if err != nil {
+			logger.Error("Failed to get metric data", "err", err)
+
+			// ensure we do not return cw metrics on data processing failure
+			metricData = nil
+		}
+	} else {
 		logger.Info("No metrics data found")
-		return resources, nil
 	}
 
-	getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
+	if enhancedMetricsService == nil || !job.HasEnhancedMetrics() || svc == nil {
+		return resources, metricData
+	}
+
+	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
+	enhancedMetricData, err := enhancedMetricsService.GetMetrics(
+		ctx,
+		logger,
+		svc.Namespace,
+		resources,
+		job.EnhancedMetrics,
+		job.ExportedTagsOnMetrics,
+		region,
+		role,
+		enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
+	)
 	if err != nil {
-		logger.Error("Failed to get metric data", "err", err)
-		return nil, nil
+		logger.Error("Failed to get enhanced metrics", "err", err)
+		return resources, metricData
 	}
 
-	return resources, getMetricDatas
+	metricData = append(metricData, enhancedMetricData...)
+
+	return resources, metricData
 }
 
 func getMetricDataForQueries(

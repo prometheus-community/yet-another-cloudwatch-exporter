@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -38,7 +39,27 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
+	var enhancedMetricsServiceErr error
+	var enhancedMetricsService *enhancedmetrics.Service
+
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+		// initialize enhanced metrics service only if:
+		// - the current discovery job has enhanced metrics configured
+		// - the enhanced metrics service is not already initialized
+		// - there was no error initializing the enhanced metrics processor previously
+		//
+		// if the initialization fails, we log the error and continue without enhanced metrics
+		if discoveryJob.HasEnhancedMetrics() &&
+			enhancedMetricsService == nil &&
+			enhancedMetricsServiceErr == nil {
+
+			enhancedMetricsService, enhancedMetricsServiceErr = enhancedmetrics.NewService(factory)
+			if enhancedMetricsServiceErr != nil {
+				logger.Warn("Couldn't initialize enhanced metrics service", "err", enhancedMetricsServiceErr)
+				enhancedMetricsService = nil
+			}
+		}
+
 		for _, role := range discoveryJob.Roles {
 			for _, region := range discoveryJob.Regions {
 				wg.Add(1)
@@ -59,7 +80,19 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
+
+					resources, metrics := runDiscoveryJob(
+						ctx,
+						jobLogger,
+						discoveryJob,
+						region,
+						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
+						cloudwatchClient,
+						gmdProcessor,
+						enhancedMetricsService,
+						role,
+					)
+
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0

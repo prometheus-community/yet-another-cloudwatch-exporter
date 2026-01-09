@@ -56,17 +56,22 @@ type JobLevelMetricFields struct {
 }
 
 type Job struct {
-	Regions                     []string  `yaml:"regions"`
-	Type                        string    `yaml:"type"`
-	Roles                       []Role    `yaml:"roles"`
-	SearchTags                  []Tag     `yaml:"searchTags"`
-	CustomTags                  []Tag     `yaml:"customTags"`
-	DimensionNameRequirements   []string  `yaml:"dimensionNameRequirements"`
-	Metrics                     []*Metric `yaml:"metrics"`
-	RoundingPeriod              *int64    `yaml:"roundingPeriod"`
-	RecentlyActiveOnly          bool      `yaml:"recentlyActiveOnly"`
-	IncludeContextOnInfoMetrics bool      `yaml:"includeContextOnInfoMetrics"`
+	Regions                     []string          `yaml:"regions"`
+	Type                        string            `yaml:"type"`
+	Roles                       []Role            `yaml:"roles"`
+	SearchTags                  []Tag             `yaml:"searchTags"`
+	CustomTags                  []Tag             `yaml:"customTags"`
+	DimensionNameRequirements   []string          `yaml:"dimensionNameRequirements"`
+	Metrics                     []*Metric         `yaml:"metrics"`
+	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
+	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
+	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
+	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
 	JobLevelMetricFields        `yaml:",inline"`
+}
+
+type EnhancedMetric struct {
+	Name string `yaml:"name"`
 }
 
 type Static struct {
@@ -238,7 +243,7 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 	if len(j.Regions) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Regions should not be empty", j.Type, jobIdx)
 	}
-	if len(j.Metrics) == 0 {
+	if len(j.Metrics) == 0 && len(j.EnhancedMetrics) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Metrics should not be empty", j.Type, jobIdx)
 	}
 	for metricIdx, metric := range j.Metrics {
@@ -438,6 +443,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
+		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
 
 		job.ExportedTagsOnMetrics = []string{}
 		if len(c.Discovery.ExportedTagsOnMetrics) > 0 {
