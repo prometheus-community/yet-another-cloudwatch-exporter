@@ -74,7 +74,7 @@ func TestDynamoDB_ListSupportedEnhancedMetrics(t *testing.T) {
 	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
 }
 
-func TestDynamoDB_Process(t *testing.T) {
+func TestDynamoDB_GetMetrics(t *testing.T) {
 	defaultTables := []types.TableDescription{
 		{
 			TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table"),
@@ -131,7 +131,7 @@ func TestDynamoDB_Process(t *testing.T) {
 			wantResultCount: 0,
 		},
 		{
-			name:      "successfully process metric",
+			name:      "successfully received metric",
 			namespace: "AWS/DynamoDB",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
@@ -142,7 +142,7 @@ func TestDynamoDB_Process(t *testing.T) {
 			wantResultCount: 1,
 		},
 		{
-			name:      "successfully process metric with global secondary indexes",
+			name:      "successfully received metric with global secondary indexes",
 			namespace: "AWS/DynamoDB",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"},

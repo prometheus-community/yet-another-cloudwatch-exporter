@@ -28,15 +28,12 @@ type MetricsServiceRegistry interface {
 	GetEnhancedMetricsService(namespace string) (service.EnhancedMetricsService, error)
 }
 
-// Service is responsible for processing enhanced metrics using appropriate services. It manages multiple enhanced metrics services for different namespaces.
-// It ensures that each service is initialized only once and provides thread-safe access to these services.
-// The Service uses a RegionalConfigProvider to obtain AWS configurations for different regions and roles.
-// It is intended to be used in the scope of a single scrape operation.
+// Service is responsible for getting enhanced metrics using appropriate services.
 type Service struct {
 	ConfigProvider config.RegionalConfigProvider
 }
 
-// GetMetrics processes the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
+// GetMetrics returns the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
 func (ep *Service) GetMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
