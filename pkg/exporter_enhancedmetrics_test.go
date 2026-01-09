@@ -204,9 +204,9 @@ func TestUpdateMetrics_WithEnhancedMetrics_RDS(t *testing.T) {
 		# HELP aws_rds_info Help is not implemented yet.
 		# TYPE aws_rds_info gauge
 		aws_rds_info{name="arn:aws:rds:us-east-1:123456789012:db:test-db",tag_Name="test-db"} 0
-		# HELP aws_rds_storage_capacity Help is not implemented yet.
-		# TYPE aws_rds_storage_capacity gauge
-		aws_rds_storage_capacity{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="test-db",name="arn:aws:rds:us-east-1:123456789012:db:test-db",region="us-east-1",tag_Name="test-db"} 100
+		# HELP aws_rds_allocated_storage Help is not implemented yet.
+		# TYPE aws_rds_allocated_storage gauge
+		aws_rds_allocated_storage{account_alias="test-account",account_id="123456789012",dimension_DBInstanceIdentifier="test-db",name="arn:aws:rds:us-east-1:123456789012:db:test-db",region="us-east-1",tag_Name="test-db"} 1.073741824e+11
 `
 
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
