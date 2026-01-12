@@ -60,7 +60,7 @@ func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Log
 			MaxRecords: maxRecords,
 			Filters: []types.Filter{
 				{
-					Name:   aws.String("db-instance-status"),
+					Name:   aws.String("db-instance-id"),
 					Values: dbInstances,
 				},
 			},

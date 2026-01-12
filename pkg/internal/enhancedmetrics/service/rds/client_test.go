@@ -26,15 +26,20 @@ import (
 
 func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 	tests := []struct {
-		name    string
-		client  awsClient
-		want    []types.DBInstance
-		wantErr bool
+		name      string
+		client    awsClient
+		want      []types.DBInstance
+		wantErr   bool
+		instances []string
 	}{
 		{
-			name: "success - single page",
+			name:      "success - single page",
+			instances: []string{"db-1"},
 			client: &mockRDSClient{
-				describeDBInstancesFunc: func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+				describeDBInstancesFunc: func(_ context.Context, params *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					if len(params.Filters) != 1 || *params.Filters[0].Name != "db-instance-id" {
+						return nil, fmt.Errorf("unexpected filter: %v", params.Filters)
+					}
 					return &rds.DescribeDBInstancesOutput{
 						DBInstances: []types.DBInstance{
 							{DBInstanceIdentifier: aws.String("db-1")},
@@ -49,11 +54,19 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "success - multiple pages",
+			name:      "success - multiple pages",
+			instances: []string{"db-1", "db-2"},
 			client: &mockRDSClient{
-				describeDBInstancesFunc: func() func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+				describeDBInstancesFunc: func() func(_ context.Context, params *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 					callCount := 0
-					return func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					return func(_ context.Context, params *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+						if len(params.Filters) != 1 || *params.Filters[0].Name != "db-instance-id" {
+							return nil, fmt.Errorf("unexpected filter: %v", params.Filters)
+						}
+						if params.Filters[0].Values[0] != "db-1" || params.Filters[0].Values[1] != "db-2" {
+							return nil, fmt.Errorf("unexpected filter values: %v", params.Filters[0].Values)
+						}
+
 						callCount++
 						if callCount == 1 {
 							return &rds.DescribeDBInstancesOutput{
@@ -94,7 +107,7 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 			c := &AWSRDSClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeDBInstances(context.Background(), slog.New(slog.DiscardHandler), nil)
+			got, err := c.DescribeDBInstances(context.Background(), slog.New(slog.DiscardHandler), tt.instances)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DescribeDBInstances() error = %v, wantErr %v", err, tt.wantErr)
 				return
