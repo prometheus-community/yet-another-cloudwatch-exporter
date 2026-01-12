@@ -83,7 +83,6 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		namespace       string
 		resources       []*model.TaggedResource
 		enhancedMetrics []*model.EnhancedMetricConfig
 		clusters        []types.CacheCluster
@@ -93,7 +92,6 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources",
-			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -101,7 +99,6 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			clusters:        []types.CacheCluster{testCluster},
@@ -109,15 +106,12 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "wrong namespace",
-			namespace:       "AWS/EC2",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
-			clusters:        []types.CacheCluster{testCluster},
-			wantErr:         true,
+			wantErr:         false,
 		},
 		{
 			name:            "describe error",
-			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			describeErr:     true,
@@ -125,15 +119,13 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "successfully received metric",
-			namespace:       awsElastiCacheNamespace,
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"}},
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster", Namespace: awsElastiCacheNamespace}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
 			wantResultCount: 1,
 		},
 		{
 			name:            "resource not found in metadata",
-			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:non-existent"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters:        []types.CacheCluster{testCluster},
@@ -141,18 +133,16 @@ func TestElastiCache_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "unsupported metric",
-			namespace:       awsElastiCacheNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
 			clusters:        []types.CacheCluster{testCluster},
 			wantResultCount: 0,
 		},
 		{
-			name:      "multiple resources and metrics",
-			namespace: awsElastiCacheNamespace,
+			name: "multiple resources and metrics",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1"},
-				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2"},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-1", Namespace: awsElastiCacheNamespace},
+				{ARN: "arn:aws:elasticache:us-east-1:123456789012:cluster:test-cluster-2", Namespace: awsElastiCacheNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "NumCacheNodes"}},
 			clusters: []types.CacheCluster{

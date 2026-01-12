@@ -88,6 +88,10 @@ func (m *mockMetricsService) GetMetrics(context.Context, *slog.Logger, []*model.
 	return m.result, m.err
 }
 
+func (m *mockMetricsService) IsMetricSupported(_ string) bool {
+	return true
+}
+
 func (m *mockMetricsService) getGetMetricsCalled() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

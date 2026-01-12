@@ -90,20 +90,6 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 		return nil, nil
 	}
 
-	// filter only supported enhanced metrics
-	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
-	for _, em := range enhancedMetricConfigs {
-		if s.IsMetricSupported(em.Name) {
-			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
-		} else {
-			logger.Warn("enhanced metric not supported, skipping", "metric", em.Name)
-		}
-	}
-
-	if len(enhancedMetricsFiltered) == 0 {
-		return nil, nil
-	}
-
 	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
@@ -129,7 +115,7 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 			continue
 		}
 
-		for _, enhancedMetric := range enhancedMetricsFiltered {
+		for _, enhancedMetric := range enhancedMetricConfigs {
 			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
 			if !ok {
 				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)

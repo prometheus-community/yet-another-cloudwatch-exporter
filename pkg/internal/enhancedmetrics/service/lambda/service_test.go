@@ -85,7 +85,6 @@ func TestLambda_GetMetrics(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		namespace       string
 		resources       []*model.TaggedResource
 		enhancedMetrics []*model.EnhancedMetricConfig
 		functions       []types.FunctionConfiguration
@@ -94,7 +93,6 @@ func TestLambda_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources returns empty",
-			namespace:       awsLambdaNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
@@ -102,7 +100,6 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics returns empty",
-			namespace:       awsLambdaNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
@@ -110,24 +107,21 @@ func TestLambda_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "wrong namespace returns error",
-			namespace:       "AWS/EC2",
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
-			wantErr:         true,
+			wantErr:         false,
 		},
 		{
-			name:      "successfully received single metric",
-			namespace: awsLambdaNamespace,
+			name: "successfully received single metric",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test", Namespace: awsLambdaNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("test", 300)},
 			wantCount:       1,
 		},
 		{
-			name:      "skips unsupported metrics",
-			namespace: awsLambdaNamespace,
+			name: "skips unsupported metrics",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test"},
 			},
@@ -136,11 +130,10 @@ func TestLambda_GetMetrics(t *testing.T) {
 			wantCount:       0,
 		},
 		{
-			name:      "processes multiple resources",
-			namespace: awsLambdaNamespace,
+			name: "processes multiple resources",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func1"},
-				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func2"},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func1", Namespace: awsLambdaNamespace},
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:func2", Namespace: awsLambdaNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}},
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("func1", 300), makeFunctionConfiguration("func2", 600)},

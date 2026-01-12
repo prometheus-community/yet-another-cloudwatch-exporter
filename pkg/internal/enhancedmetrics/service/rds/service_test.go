@@ -79,7 +79,6 @@ func TestRDS_GetMetrics(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		namespace       string
 		resources       []*model.TaggedResource
 		enhancedMetrics []*model.EnhancedMetricConfig
 		regionalData    map[string]*types.DBInstance
@@ -89,7 +88,6 @@ func TestRDS_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources",
-			namespace:       awsRdsNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
@@ -97,7 +95,6 @@ func TestRDS_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       awsRdsNamespace,
 			resources:       []*model.TaggedResource{{ARN: testARN}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
@@ -105,15 +102,13 @@ func TestRDS_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "wrong namespace",
-			namespace:       "AWS/EC2",
 			resources:       []*model.TaggedResource{{ARN: testARN}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
-			wantErr:         true,
+			wantErr:         false,
 		},
 		{
 			name:            "metadata not loaded",
-			namespace:       awsRdsNamespace,
 			resources:       []*model.TaggedResource{{ARN: testARN}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    nil,
@@ -121,8 +116,7 @@ func TestRDS_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "successfully received metric",
-			namespace:       awsRdsNamespace,
-			resources:       []*model.TaggedResource{{ARN: testARN}},
+			resources:       []*model.TaggedResource{{ARN: testARN, Namespace: awsRdsNamespace}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
 			wantResultCount: 1,
@@ -130,7 +124,6 @@ func TestRDS_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "resource not found in metadata",
-			namespace:       awsRdsNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:rds:us-east-1:123456789012:db:non-existent"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
@@ -138,18 +131,16 @@ func TestRDS_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "unsupported metric",
-			namespace:       awsRdsNamespace,
 			resources:       []*model.TaggedResource{{ARN: testARN}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "UnsupportedMetric"}},
 			regionalData:    map[string]*types.DBInstance{testARN: testInstance},
 			wantResultCount: 0,
 		},
 		{
-			name:      "multiple resources",
-			namespace: awsRdsNamespace,
+			name: "multiple resources",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-1"},
-				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-2"},
+				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-1", Namespace: awsRdsNamespace},
+				{ARN: "arn:aws:rds:us-east-1:123456789012:db:test-instance-2", Namespace: awsRdsNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
 			regionalData: map[string]*types.DBInstance{

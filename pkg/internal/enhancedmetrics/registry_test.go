@@ -29,15 +29,23 @@ import (
 
 // registryMockMetricsService is a mock implementation of service.EnhancedMetricsService for testing the registry
 type registryMockMetricsService struct {
-	namespace string
-	procFunc  func(ctx context.Context, logger *slog.Logger, namespace string, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error)
+	namespace             string
+	getMetricsFunc        func(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error)
+	isMetricSupportedFunc func(metricName string) bool
 }
 
 func (m *registryMockMetricsService) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
-	if m.procFunc != nil {
-		return m.procFunc(ctx, logger, namespace, resources, metrics, exportedTagOnMetrics, region, role, regionalConfigProvider)
+	if m.getMetricsFunc != nil {
+		return m.getMetricsFunc(ctx, logger, resources, enhancedMetricConfigs, exportedTagOnMetrics, region, role, regionalConfigProvider)
 	}
 	return nil, nil
+}
+
+func (m *registryMockMetricsService) IsMetricSupported(metricName string) bool {
+	if m.isMetricSupportedFunc != nil {
+		return m.isMetricSupportedFunc(metricName)
+	}
+	return false
 }
 
 // registryMockMetricsServiceWrapper wraps the mock service to implement MetricsService interface

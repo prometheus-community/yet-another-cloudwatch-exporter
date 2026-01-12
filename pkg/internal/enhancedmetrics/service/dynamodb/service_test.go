@@ -85,7 +85,6 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		namespace            string
 		resources            []*model.TaggedResource
 		enhancedMetrics      []*model.EnhancedMetricConfig
 		exportedTagOnMetrics []string
@@ -96,7 +95,6 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 	}{
 		{
 			name:            "empty resources",
-			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			tables:          defaultTables,
@@ -105,7 +103,6 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "empty enhanced metrics",
-			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{},
 			tables:          defaultTables,
@@ -114,16 +111,14 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		},
 		{
 			name:            "wrong namespace",
-			namespace:       "AWS/EC2",
-			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
+			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test", Namespace: awsDynamoDBNamespace}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			tables:          defaultTables,
-			wantErr:         true,
+			wantErr:         false,
 			wantResultCount: 0,
 		},
 		{
 			name:            "metadata not loaded",
-			namespace:       awsDynamoDBNamespace,
 			resources:       []*model.TaggedResource{{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test"}},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			describeErr:     true,
@@ -131,10 +126,9 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 0,
 		},
 		{
-			name:      "successfully received metric",
-			namespace: awsDynamoDBNamespace,
+			name: "successfully received metric",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table", Namespace: awsDynamoDBNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			tables:          defaultTables,
@@ -142,10 +136,9 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 1,
 		},
 		{
-			name:      "successfully received metric with global secondary indexes",
-			namespace: awsDynamoDBNamespace,
+			name: "successfully received metric with global secondary indexes",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi", Namespace: awsDynamoDBNamespace},
 			},
 			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			tables: []types.TableDescription{
@@ -169,8 +162,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 3, // 1 for table + 2 for GSIs
 		},
 		{
-			name:      "resource not found in metadata",
-			namespace: awsDynamoDBNamespace,
+			name: "resource not found in metadata",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},
 			},
@@ -180,8 +172,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 0,
 		},
 		{
-			name:      "unsupported metric",
-			namespace: awsDynamoDBNamespace,
+			name: "unsupported metric",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
 			},
@@ -191,11 +182,10 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 0,
 		},
 		{
-			name:      "multiple resources and metrics",
-			namespace: awsDynamoDBNamespace,
+			name: "multiple resources and metrics",
 			resources: []*model.TaggedResource{
-				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1"},
-				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2"},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-1", Namespace: awsDynamoDBNamespace},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-2", Namespace: awsDynamoDBNamespace},
 			},
 			enhancedMetrics:      []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
 			exportedTagOnMetrics: []string{"Name"},
