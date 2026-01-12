@@ -83,27 +83,13 @@ func (s *RDS) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, regi
 	return regionalData, nil
 }
 
-func (s *RDS) isMetricSupported(metricName string) bool {
+func (s *RDS) IsMetricSupported(metricName string) bool {
 	_, exists := s.supportedMetrics[metricName]
 	return exists
 }
 
 func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
-		return nil, nil
-	}
-
-	// filter only supported enhanced metrics
-	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
-	for _, em := range enhancedMetricConfigs {
-		if s.isMetricSupported(em.Name) {
-			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
-		} else {
-			logger.Warn("enhanced metric not supported, skipping", "metric", em.Name)
-		}
-	}
-
-	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
@@ -132,8 +118,14 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 			continue
 		}
 
-		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, dbInstance, exportedTagOnMetrics)
+		for _, enhancedMetric := range enhancedMetricConfigs {
+			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			if !ok {
+				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				continue
+			}
+
+			em, err := metricBuilder.buildEnhancedMetric(resource, dbInstance, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building RDS enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

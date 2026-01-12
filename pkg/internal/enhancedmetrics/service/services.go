@@ -22,15 +22,19 @@ import (
 
 type EnhancedMetricsService interface {
 	// GetMetrics returns enhanced metrics for the given resources and enhancedMetricConfigs.
-	// EnhancedMetricConfigs should be filtered by the implementation to only include metrics supported by this service.
+	// filteredResources are the resources that belong to the service's namespace.
+	// filteredEnhancedMetricConfigs are the enhanced metric configs that belong to the service's namespace and are supported by the service.
 	GetMetrics(
 		ctx context.Context,
 		logger *slog.Logger,
-		resources []*model.TaggedResource,
-		enhancedMetricConfigs []*model.EnhancedMetricConfig,
+		filteredResources []*model.TaggedResource,
+		filteredEnhancedMetricConfigs []*model.EnhancedMetricConfig,
 		exportedTagOnMetrics []string,
 		region string,
 		role model.Role,
 		regionalConfigProvider config.RegionalConfigProvider,
 	) ([]*model.CloudwatchData, error)
+
+	// IsMetricSupported checks if the given metric name is supported by this service.
+	IsMetricSupported(metricName string) bool
 }

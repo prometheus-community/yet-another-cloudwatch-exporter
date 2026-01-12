@@ -55,10 +55,29 @@ func (ep *Service) GetMetrics(
 	for _, res := range resources {
 		if res.Namespace == namespace {
 			filteredResources = append(filteredResources, res)
+		} else {
+			logger.Debug("Skipping resource for enhanced metric service due to namespace mismatch",
+				"expected_namespace", namespace,
+				"resource_namespace", res.Namespace,
+				"resource_arn", res.ARN,
+			)
 		}
 	}
 
-	return svc.GetMetrics(ctx, logger, filteredResources, metrics, exportedTagOnMetrics, region, role, ep.configProvider)
+	// filter out metrics that are not supported by the service
+	var filteredMetrics []*model.EnhancedMetricConfig
+	for _, metric := range metrics {
+		if svc.IsMetricSupported(metric.Name) {
+			filteredMetrics = append(filteredMetrics, metric)
+		} else {
+			logger.Debug("Skipping unsupported enhanced metric for service",
+				"namespace", namespace,
+				"metric", metric.Name,
+			)
+		}
+	}
+
+	return svc.GetMetrics(ctx, logger, filteredResources, filteredMetrics, exportedTagOnMetrics, region, role, ep.configProvider)
 }
 
 func NewService(

@@ -80,7 +80,7 @@ func (s *ElastiCache) loadMetricsMetadata(ctx context.Context, logger *slog.Logg
 	return regionalData, nil
 }
 
-func (s *ElastiCache) isMetricSupported(metricName string) bool {
+func (s *ElastiCache) IsMetricSupported(metricName string) bool {
 	_, exists := s.supportedMetrics[metricName]
 	return exists
 }
@@ -93,7 +93,7 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 	// filter only supported enhanced metrics
 	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
 	for _, em := range enhancedMetricConfigs {
-		if s.isMetricSupported(em.Name) {
+		if s.IsMetricSupported(em.Name) {
 			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
 		} else {
 			logger.Warn("enhanced metric not supported, skipping", "metric", em.Name)
@@ -130,7 +130,13 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, elastiCacheCluster, exportedTagOnMetrics)
+			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			if !ok {
+				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				continue
+			}
+
+			em, err := metricBuilder.buildEnhancedMetric(resource, elastiCacheCluster, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building elasticache enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

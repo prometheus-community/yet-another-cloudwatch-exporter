@@ -80,27 +80,13 @@ func (s *DynamoDB) loadMetricsMetadata(ctx context.Context, logger *slog.Logger,
 	return regionalData, nil
 }
 
-func (s *DynamoDB) isMetricSupported(metricName string) bool {
+func (s *DynamoDB) IsMetricSupported(metricName string) bool {
 	_, exists := s.supportedMetrics[metricName]
 	return exists
 }
 
 func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
-		return nil, nil
-	}
-
-	// filter only supported enhanced metrics
-	var enhancedMetricsFiltered []*model.EnhancedMetricConfig
-	for _, em := range enhancedMetricConfigs {
-		if s.isMetricSupported(em.Name) {
-			enhancedMetricsFiltered = append(enhancedMetricsFiltered, em)
-		} else {
-			logger.Warn("enhanced metric not supported, skipping", "metric", em.Name)
-		}
-	}
-
-	if len(enhancedMetricsFiltered) == 0 {
 		return nil, nil
 	}
 
@@ -129,8 +115,14 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 			continue
 		}
 
-		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, table, exportedTagOnMetrics)
+		for _, enhancedMetric := range enhancedMetricConfigs {
+			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			if !ok {
+				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				continue
+			}
+
+			em, err := metricBuilder.buildEnhancedMetric(resource, table, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building dynamodb enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
