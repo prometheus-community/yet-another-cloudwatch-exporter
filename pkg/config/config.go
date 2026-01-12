@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -261,6 +262,19 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 
 	if j.RoundingPeriod != nil {
 		logger.Warn(fmt.Sprintf("Discovery job [%s/%d]: Setting a rounding period is deprecated. In a future release it will always be enabled and set to the value of the metric period.", j.Type, jobIdx))
+	}
+
+	if len(j.EnhancedMetrics) > 0 {
+		svc, err := enhancedmetrics.DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService(j.Type)
+		if err != nil {
+			return fmt.Errorf("Discovery job [%s/%d]: enhanced metrics are not supported for this namespace: %w", j.Type, jobIdx, err)
+		}
+
+		for _, em := range j.EnhancedMetrics {
+			if !svc.IsMetricSupported(em.Name) {
+				return fmt.Errorf("Discovery job [%s/%d]: enhanced metric %q is not supported for this namespace", j.Type, jobIdx, em.Name)
+			}
+		}
 	}
 
 	return nil

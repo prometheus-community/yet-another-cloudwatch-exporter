@@ -126,6 +126,44 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			},
 			errorMsg: "no IAM roles configured. If the current IAM role is desired, an empty Role should be configured",
 		},
+		"enhanced metric are not supported for the namespace": {
+			config: ScrapeConf{
+				Discovery: Discovery{
+					Jobs: []*Job{{
+						Regions: []string{"us-east-2"},
+						Type:    "AWS/S3",
+						Roles:   []Role{{RoleArn: "arn:aws:iam::123456789012:role/test"}},
+						Metrics: []*Metric{{
+							Name:       "BucketSizeBytes",
+							Statistics: []string{"Average"},
+						}},
+						EnhancedMetrics: []*EnhancedMetric{{
+							Name: "SomeEnhancedMetric",
+						}},
+					}},
+				},
+			},
+			errorMsg: "Discovery job [AWS/S3/0]: enhanced metrics are not supported for this namespace: enhanced metrics service for namespace AWS/S3 not found",
+		},
+		"enhanced metric are not supported for the enhanced mertrics service": {
+			config: ScrapeConf{
+				Discovery: Discovery{
+					Jobs: []*Job{{
+						Regions: []string{"us-east-2"},
+						Type:    "AWS/Lambda",
+						Roles:   []Role{{RoleArn: "arn:aws:iam::123456789012:role/test"}},
+						Metrics: []*Metric{{
+							Name:       "BucketSizeBytes",
+							Statistics: []string{"Average"},
+						}},
+						EnhancedMetrics: []*EnhancedMetric{{
+							Name: "SomeEnhancedMetric",
+						}},
+					}},
+				},
+			},
+			errorMsg: "Discovery job [AWS/Lambda/0]: enhanced metric \"SomeEnhancedMetric\" is not supported for this namespace",
+		},
 	}
 
 	for name, tc := range testCases {
