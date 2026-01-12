@@ -252,7 +252,7 @@ type mockServiceDynamoDBClient struct {
 	describeErr bool
 }
 
-func (m *mockServiceDynamoDBClient) DescribeTables(ctx context.Context, logger *slog.Logger, tables []string) ([]types.TableDescription, error) {
+func (m *mockServiceDynamoDBClient) DescribeTables(context.Context, *slog.Logger, []string) ([]types.TableDescription, error) {
 	if m.describeErr {
 		return nil, fmt.Errorf("mock describe error")
 	}
