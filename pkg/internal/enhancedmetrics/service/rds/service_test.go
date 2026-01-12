@@ -189,7 +189,7 @@ type mockServiceRDSClient struct {
 	describeErr bool
 }
 
-func (m *mockServiceRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
+func (m *mockServiceRDSClient) DescribeDBInstances(context.Context, *slog.Logger, []string) ([]types.DBInstance, error) {
 	if m.describeErr {
 		return nil, fmt.Errorf("mock describe error")
 	}
