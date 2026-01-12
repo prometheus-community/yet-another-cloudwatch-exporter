@@ -169,7 +169,11 @@ func (s *RDS) ListSupportedEnhancedMetrics() []string {
 }
 
 func (s *RDS) Instance() service.EnhancedMetricsService {
-	return NewRDSService(s.buildClientFunc)
+	// do not use NewRDSService to avoid extra map allocation
+	return &RDS{
+		supportedMetrics: s.supportedMetrics,
+		buildClientFunc:  s.buildClientFunc,
+	}
 }
 
 func buildAllocatedStorageMetric(resource *model.TaggedResource, instance *types.DBInstance, exportedTags []string) (*model.CloudwatchData, error) {

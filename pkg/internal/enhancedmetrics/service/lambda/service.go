@@ -166,7 +166,11 @@ func (s *Lambda) ListSupportedEnhancedMetrics() []string {
 }
 
 func (s *Lambda) Instance() service.EnhancedMetricsService {
-	return NewLambdaService(s.buildClientFunc)
+	// do not use NewLambdaService to avoid extra map allocation
+	return &Lambda{
+		supportedMetrics: s.supportedMetrics,
+		buildClientFunc:  s.buildClientFunc,
+	}
 }
 
 func buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {

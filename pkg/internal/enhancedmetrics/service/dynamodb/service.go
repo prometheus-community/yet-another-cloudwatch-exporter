@@ -168,7 +168,11 @@ func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
 }
 
 func (s *DynamoDB) Instance() service.EnhancedMetricsService {
-	return NewDynamoDBService(s.buildClientFunc)
+	// do not use NewDynamoDBService to avoid extra map allocation
+	return &DynamoDB{
+		supportedMetrics: s.supportedMetrics,
+		buildClientFunc:  s.buildClientFunc,
+	}
 }
 
 func buildItemCountMetric(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) ([]*model.CloudwatchData, error) {

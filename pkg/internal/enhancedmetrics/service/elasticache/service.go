@@ -166,7 +166,11 @@ func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {
 }
 
 func (s *ElastiCache) Instance() service.EnhancedMetricsService {
-	return NewElastiCacheService(s.buildClientFunc)
+	// do not use NewElastiCacheService to avoid extra map allocation
+	return &ElastiCache{
+		supportedMetrics: s.supportedMetrics,
+		buildClientFunc:  s.buildClientFunc,
+	}
 }
 
 func buildNumCacheNodesMetric(resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
