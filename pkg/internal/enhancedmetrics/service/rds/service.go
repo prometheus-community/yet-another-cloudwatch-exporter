@@ -113,7 +113,6 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		regionalConfigProvider,
 		dbInstances,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("error loading RDS metrics metadata: %w", err)
 	}
