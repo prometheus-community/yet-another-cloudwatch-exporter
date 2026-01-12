@@ -24,7 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 )
 
-func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
+func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 	tests := []struct {
 		name    string
 		client  awsClient
@@ -94,13 +94,13 @@ func TestAWSRDSClient_DescribeAllDBInstances(t *testing.T) {
 			c := &AWSRDSClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeAllDBInstances(context.Background(), slog.New(slog.DiscardHandler))
+			got, err := c.DescribeDBInstances(context.Background(), slog.New(slog.DiscardHandler), nil)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("DescribeAllDBInstances() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DescribeDBInstances() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("DescribeAllDBInstances() got = %v, want %v", got, tt.want)
+				t.Errorf("DescribeDBInstances() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

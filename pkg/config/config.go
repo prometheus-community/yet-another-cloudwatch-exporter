@@ -20,9 +20,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/grafana/regexp"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"gopkg.in/yaml.v2"
 
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 

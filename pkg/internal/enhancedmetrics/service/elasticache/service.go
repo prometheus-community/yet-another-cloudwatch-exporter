@@ -157,27 +157,27 @@ func (s *ElastiCache) Instance() service.EnhancedMetricsService {
 	}
 }
 
-func buildNumCacheNodesMetric(resource *model.TaggedResource, cluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
-	if cluster.NumCacheNodes == nil {
+func buildNumCacheNodesMetric(resource *model.TaggedResource, cacheCluster *types.CacheCluster, exportedTags []string) (*model.CloudwatchData, error) {
+	if cacheCluster.NumCacheNodes == nil {
 		return nil, fmt.Errorf("NumCacheNodes is nil for ElastiCache cluster %s", resource.ARN)
 	}
 
 	var dimensions []model.Dimension
 
-	if cluster.CacheClusterId != nil {
+	if cacheCluster.CacheClusterId != nil {
 		dimensions = []model.Dimension{
-			{Name: "CacheClusterId", Value: *cluster.CacheClusterId},
+			{Name: "CacheClusterId", Value: *cacheCluster.CacheClusterId},
 		}
 	}
 
-	if cluster.ReplicationGroupId != nil {
+	if cacheCluster.ReplicationGroupId != nil {
 		dimensions = append(dimensions, model.Dimension{
 			Name:  "ReplicationGroupId",
-			Value: *cluster.ReplicationGroupId,
+			Value: *cacheCluster.ReplicationGroupId,
 		})
 	}
 
-	value := float64(*cluster.NumCacheNodes)
+	value := float64(*cacheCluster.NumCacheNodes)
 	return &model.CloudwatchData{
 		MetricName:   "NumCacheNodes",
 		ResourceName: resource.ARN,

@@ -29,7 +29,7 @@ import (
 const awsRdsNamespace = "AWS/RDS"
 
 type Client interface {
-	DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error)
+	DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error)
 }
 
 type buildRDSMetricFunc func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
@@ -66,10 +66,17 @@ func (s *RDS) GetNamespace() string {
 }
 
 // loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
-func (s *RDS) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.DBInstance, error) {
+func (s *RDS) loadMetricsMetadata(
+	ctx context.Context,
+	logger *slog.Logger,
+	region string,
+	role model.Role,
+	configProvider config.RegionalConfigProvider,
+	dbInstances []string,
+) (map[string]*types.DBInstance, error) {
 	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
-	instances, err := client.DescribeAllDBInstances(ctx, logger)
+	instances, err := client.DescribeDBInstances(ctx, logger, dbInstances)
 	if err != nil {
 		return nil, fmt.Errorf("error describing RDS DB instances in region %s: %w", region, err)
 	}
@@ -93,13 +100,20 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		return nil, nil
 	}
 
+	dbInstances := make([]string, 0, len(resources))
+	for _, resource := range resources {
+		dbInstances = append(dbInstances, resource.ARN)
+	}
+
 	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
 		region,
 		role,
 		regionalConfigProvider,
+		dbInstances,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("error loading RDS metrics metadata: %w", err)
 	}

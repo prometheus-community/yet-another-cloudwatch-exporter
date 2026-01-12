@@ -48,7 +48,7 @@ func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.Descr
 }
 
 // DescribeAllDBInstances retrieves all DB instances by handling pagination
-func (c *AWSRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog.Logger) ([]types.DBInstance, error) {
+func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
 	logger.Debug("Describing all RDS DB instances")
 	var allInstances []types.DBInstance
 	var marker *string
@@ -58,6 +58,12 @@ func (c *AWSRDSClient) DescribeAllDBInstances(ctx context.Context, logger *slog.
 		output, err := c.describeDBInstances(ctx, &rds.DescribeDBInstancesInput{
 			Marker:     marker,
 			MaxRecords: maxRecords,
+			Filters: []types.Filter{
+				{
+					Name:   aws.String("db-instance-status"),
+					Values: dbInstances,
+				},
+			},
 		})
 		if err != nil {
 			return nil, err

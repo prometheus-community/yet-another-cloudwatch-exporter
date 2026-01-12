@@ -66,7 +66,7 @@ type mockRDSClient struct {
 	err       error
 }
 
-func (m *mockRDSClient) DescribeAllDBInstances(context.Context, *slog.Logger) ([]types.DBInstance, error) {
+func (m *mockRDSClient) DescribeDBInstances(context.Context, *slog.Logger, []string) ([]types.DBInstance, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
