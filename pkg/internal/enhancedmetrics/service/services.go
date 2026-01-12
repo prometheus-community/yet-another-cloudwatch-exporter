@@ -26,7 +26,6 @@ type EnhancedMetricsService interface {
 	GetMetrics(
 		ctx context.Context,
 		logger *slog.Logger,
-		namespace string,
 		resources []*model.TaggedResource,
 		enhancedMetricConfigs []*model.EnhancedMetricConfig,
 		exportedTagOnMetrics []string,

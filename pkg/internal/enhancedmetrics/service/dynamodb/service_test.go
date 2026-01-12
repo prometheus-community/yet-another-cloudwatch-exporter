@@ -234,7 +234,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 				c: &aws.Config{Region: "us-east-1"},
 			}
 
-			result, err := service.GetMetrics(ctx, logger, tt.namespace, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics, "us-east-1", model.Role{}, mockConfig)
+			result, err := service.GetMetrics(ctx, logger, tt.resources, tt.enhancedMetrics, tt.exportedTagOnMetrics, "us-east-1", model.Role{}, mockConfig)
 
 			if tt.wantErr {
 				require.Error(t, err)

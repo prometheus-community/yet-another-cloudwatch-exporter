@@ -58,17 +58,7 @@ func (ep *Service) GetMetrics(
 		}
 	}
 
-	return svc.GetMetrics(
-		ctx,
-		logger,
-		namespace,
-		filteredResources,
-		metrics,
-		exportedTagOnMetrics,
-		region,
-		role,
-		ep.configProvider,
-	)
+	return svc.GetMetrics(ctx, logger, filteredResources, metrics, exportedTagOnMetrics, region, role, ep.configProvider)
 }
 
 func NewService(

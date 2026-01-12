@@ -85,22 +85,9 @@ func (s *Lambda) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *Lambda) GetMetrics(ctx context.Context,
-	logger *slog.Logger,
-	namespace string,
-	resources []*model.TaggedResource,
-	enhancedMetricConfigs []*model.EnhancedMetricConfig,
-	exportedTagOnMetrics []string,
-	region string,
-	role model.Role,
-	regionalConfigProvider config.RegionalConfigProvider,
-) ([]*model.CloudwatchData, error) {
+func (s *Lambda) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
-	}
-
-	if namespace != s.GetNamespace() {
-		return nil, fmt.Errorf("lambda enhanced metrics service cannot process namespace %s", namespace)
 	}
 
 	// filter only supported enhanced metrics
@@ -131,6 +118,11 @@ func (s *Lambda) GetMetrics(ctx context.Context,
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
+		if resource.Namespace != s.GetNamespace() {
+			logger.Warn("Resource namespace does not match Lambda namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
+			continue
+		}
+
 		functionConfiguration, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("Lambda function not found in data", "arn", resource.ARN)

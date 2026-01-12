@@ -164,17 +164,7 @@ func TestRDS_GetMetrics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service := newTestRDSService(tt.regionalData)
-			result, err := service.GetMetrics(
-				context.Background(),
-				slog.New(slog.DiscardHandler),
-				tt.namespace,
-				tt.resources,
-				tt.enhancedMetrics,
-				nil,
-				"us-east-1",
-				model.Role{},
-				&mockConfigProvider{c: &aws.Config{Region: "us-east-1"}},
-			)
+			result, err := service.GetMetrics(context.Background(), slog.New(slog.DiscardHandler), tt.resources, tt.enhancedMetrics, nil, "us-east-1", model.Role{}, &mockConfigProvider{c: &aws.Config{Region: "us-east-1"}})
 
 			if tt.wantErr {
 				require.Error(t, err)

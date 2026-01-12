@@ -85,22 +85,9 @@ func (s *ElastiCache) isMetricSupported(metricName string) bool {
 	return exists
 }
 
-func (s *ElastiCache) GetMetrics(ctx context.Context,
-	logger *slog.Logger,
-	namespace string,
-	resources []*model.TaggedResource,
-	enhancedMetricConfigs []*model.EnhancedMetricConfig,
-	exportedTagOnMetrics []string,
-	region string,
-	role model.Role,
-	regionalConfigProvider config.RegionalConfigProvider,
-) ([]*model.CloudwatchData, error) {
+func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	if len(resources) == 0 || len(enhancedMetricConfigs) == 0 {
 		return nil, nil
-	}
-
-	if namespace != s.GetNamespace() {
-		return nil, fmt.Errorf("elasticache enhanced metrics service cannot process namespace %s", namespace)
 	}
 
 	// filter only supported enhanced metrics
@@ -131,6 +118,11 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
+		if resource.Namespace != s.GetNamespace() {
+			logger.Warn("resource namespace does not match elasticache namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
+			continue
+		}
+
 		elastiCacheCluster, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("elasticache cluster not found in data", "arn", resource.ARN)

@@ -81,17 +81,7 @@ type mockMetricsService struct {
 	mu               sync.Mutex
 }
 
-func (m *mockMetricsService) GetMetrics(
-	context.Context,
-	*slog.Logger,
-	string,
-	[]*model.TaggedResource,
-	[]*model.EnhancedMetricConfig,
-	[]string,
-	string,
-	model.Role,
-	config.RegionalConfigProvider,
-) ([]*model.CloudwatchData, error) {
+func (m *mockMetricsService) GetMetrics(context.Context, *slog.Logger, []*model.TaggedResource, []*model.EnhancedMetricConfig, []string, string, model.Role, config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.getMetricsCalled++
