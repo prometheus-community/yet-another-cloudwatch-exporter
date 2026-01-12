@@ -30,7 +30,8 @@ type MetricsServiceRegistry interface {
 
 // Service is responsible for getting enhanced metrics using appropriate services.
 type Service struct {
-	ConfigProvider config.RegionalConfigProvider
+	configProvider                 config.RegionalConfigProvider
+	enhancedMetricsServiceRegistry MetricsServiceRegistry
 }
 
 // GetMetrics returns the enhanced metrics for the specified namespace using the appropriate enhanced metrics service.
@@ -43,9 +44,8 @@ func (ep *Service) GetMetrics(
 	exportedTagOnMetrics []string,
 	region string,
 	role model.Role,
-	enhancedMetricsServiceRegistry MetricsServiceRegistry,
 ) ([]*model.CloudwatchData, error) {
-	svc, err := enhancedMetricsServiceRegistry.GetEnhancedMetricsService(namespace)
+	svc, err := ep.enhancedMetricsServiceRegistry.GetEnhancedMetricsService(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get enhanced metric service for namespace %s: %w", namespace, err)
 	}
@@ -67,12 +67,13 @@ func (ep *Service) GetMetrics(
 		exportedTagOnMetrics,
 		region,
 		role,
-		ep.ConfigProvider,
+		ep.configProvider,
 	)
 }
 
 func NewService(
 	factory clients.Factory,
+	enhancedMetricsServiceRegistry MetricsServiceRegistry,
 ) (*Service, error) {
 	emf, ok := factory.(config.RegionalConfigProvider)
 	if !ok {
@@ -80,6 +81,7 @@ func NewService(
 	}
 
 	return &Service{
-		ConfigProvider: emf,
+		configProvider:                 emf,
+		enhancedMetricsServiceRegistry: enhancedMetricsServiceRegistry,
 	}, nil
 }

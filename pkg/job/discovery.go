@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -46,7 +45,6 @@ type enhancedMetricsService interface {
 		exportedTagOnMetrics []string,
 		region string,
 		role model.Role,
-		enhancedMetricsServiceRegistry enhancedmetrics.MetricsServiceRegistry,
 	) ([]*model.CloudwatchData, error)
 }
 
@@ -106,7 +104,6 @@ func runDiscoveryJob(
 		job.ExportedTagsOnMetrics,
 		region,
 		role,
-		enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
 	)
 	if err != nil {
 		logger.Error("Failed to get enhanced metrics", "err", err)
