@@ -56,7 +56,8 @@ func (ep *Service) GetMetrics(
 		if res.Namespace == namespace {
 			filteredResources = append(filteredResources, res)
 		} else {
-			logger.Debug("Skipping resource for enhanced metric service due to namespace mismatch",
+			// Resource validation should have happened earlier, this log will identify any unexpected issues
+			logger.Warn("Skipping resource for enhanced metric service due to namespace mismatch",
 				"expected_namespace", namespace,
 				"resource_namespace", res.Namespace,
 				"resource_arn", res.ARN,
@@ -70,7 +71,8 @@ func (ep *Service) GetMetrics(
 		if svc.IsMetricSupported(metric.Name) {
 			filteredMetrics = append(filteredMetrics, metric)
 		} else {
-			logger.Debug("Skipping unsupported enhanced metric for service",
+			// Metrics validation should have happened earlier, this log will identify any unexpected issues
+			logger.Warn("Skipping unsupported enhanced metric for service",
 				"namespace", namespace,
 				"metric", metric.Name,
 			)
