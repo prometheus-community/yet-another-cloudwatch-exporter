@@ -29,7 +29,8 @@ import (
 const awsDynamoDBNamespace = "AWS/DynamoDB"
 
 type Client interface {
-	DescribeAllTables(ctx context.Context, logger *slog.Logger) ([]types.TableDescription, error)
+	// DescribeTables retrieves DynamoDB tables with their descriptions. tables is a list of table ARNs or table names.
+	DescribeTables(ctx context.Context, logger *slog.Logger, tables []string) ([]types.TableDescription, error)
 }
 
 type buildDynamoDBMetricFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
@@ -63,10 +64,17 @@ func (s *DynamoDB) GetNamespace() string {
 	return awsDynamoDBNamespace
 }
 
-func (s *DynamoDB) loadMetricsMetadata(ctx context.Context, logger *slog.Logger, region string, role model.Role, configProvider config.RegionalConfigProvider) (map[string]*types.TableDescription, error) {
+func (s *DynamoDB) loadMetricsMetadata(
+	ctx context.Context,
+	logger *slog.Logger,
+	region string,
+	role model.Role,
+	configProvider config.RegionalConfigProvider,
+	tablesARNs []string,
+) (map[string]*types.TableDescription, error) {
 	client := s.buildClientFunc(*configProvider.GetAWSRegionalConfig(region, role))
 
-	tables, err := client.DescribeAllTables(ctx, logger)
+	tables, err := client.DescribeTables(ctx, logger, tablesARNs)
 	if err != nil {
 		return nil, fmt.Errorf("error listing DynamoDB tables in region %s: %w", region, err)
 	}
@@ -90,12 +98,18 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 		return nil, nil
 	}
 
+	tablesARNs := make([]string, 0, len(resources))
+	for _, resource := range resources {
+		tablesARNs = append(tablesARNs, resource.ARN)
+	}
+
 	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
 		region,
 		role,
 		regionalConfigProvider,
+		tablesARNs,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error loading dynamodb metrics metadata: %w", err)

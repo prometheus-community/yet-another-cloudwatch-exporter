@@ -127,13 +127,13 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 			c := &AWSDynamoDBClient{
 				client: tt.client,
 			}
-			got, err := c.DescribeAllTables(context.Background(), slog.New(slog.DiscardHandler))
+			got, err := c.DescribeTables(context.Background(), slog.New(slog.DiscardHandler), nil)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("DescribeAllTables() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("DescribeTables() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("DescribeAllTables() got = %v, want %v", got, tt.want)
+				t.Errorf("DescribeTables() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -105,7 +105,7 @@ type mockDynamoDBClient struct {
 	err    error
 }
 
-func (m *mockDynamoDBClient) DescribeAllTables(context.Context, *slog.Logger) ([]dynamodbTypes.TableDescription, error) {
+func (m *mockDynamoDBClient) DescribeTables(context.Context, *slog.Logger, []string) ([]dynamodbTypes.TableDescription, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
