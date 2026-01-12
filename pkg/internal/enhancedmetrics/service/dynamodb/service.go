@@ -34,6 +34,10 @@ type Client interface {
 
 type buildDynamoDBMetricFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
+func (f buildDynamoDBMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, table *types.TableDescription, metrics []string) ([]*model.CloudwatchData, error) {
+	return f(resource, table, metrics)
+}
+
 type DynamoDB struct {
 	supportedMetrics map[string]buildDynamoDBMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
@@ -135,7 +139,7 @@ func (s *DynamoDB) GetMetrics(
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](resource, table, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, table, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building dynamodb enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

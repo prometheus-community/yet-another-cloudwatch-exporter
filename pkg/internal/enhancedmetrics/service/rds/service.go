@@ -34,6 +34,10 @@ type Client interface {
 
 type buildRDSMetricFunc func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
+func (f buildRDSMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, instance *types.DBInstance, metrics []string) (*model.CloudwatchData, error) {
+	return f(resource, instance, metrics)
+}
+
 type RDS struct {
 	supportedMetrics map[string]buildRDSMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
@@ -137,7 +141,7 @@ func (s *RDS) GetMetrics(ctx context.Context,
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](resource, dbInstance, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, dbInstance, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building RDS enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

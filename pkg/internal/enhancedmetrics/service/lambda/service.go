@@ -34,6 +34,10 @@ type Client interface {
 
 type buildLambdaMetricFunc func(*model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
+func (f buildLambdaMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, functionConfiguration *types.FunctionConfiguration, exportedTagOnMetrics []string) (*model.CloudwatchData, error) {
+	return f(resource, functionConfiguration, exportedTagOnMetrics)
+}
+
 type Lambda struct {
 	supportedMetrics map[string]buildLambdaMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
@@ -127,14 +131,14 @@ func (s *Lambda) GetMetrics(ctx context.Context,
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
-		fn, exists := data[resource.ARN]
+		functionConfiguration, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("Lambda function not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](resource, fn, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, functionConfiguration, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building Lambda enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

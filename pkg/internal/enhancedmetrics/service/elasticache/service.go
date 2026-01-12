@@ -34,6 +34,10 @@ type Client interface {
 
 type buildElastiCacheMetricFunc func(*model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
+func (f buildElastiCacheMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, elasticacheCluster *types.CacheCluster, metrics []string) (*model.CloudwatchData, error) {
+	return f(resource, elasticacheCluster, metrics)
+}
+
 type ElastiCache struct {
 	supportedMetrics map[string]buildElastiCacheMetricFunc
 	buildClientFunc  func(cfg aws.Config) Client
@@ -127,14 +131,14 @@ func (s *ElastiCache) GetMetrics(ctx context.Context,
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
-		cluster, exists := data[resource.ARN]
+		elastiCacheCluster, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("elasticache cluster not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricsFiltered {
-			em, err := s.supportedMetrics[enhancedMetric.Name](resource, cluster, exportedTagOnMetrics)
+			em, err := s.supportedMetrics[enhancedMetric.Name].buildEnhancedMetric(resource, elastiCacheCluster, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building elasticache enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
