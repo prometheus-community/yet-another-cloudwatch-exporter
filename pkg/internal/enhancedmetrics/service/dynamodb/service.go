@@ -152,7 +152,6 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 func (s *DynamoDB) ListRequiredPermissions() []string {
 	return []string{
 		"dynamodb:DescribeTable",
-		"dynamodb:ListTables",
 	}
 }
 
