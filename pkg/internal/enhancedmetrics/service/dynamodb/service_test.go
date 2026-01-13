@@ -61,7 +61,6 @@ func TestDynamoDB_ListRequiredPermissions(t *testing.T) {
 	service := NewDynamoDBService(nil)
 	expectedPermissions := []string{
 		"dynamodb:DescribeTable",
-		"dynamodb:ListTables",
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
