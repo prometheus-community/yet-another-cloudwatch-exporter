@@ -86,11 +86,12 @@ func runDiscoveryJob(
 			// ensure we do not return cw metrics on data processing failure
 			metricData = nil
 		}
-	} else {
-		logger.Info("No metrics data found")
 	}
 
 	if enhancedMetricsService == nil || !job.HasEnhancedMetrics() || svc == nil {
+		if len(metricData) == 0 {
+			logger.Info("No metrics data found")
+		}
 		return resources, metricData
 	}
 
@@ -111,6 +112,10 @@ func runDiscoveryJob(
 	}
 
 	metricData = append(metricData, enhancedMetricData...)
+
+	if len(metricData) == 0 {
+		logger.Info("No metrics data found")
+	}
 
 	return resources, metricData
 }
