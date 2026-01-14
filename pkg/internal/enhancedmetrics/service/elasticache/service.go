@@ -32,16 +32,16 @@ type Client interface {
 	DescribeAllCacheClusters(ctx context.Context, logger *slog.Logger) ([]types.CacheCluster, error)
 }
 
-type buildElastiCacheMetricFunc func(*model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
+type buildCloudwatchDataFunc func(*model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
 type supportedMetric struct {
 	name                    string
-	buildEnhancedMetricFunc buildElastiCacheMetricFunc
+	buildCloudwatchDataFunc buildCloudwatchDataFunc
 	requiredPermissions     []string
 }
 
-func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, elasticacheCluster *types.CacheCluster, metrics []string) (*model.CloudwatchData, error) {
-	return sm.buildEnhancedMetricFunc(resource, elasticacheCluster, metrics)
+func (sm *supportedMetric) buildCloudwatchData(resource *model.TaggedResource, elasticacheCluster *types.CacheCluster, metrics []string) (*model.CloudwatchData, error) {
+	return sm.buildCloudwatchDataFunc(resource, elasticacheCluster, metrics)
 }
 
 type ElastiCache struct {
@@ -60,7 +60,7 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 	// The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
 	numCacheNodesMetric := supportedMetric{
 		name:                    "NumCacheNodes",
-		buildEnhancedMetricFunc: buildNumCacheNodesMetric,
+		buildCloudwatchDataFunc: buildNumCacheNodesMetric,
 		requiredPermissions:     []string{"elasticache:DescribeCacheClusters"},
 	}
 
@@ -117,24 +117,24 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 
 	for _, resource := range resources {
 		if resource.Namespace != s.GetNamespace() {
-			logger.Warn("resource namespace does not match elasticache namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
+			logger.Warn("Resource namespace does not match elasticache namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
 			continue
 		}
 
 		elastiCacheCluster, exists := data[resource.ARN]
 		if !exists {
-			logger.Warn("elasticache cluster not found in data", "arn", resource.ARN)
+			logger.Warn("ElastiCache cluster not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricConfigs {
-			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			supportedMetric, ok := s.supportedMetrics[enhancedMetric.Name]
 			if !ok {
-				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				logger.Warn("Unsupported elasticache enhanced metric requested", "metric", enhancedMetric.Name)
 				continue
 			}
 
-			em, err := metricBuilder.buildEnhancedMetric(resource, elastiCacheCluster, exportedTagOnMetrics)
+			em, err := supportedMetric.buildCloudwatchData(resource, elastiCacheCluster, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building elasticache enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

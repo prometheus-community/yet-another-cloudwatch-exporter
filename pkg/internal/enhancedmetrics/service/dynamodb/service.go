@@ -33,16 +33,16 @@ type Client interface {
 	DescribeTables(ctx context.Context, logger *slog.Logger, tables []string) ([]types.TableDescription, error)
 }
 
-type buildDynamoDBMetricFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
+type buildCloudwatchDataFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
 type supportedMetric struct {
 	name                    string
-	buildEnhancedMetricFunc buildDynamoDBMetricFunc
+	buildCloudwatchDataFunc buildCloudwatchDataFunc
 	requiredPermissions     []string
 }
 
-func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, table *types.TableDescription, metrics []string) ([]*model.CloudwatchData, error) {
-	return sm.buildEnhancedMetricFunc(resource, table, metrics)
+func (sm *supportedMetric) buildCloudwatchData(resource *model.TaggedResource, table *types.TableDescription, metrics []string) ([]*model.CloudwatchData, error) {
+	return sm.buildCloudwatchDataFunc(resource, table, metrics)
 }
 
 type DynamoDB struct {
@@ -61,7 +61,7 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 	// The count of items in the table, updated approximately every six hours; may not reflect recent changes.
 	itemCountMetric := supportedMetric{
 		name:                    "ItemCount",
-		buildEnhancedMetricFunc: buildItemCountMetric,
+		buildCloudwatchDataFunc: buildItemCountMetric,
 		requiredPermissions: []string{
 			"dynamodb:DescribeTable",
 		},
@@ -126,33 +126,33 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 		tablesARNs,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error loading dynamodb metrics metadata: %w", err)
+		return nil, fmt.Errorf("error loading DynamoDB metrics metadata: %w", err)
 	}
 
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
 		if resource.Namespace != s.GetNamespace() {
-			logger.Warn("resource namespace does not match dynamodb namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
+			logger.Warn("Resource namespace does not match DynamoDB namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
 			continue
 		}
 
 		table, exists := data[resource.ARN]
 		if !exists {
-			logger.Warn("dynamodb table not found in data", "arn", resource.ARN)
+			logger.Warn("DynamoDB table not found in data", "arn", resource.ARN)
 			continue
 		}
 
 		for _, enhancedMetric := range enhancedMetricConfigs {
-			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			supportedMetric, ok := s.supportedMetrics[enhancedMetric.Name]
 			if !ok {
-				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				logger.Warn("Unsupported DynamoDB enhanced metric, skipping", "metric", enhancedMetric.Name)
 				continue
 			}
 
-			em, err := metricBuilder.buildEnhancedMetric(resource, table, exportedTagOnMetrics)
+			em, err := supportedMetric.buildCloudwatchData(resource, table, exportedTagOnMetrics)
 			if err != nil || em == nil {
-				logger.Warn("Error building dynamodb enhanced metric", "metric", enhancedMetric.Name, "error", err)
+				logger.Warn("Error building DynamoDB enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
 			}
 

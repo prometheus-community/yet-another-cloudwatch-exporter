@@ -32,16 +32,16 @@ type Client interface {
 	ListAllFunctions(ctx context.Context, logger *slog.Logger) ([]types.FunctionConfiguration, error)
 }
 
-type buildLambdaMetricFunc func(*model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
+type buildCloudwatchDataFunc func(*model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
 type supportedMetric struct {
 	name                    string
-	buildEnhancedMetricFunc buildLambdaMetricFunc
+	buildCloudwatchDataFunc buildCloudwatchDataFunc
 	requiredPermissions     []string
 }
 
-func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, functionConfiguration *types.FunctionConfiguration, exportedTagOnMetrics []string) (*model.CloudwatchData, error) {
-	return sm.buildEnhancedMetricFunc(resource, functionConfiguration, exportedTagOnMetrics)
+func (sm *supportedMetric) buildCloudwatchData(resource *model.TaggedResource, functionConfiguration *types.FunctionConfiguration, exportedTagOnMetrics []string) (*model.CloudwatchData, error) {
+	return sm.buildCloudwatchDataFunc(resource, functionConfiguration, exportedTagOnMetrics)
 }
 
 type Lambda struct {
@@ -60,7 +60,7 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 	// The maximum execution duration permitted for the function before termination.
 	timeoutMetric := supportedMetric{
 		name:                    "Timeout",
-		buildEnhancedMetricFunc: buildTimeoutMetric,
+		buildCloudwatchDataFunc: buildTimeoutMetric,
 		requiredPermissions:     []string{"lambda:ListFunctions"},
 	}
 
@@ -128,13 +128,13 @@ func (s *Lambda) GetMetrics(ctx context.Context, logger *slog.Logger, resources 
 		}
 
 		for _, enhancedMetric := range enhancedMetricConfigs {
-			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			supportedMetric, ok := s.supportedMetrics[enhancedMetric.Name]
 			if !ok {
-				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				logger.Warn("Unsupported Lambda enhanced metric, skipping", "metric", enhancedMetric.Name)
 				continue
 			}
 
-			em, err := metricBuilder.buildEnhancedMetric(resource, functionConfiguration, exportedTagOnMetrics)
+			em, err := supportedMetric.buildCloudwatchData(resource, functionConfiguration, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building Lambda enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue

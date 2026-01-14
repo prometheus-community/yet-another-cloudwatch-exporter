@@ -32,16 +32,16 @@ type Client interface {
 	DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error)
 }
 
-type buildRDSMetricFunc func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
+type buildCloudwatchData func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
 type supportedMetric struct {
 	name                    string
-	buildEnhancedMetricFunc buildRDSMetricFunc
+	buildCloudwatchDataFunc buildCloudwatchData
 	requiredPermissions     []string
 }
 
-func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, instance *types.DBInstance, metrics []string) (*model.CloudwatchData, error) {
-	return sm.buildEnhancedMetricFunc(resource, instance, metrics)
+func (sm *supportedMetric) buildCloudwatchData(resource *model.TaggedResource, instance *types.DBInstance, metrics []string) (*model.CloudwatchData, error) {
+	return sm.buildCloudwatchDataFunc(resource, instance, metrics)
 }
 
 type RDS struct {
@@ -61,7 +61,7 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 	// The storage capacity in gibibytes (GiB) allocated for the DB instance.
 	allocatedStorageMetrics := supportedMetric{
 		name:                    "AllocatedStorage",
-		buildEnhancedMetricFunc: buildAllocatedStorageMetric,
+		buildCloudwatchDataFunc: buildAllocatedStorageMetric,
 		requiredPermissions:     []string{"rds:DescribeDBInstances"},
 	}
 	rds.supportedMetrics = map[string]supportedMetric{
@@ -143,13 +143,13 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		}
 
 		for _, enhancedMetric := range enhancedMetricConfigs {
-			metricBuilder, ok := s.supportedMetrics[enhancedMetric.Name]
+			supportedMetric, ok := s.supportedMetrics[enhancedMetric.Name]
 			if !ok {
-				logger.Warn("enhanced metric builder not found, skipping", "metric", enhancedMetric.Name)
+				logger.Warn("Unsupported RDS enhanced metric requested", "metric", enhancedMetric.Name)
 				continue
 			}
 
-			em, err := metricBuilder.buildEnhancedMetric(resource, dbInstance, exportedTagOnMetrics)
+			em, err := supportedMetric.buildCloudwatchData(resource, dbInstance, exportedTagOnMetrics)
 			if err != nil || em == nil {
 				logger.Warn("Error building RDS enhanced metric", "metric", enhancedMetric.Name, "error", err)
 				continue
