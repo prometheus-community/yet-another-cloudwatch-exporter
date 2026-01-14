@@ -34,10 +34,6 @@ type Client interface {
 
 type buildRDSMetricFunc func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
 
-func (f buildRDSMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, instance *types.DBInstance, metrics []string) (*model.CloudwatchData, error) {
-	return f(resource, instance, metrics)
-}
-
 type supportedMetric struct {
 	name                    string
 	buildEnhancedMetricFunc buildRDSMetricFunc
