@@ -59,8 +59,8 @@ func TestElastiCache_GetNamespace(t *testing.T) {
 
 func TestElastiCache_ListRequiredPermissions(t *testing.T) {
 	service := NewElastiCacheService(nil)
-	expectedPermissions := []string{
-		"elasticache:DescribeCacheClusters",
+	expectedPermissions := map[string][]string{
+		"NumCacheNodes": {"elasticache:DescribeCacheClusters"},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }

@@ -59,8 +59,8 @@ func TestRDS_GetNamespace(t *testing.T) {
 
 func TestRDS_ListRequiredPermissions(t *testing.T) {
 	service := NewRDSService(nil)
-	expectedPermissions := []string{
-		"rds:DescribeDBInstances",
+	expectedPermissions := map[string][]string{
+		"AllocatedStorage": {"rds:DescribeDBInstances"},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }

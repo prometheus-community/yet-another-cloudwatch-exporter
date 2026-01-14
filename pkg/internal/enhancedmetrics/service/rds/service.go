@@ -38,8 +38,18 @@ func (f buildRDSMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, 
 	return f(resource, instance, metrics)
 }
 
+type supportedMetric struct {
+	name                    string
+	buildEnhancedMetricFunc buildRDSMetricFunc
+	requiredPermissions     []string
+}
+
+func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, instance *types.DBInstance, metrics []string) (*model.CloudwatchData, error) {
+	return sm.buildEnhancedMetricFunc(resource, instance, metrics)
+}
+
 type RDS struct {
-	supportedMetrics map[string]buildRDSMetricFunc
+	supportedMetrics map[string]supportedMetric
 	buildClientFunc  func(cfg aws.Config) Client
 }
 
@@ -52,9 +62,14 @@ func NewRDSService(buildClientFunc func(cfg aws.Config) Client) *RDS {
 		buildClientFunc: buildClientFunc,
 	}
 
-	rds.supportedMetrics = map[string]buildRDSMetricFunc{
-		// The storage capacity in gibibytes (GiB) allocated for the DB instance.
-		"AllocatedStorage": buildAllocatedStorageMetric,
+	// The storage capacity in gibibytes (GiB) allocated for the DB instance.
+	allocatedStorageMetrics := supportedMetric{
+		name:                    "AllocatedStorage",
+		buildEnhancedMetricFunc: buildAllocatedStorageMetric,
+		requiredPermissions:     []string{"rds:DescribeDBInstances"},
+	}
+	rds.supportedMetrics = map[string]supportedMetric{
+		allocatedStorageMetrics.name: allocatedStorageMetrics,
 	}
 
 	return rds
@@ -151,10 +166,12 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 	return result, nil
 }
 
-func (s *RDS) ListRequiredPermissions() []string {
-	return []string{
-		"rds:DescribeDBInstances",
+func (s *RDS) ListRequiredPermissions() map[string][]string {
+	requiredPermissions := make(map[string][]string, len(s.supportedMetrics))
+	for metricName, metric := range s.supportedMetrics {
+		requiredPermissions[metricName] = metric.requiredPermissions
 	}
+	return requiredPermissions
 }
 
 func (s *RDS) ListSupportedEnhancedMetrics() []string {

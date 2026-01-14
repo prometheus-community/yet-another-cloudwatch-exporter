@@ -35,12 +35,18 @@ type Client interface {
 
 type buildDynamoDBMetricFunc func(*model.TaggedResource, *types.TableDescription, []string) ([]*model.CloudwatchData, error)
 
-func (f buildDynamoDBMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, table *types.TableDescription, metrics []string) ([]*model.CloudwatchData, error) {
-	return f(resource, table, metrics)
+type supportedMetric struct {
+	name                    string
+	buildEnhancedMetricFunc buildDynamoDBMetricFunc
+	requiredPermissions     []string
+}
+
+func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, table *types.TableDescription, metrics []string) ([]*model.CloudwatchData, error) {
+	return sm.buildEnhancedMetricFunc(resource, table, metrics)
 }
 
 type DynamoDB struct {
-	supportedMetrics map[string]buildDynamoDBMetricFunc
+	supportedMetrics map[string]supportedMetric
 	buildClientFunc  func(cfg aws.Config) Client
 }
 
@@ -52,9 +58,17 @@ func NewDynamoDBService(buildClientFunc func(cfg aws.Config) Client) *DynamoDB {
 		buildClientFunc: buildClientFunc,
 	}
 
-	svc.supportedMetrics = map[string]buildDynamoDBMetricFunc{
-		// The count of items in the table, updated approximately every six hours; may not reflect recent changes.
-		"ItemCount": buildItemCountMetric,
+	// The count of items in the table, updated approximately every six hours; may not reflect recent changes.
+	itemCountMetric := supportedMetric{
+		name:                    "ItemCount",
+		buildEnhancedMetricFunc: buildItemCountMetric,
+		requiredPermissions: []string{
+			"dynamodb:DescribeTable",
+		},
+	}
+
+	svc.supportedMetrics = map[string]supportedMetric{
+		itemCountMetric.name: itemCountMetric,
 	}
 
 	return svc
@@ -149,10 +163,12 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 	return result, nil
 }
 
-func (s *DynamoDB) ListRequiredPermissions() []string {
-	return []string{
-		"dynamodb:DescribeTable",
+func (s *DynamoDB) ListRequiredPermissions() map[string][]string {
+	permissions := make(map[string][]string, len(s.supportedMetrics))
+	for _, metric := range s.supportedMetrics {
+		permissions[metric.name] = metric.requiredPermissions
 	}
+	return permissions
 }
 
 func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {

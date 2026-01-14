@@ -34,12 +34,18 @@ type Client interface {
 
 type buildLambdaMetricFunc func(*model.TaggedResource, *types.FunctionConfiguration, []string) (*model.CloudwatchData, error)
 
-func (f buildLambdaMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, functionConfiguration *types.FunctionConfiguration, exportedTagOnMetrics []string) (*model.CloudwatchData, error) {
-	return f(resource, functionConfiguration, exportedTagOnMetrics)
+type supportedMetric struct {
+	name                    string
+	buildEnhancedMetricFunc buildLambdaMetricFunc
+	requiredPermissions     []string
+}
+
+func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, functionConfiguration *types.FunctionConfiguration, exportedTagOnMetrics []string) (*model.CloudwatchData, error) {
+	return sm.buildEnhancedMetricFunc(resource, functionConfiguration, exportedTagOnMetrics)
 }
 
 type Lambda struct {
-	supportedMetrics map[string]buildLambdaMetricFunc
+	supportedMetrics map[string]supportedMetric
 	buildClientFunc  func(cfg aws.Config) Client
 }
 
@@ -51,9 +57,15 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		buildClientFunc: buildClientFunc,
 	}
 
-	svc.supportedMetrics = map[string]buildLambdaMetricFunc{
-		// The maximum execution duration permitted for the function before termination.
-		"Timeout": buildTimeoutMetric,
+	// The maximum execution duration permitted for the function before termination.
+	timeoutMetric := supportedMetric{
+		name:                    "Timeout",
+		buildEnhancedMetricFunc: buildTimeoutMetric,
+		requiredPermissions:     []string{"lambda:ListFunctions"},
+	}
+
+	svc.supportedMetrics = map[string]supportedMetric{
+		timeoutMetric.name: timeoutMetric,
 	}
 
 	return svc
@@ -135,10 +147,12 @@ func (s *Lambda) GetMetrics(ctx context.Context, logger *slog.Logger, resources 
 	return result, nil
 }
 
-func (s *Lambda) ListRequiredPermissions() []string {
-	return []string{
-		"lambda:ListFunctions",
+func (s *Lambda) ListRequiredPermissions() map[string][]string {
+	permissions := make(map[string][]string, len(s.supportedMetrics))
+	for _, metric := range s.supportedMetrics {
+		permissions[metric.name] = metric.requiredPermissions
 	}
+	return permissions
 }
 
 func (s *Lambda) ListSupportedEnhancedMetrics() []string {

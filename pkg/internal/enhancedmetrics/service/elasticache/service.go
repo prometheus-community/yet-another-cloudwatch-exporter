@@ -34,12 +34,18 @@ type Client interface {
 
 type buildElastiCacheMetricFunc func(*model.TaggedResource, *types.CacheCluster, []string) (*model.CloudwatchData, error)
 
-func (f buildElastiCacheMetricFunc) buildEnhancedMetric(resource *model.TaggedResource, elasticacheCluster *types.CacheCluster, metrics []string) (*model.CloudwatchData, error) {
-	return f(resource, elasticacheCluster, metrics)
+type supportedMetric struct {
+	name                    string
+	buildEnhancedMetricFunc buildElastiCacheMetricFunc
+	requiredPermissions     []string
+}
+
+func (sm *supportedMetric) buildEnhancedMetric(resource *model.TaggedResource, elasticacheCluster *types.CacheCluster, metrics []string) (*model.CloudwatchData, error) {
+	return sm.buildEnhancedMetricFunc(resource, elasticacheCluster, metrics)
 }
 
 type ElastiCache struct {
-	supportedMetrics map[string]buildElastiCacheMetricFunc
+	supportedMetrics map[string]supportedMetric
 	buildClientFunc  func(cfg aws.Config) Client
 }
 
@@ -51,9 +57,15 @@ func NewElastiCacheService(buildClientFunc func(cfg aws.Config) Client) *ElastiC
 		buildClientFunc: buildClientFunc,
 	}
 
-	svc.supportedMetrics = map[string]buildElastiCacheMetricFunc{
-		// The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
-		"NumCacheNodes": buildNumCacheNodesMetric,
+	// The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
+	numCacheNodesMetric := supportedMetric{
+		name:                    "NumCacheNodes",
+		buildEnhancedMetricFunc: buildNumCacheNodesMetric,
+		requiredPermissions:     []string{"elasticache:DescribeCacheClusters"},
+	}
+
+	svc.supportedMetrics = map[string]supportedMetric{
+		numCacheNodesMetric.name: numCacheNodesMetric,
 	}
 
 	return svc
@@ -135,10 +147,12 @@ func (s *ElastiCache) GetMetrics(ctx context.Context, logger *slog.Logger, resou
 	return result, nil
 }
 
-func (s *ElastiCache) ListRequiredPermissions() []string {
-	return []string{
-		"elasticache:DescribeCacheClusters",
+func (s *ElastiCache) ListRequiredPermissions() map[string][]string {
+	requiredPermissions := make(map[string][]string, len(s.supportedMetrics))
+	for metricName, metric := range s.supportedMetrics {
+		requiredPermissions[metricName] = metric.requiredPermissions
 	}
+	return requiredPermissions
 }
 
 func (s *ElastiCache) ListSupportedEnhancedMetrics() []string {

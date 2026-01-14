@@ -59,8 +59,10 @@ func TestDynamoDB_GetNamespace(t *testing.T) {
 
 func TestDynamoDB_ListRequiredPermissions(t *testing.T) {
 	service := NewDynamoDBService(nil)
-	expectedPermissions := []string{
-		"dynamodb:DescribeTable",
+	expectedPermissions := map[string][]string{
+		"ItemCount": {
+			"dynamodb:DescribeTable",
+		},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }

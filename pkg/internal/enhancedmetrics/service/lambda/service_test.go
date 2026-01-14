@@ -59,8 +59,8 @@ func TestLambda_GetNamespace(t *testing.T) {
 
 func TestLambda_ListRequiredPermissions(t *testing.T) {
 	service := NewLambdaService(nil)
-	expectedPermissions := []string{
-		"lambda:ListFunctions",
+	expectedPermissions := map[string][]string{
+		"Timeout": {"lambda:ListFunctions"},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
