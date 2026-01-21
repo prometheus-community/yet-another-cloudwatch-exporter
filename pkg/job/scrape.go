@@ -24,6 +24,9 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+// ScrapeAwsData scrapes AWS CloudWatch metrics and resource data across accounts, regions, and roles in parallel.
+// It processes discovery jobs (dynamic resource discovery), static jobs (predefined metrics), and custom namespace jobs.
+// Returns TaggedResourceResult (resource metadata with tags) and CloudwatchMetricResult (metric data with context).
 func ScrapeAwsData(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -58,12 +61,19 @@ func ScrapeAwsData(
 					}
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
-					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
-					addDataToOutput := len(metrics) != 0
-					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
-						addDataToOutput = addDataToOutput || len(resources) != 0
-					}
+					resources, metrics := runDiscoveryJob(
+						ctx,
+						jobLogger,
+						discoveryJob,
+						region,
+						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
+						cloudwatchClient,
+						getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData),
+					)
+
+					addDataToOutput := len(metrics) != 0 ||
+						(config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) && len(resources) != 0)
+
 					if addDataToOutput {
 						sc := &model.ScrapeContext{
 							Region:       region,
