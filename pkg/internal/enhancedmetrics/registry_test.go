@@ -72,85 +72,124 @@ func newMockService(namespace string) *registryMockMetricsServiceWrapper {
 }
 
 func TestRegistry_Register(t *testing.T) {
-	t.Run("register single service", func(t *testing.T) {
-		registry := &Registry{}
-		mockSvc := newMockService("AWS/Test")
+	tests := []struct {
+		name       string
+		setup      func() *Registry
+		services   []string
+		assertions func(t *testing.T, registry *Registry)
+	}{
+		{
+			name:     "register single service",
+			setup:    func() *Registry { return &Registry{} },
+			services: []string{"AWS/Test"},
+			assertions: func(t *testing.T, registry *Registry) {
+				assert.NotNil(t, registry.services)
+				assert.Contains(t, registry.services, "AWS/Test")
+				assert.Len(t, registry.services, 1)
+			},
+		},
+		{
+			name:     "register multiple services",
+			setup:    func() *Registry { return &Registry{} },
+			services: []string{"AWS/Test1", "AWS/Test2"},
+			assertions: func(t *testing.T, registry *Registry) {
+				assert.Len(t, registry.services, 2)
+				assert.Contains(t, registry.services, "AWS/Test1")
+				assert.Contains(t, registry.services, "AWS/Test2")
+			},
+		},
+		{
+			name:     "replace existing service",
+			setup:    func() *Registry { return &Registry{} },
+			services: []string{"AWS/Test", "AWS/Test"},
+			assertions: func(t *testing.T, registry *Registry) {
+				assert.Len(t, registry.services, 1)
+				svc, err := registry.GetEnhancedMetricsService("AWS/Test")
+				require.NoError(t, err)
+				assert.NotNil(t, svc)
+			},
+		},
+		{
+			name:     "register on nil services map",
+			setup:    func() *Registry { return &Registry{} },
+			services: []string{"AWS/Test"},
+			assertions: func(t *testing.T, registry *Registry) {
+				assert.NotNil(t, registry.services)
+			},
+		},
+	}
 
-		result := registry.Register(mockSvc)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := tt.setup()
 
-		assert.NotNil(t, result)
-		assert.Equal(t, registry, result, "Register should return the registry for chaining")
-		assert.NotNil(t, registry.services)
-		assert.Contains(t, registry.services, "AWS/Test")
-	})
+			var result *Registry
+			for _, ns := range tt.services {
+				mockSvc := newMockService(ns)
+				result = registry.Register(mockSvc)
+			}
 
-	t.Run("register multiple services", func(t *testing.T) {
-		registry := &Registry{}
-		mockSvc1 := newMockService("AWS/Test1")
-		mockSvc2 := newMockService("AWS/Test2")
-
-		registry.Register(mockSvc1).Register(mockSvc2)
-
-		assert.Len(t, registry.services, 2)
-		assert.Contains(t, registry.services, "AWS/Test1")
-		assert.Contains(t, registry.services, "AWS/Test2")
-	})
-
-	t.Run("replace existing service", func(t *testing.T) {
-		registry := &Registry{}
-		mockSvc1 := newMockService("AWS/Test")
-		mockSvc2 := newMockService("AWS/Test")
-
-		registry.Register(mockSvc1)
-		registry.Register(mockSvc2)
-
-		assert.Len(t, registry.services, 1)
-		svc, err := registry.GetEnhancedMetricsService("AWS/Test")
-		require.NoError(t, err)
-		assert.NotNil(t, svc)
-	})
-
-	t.Run("register on nil services map", func(t *testing.T) {
-		registry := &Registry{}
-		mockSvc := newMockService("AWS/Test")
-
-		assert.Nil(t, registry.services)
-		registry.Register(mockSvc)
-		assert.NotNil(t, registry.services)
-	})
+			assert.NotNil(t, result)
+			assert.Equal(t, registry, result, "Register should return the registry for chaining")
+			tt.assertions(t, registry)
+		})
+	}
 }
 
 func TestRegistry_GetEnhancedMetricsService(t *testing.T) {
-	t.Run("get existing service", func(t *testing.T) {
-		registry := &Registry{}
-		registry.Register(rds.NewRDSService(nil))
+	tests := []struct {
+		name        string
+		setup       func() *Registry
+		namespace   string
+		expectError bool
+		error       string
+	}{
+		{
+			name: "get existing service",
+			setup: func() *Registry {
+				registry := &Registry{}
+				registry.Register(rds.NewRDSService(nil))
+				return registry
+			},
+			namespace:   "AWS/RDS",
+			expectError: false,
+		},
+		{
+			name: "get non-existent service",
+			setup: func() *Registry {
+				registry := &Registry{}
+				registry.Register(rds.NewRDSService(nil))
+				return registry
+			},
+			namespace:   "AWS/NonExistent",
+			expectError: true,
+			error:       "enhanced metrics service for namespace AWS/NonExistent not found",
+		},
+		{
+			name: "get service from empty registry",
+			setup: func() *Registry {
+				return &Registry{}
+			},
+			namespace:   "AWS/Test",
+			error:       "enhanced metrics service for namespace AWS/Test not found",
+			expectError: true,
+		},
+	}
 
-		svc, err := registry.GetEnhancedMetricsService("AWS/RDS")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := tt.setup()
+			svc, err := registry.GetEnhancedMetricsService(tt.namespace)
 
-		require.NoError(t, err)
-		assert.NotNil(t, svc)
-	})
-
-	t.Run("get non-existent service", func(t *testing.T) {
-		registry := &Registry{}
-		registry.Register(rds.NewRDSService(nil))
-
-		svc, err := registry.GetEnhancedMetricsService("AWS/NonExistent")
-
-		assert.Error(t, err)
-		assert.Nil(t, svc)
-		assert.Contains(t, err.Error(), "not found")
-		assert.Contains(t, err.Error(), "AWS/NonExistent")
-	})
-
-	t.Run("get service from empty registry", func(t *testing.T) {
-		registry := &Registry{}
-
-		svc, err := registry.GetEnhancedMetricsService("AWS/Test")
-
-		assert.Error(t, err)
-		assert.Nil(t, svc)
-	})
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, err.Error(), tt.error)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, svc)
+			}
+		})
+	}
 
 	t.Run("service instance is independent", func(t *testing.T) {
 		registry := &Registry{}
@@ -230,26 +269,52 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 }
 
 func TestDefaultRegistry(t *testing.T) {
-	t.Run("default registry contains expected services", func(t *testing.T) {
-		expectedNamespaces := []string{
-			"AWS/RDS",
-			"AWS/Lambda",
-			"AWS/DynamoDB",
-			"AWS/ElastiCache",
-		}
+	tests := []struct {
+		name        string
+		namespace   string
+		expectError bool
+	}{
+		{
+			name:        "AWS/RDS is registered",
+			namespace:   "AWS/RDS",
+			expectError: false,
+		},
+		{
+			name:        "AWS/Lambda is registered",
+			namespace:   "AWS/Lambda",
+			expectError: false,
+		},
+		{
+			name:        "AWS/DynamoDB is registered",
+			namespace:   "AWS/DynamoDB",
+			expectError: false,
+		},
+		{
+			name:        "AWS/ElastiCache is registered",
+			namespace:   "AWS/ElastiCache",
+			expectError: false,
+		},
+		{
+			name:        "unknown namespace returns error",
+			namespace:   "AWS/Unknown",
+			expectError: true,
+		},
+	}
 
-		for _, namespace := range expectedNamespaces {
-			svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService(namespace)
-			assert.NoError(t, err, "Expected namespace %s to be registered", namespace)
-			assert.NotNil(t, svc, "Expected service for namespace %s to be non-nil", namespace)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService(tt.namespace)
 
-	t.Run("default registry returns error for unknown namespace", func(t *testing.T) {
-		svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService("AWS/Unknown")
-		assert.Error(t, err)
-		assert.Nil(t, svc)
-	})
+			assert.Len(t, DefaultEnhancedMetricServiceRegistry.services, 4, "Expected 4 services to be registered in the default registry")
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, svc)
+			} else {
+				assert.NoError(t, err, "Expected namespace %s to be registered", tt.namespace)
+				assert.NotNil(t, svc, "Expected service for namespace %s to be non-nil", tt.namespace)
+			}
+		})
+	}
 }
 
 func TestRegistry_ChainedRegistration(t *testing.T) {
