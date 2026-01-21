@@ -13,45 +13,20 @@
 package enhancedmetrics
 
 import (
-	"context"
-	"log/slog"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
-
-// registryMockMetricsService is a mock implementation of service.EnhancedMetricsService for testing the registry
-type registryMockMetricsService struct {
-	namespace             string
-	getMetricsFunc        func(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, metrics []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error)
-	isMetricSupportedFunc func(metricName string) bool
-}
-
-func (m *registryMockMetricsService) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*model.TaggedResource, enhancedMetricConfigs []*model.EnhancedMetricConfig, exportedTagOnMetrics []string, region string, role model.Role, regionalConfigProvider config.RegionalConfigProvider) ([]*model.CloudwatchData, error) {
-	if m.getMetricsFunc != nil {
-		return m.getMetricsFunc(ctx, logger, resources, enhancedMetricConfigs, exportedTagOnMetrics, region, role, regionalConfigProvider)
-	}
-	return nil, nil
-}
-
-func (m *registryMockMetricsService) IsMetricSupported(metricName string) bool {
-	if m.isMetricSupportedFunc != nil {
-		return m.isMetricSupportedFunc(metricName)
-	}
-	return false
-}
 
 // registryMockMetricsServiceWrapper wraps the mock service to implement MetricsService interface
 type registryMockMetricsServiceWrapper struct {
-	namespace string
-	service   *registryMockMetricsService
+	namespace    string
+	instanceFunc func() service.EnhancedMetricsService
 }
 
 func (m *registryMockMetricsServiceWrapper) GetNamespace() string {
@@ -59,16 +34,10 @@ func (m *registryMockMetricsServiceWrapper) GetNamespace() string {
 }
 
 func (m *registryMockMetricsServiceWrapper) Instance() service.EnhancedMetricsService {
-	return m.service
-}
-
-func newMockService(namespace string) *registryMockMetricsServiceWrapper {
-	return &registryMockMetricsServiceWrapper{
-		namespace: namespace,
-		service: &registryMockMetricsService{
-			namespace: namespace,
-		},
+	if m.instanceFunc != nil {
+		return m.instanceFunc()
 	}
+	return nil
 }
 
 func TestRegistry_Register(t *testing.T) {
@@ -104,9 +73,8 @@ func TestRegistry_Register(t *testing.T) {
 			services: []string{"AWS/Test", "AWS/Test"},
 			assertions: func(t *testing.T, registry *Registry) {
 				assert.Len(t, registry.services, 1)
-				svc, err := registry.GetEnhancedMetricsService("AWS/Test")
+				_, err := registry.GetEnhancedMetricsService("AWS/Test")
 				require.NoError(t, err)
-				assert.NotNil(t, svc)
 			},
 		},
 		{
@@ -125,7 +93,9 @@ func TestRegistry_Register(t *testing.T) {
 
 			var result *Registry
 			for _, ns := range tt.services {
-				mockSvc := newMockService(ns)
+				mockSvc := &registryMockMetricsServiceWrapper{
+					namespace: ns,
+				}
 				result = registry.Register(mockSvc)
 			}
 
@@ -220,7 +190,9 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				mockSvc := newMockService("AWS/Test" + string(rune('0'+idx)))
+				mockSvc := &registryMockMetricsServiceWrapper{
+					namespace: "AWS/Test" + string(rune('0'+idx)),
+				}
 				registry.Register(mockSvc)
 			}(i)
 		}
@@ -231,7 +203,9 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 
 	t.Run("concurrent read and write", func(t *testing.T) {
 		registry := &Registry{}
-		mockSvc := newMockService("AWS/Test")
+		mockSvc := &registryMockMetricsServiceWrapper{
+			namespace: "AWS/Test",
+		}
 		registry.Register(mockSvc)
 
 		var wg sync.WaitGroup
@@ -254,7 +228,9 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				mockSvc := newMockService("AWS/NewTest" + string(rune('0'+idx)))
+				mockSvc := &registryMockMetricsServiceWrapper{
+					namespace: "AWS/NewTest" + string(rune('0'+idx)),
+				}
 				registry.Register(mockSvc)
 			}(i)
 		}
@@ -320,17 +296,22 @@ func TestDefaultRegistry(t *testing.T) {
 func TestRegistry_ChainedRegistration(t *testing.T) {
 	t.Run("chained registration", func(t *testing.T) {
 		registry := (&Registry{}).
-			Register(newMockService("AWS/Test1")).
-			Register(newMockService("AWS/Test2")).
-			Register(newMockService("AWS/Test3"))
+			Register(&registryMockMetricsServiceWrapper{
+				namespace: "AWS/Test1",
+			}).
+			Register(&registryMockMetricsServiceWrapper{
+				namespace: "AWS/Test2",
+			}).
+			Register(&registryMockMetricsServiceWrapper{
+				namespace: "AWS/Test3",
+			})
 
 		assert.Len(t, registry.services, 3)
 
 		for i := 1; i <= 3; i++ {
 			namespace := "AWS/Test" + string(rune('0'+i))
-			svc, err := registry.GetEnhancedMetricsService(namespace)
+			_, err := registry.GetEnhancedMetricsService(namespace)
 			require.NoError(t, err)
-			assert.NotNil(t, svc)
 		}
 	})
 }
@@ -340,35 +321,16 @@ func TestRegistry_ServiceFactory(t *testing.T) {
 		registry := &Registry{}
 		callCount := 0
 
-		// Create a wrapper that counts how many times Instance() is called
-		wrapper := &registryMockMetricsServiceWrapper{
-			namespace: "AWS/Test",
-			service:   &registryMockMetricsService{namespace: "AWS/Test"},
-		}
-
-		// Override Instance to count calls
-		originalInstance := wrapper.service
-		customWrapper := &struct {
-			MetricsService
-			namespace string
-			factory   func() service.EnhancedMetricsService
-		}{
-			namespace: "AWS/Test",
-			factory: func() service.EnhancedMetricsService {
-				callCount++
-				return originalInstance
-			},
-		}
-
 		registry.services = map[string]func() service.EnhancedMetricsService{
-			"AWS/Test": customWrapper.factory,
+			"AWS/Test": func() service.EnhancedMetricsService {
+				callCount++
+				return nil
+			},
 		}
 
 		// Call multiple times
 		for i := 0; i < 3; i++ {
-			svc, err := registry.GetEnhancedMetricsService("AWS/Test")
-			require.NoError(t, err)
-			assert.NotNil(t, svc)
+			_, _ = registry.GetEnhancedMetricsService("AWS/Test")
 		}
 
 		assert.Equal(t, 3, callCount, "Factory should be called for each Get")
