@@ -1,11 +1,12 @@
 ## main / (unreleased)
 
 **Important news and breaking changes**
+
 * [CHANGE] ...
 * [FEATURE] ...
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
-* [FEATURE] Add `exactMatch` option to `searchTags` for server-side tag filtering
+* [FEATURE] Add `exactMatch` option to `searchTags` for server-side tag filtering by @njo
 
 ## 0.63.0 / 2025-09-25
 
