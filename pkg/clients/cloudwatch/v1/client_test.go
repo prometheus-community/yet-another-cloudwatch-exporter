@@ -151,3 +151,175 @@ func Test_toMetricDataResult(t *testing.T) {
 		})
 	}
 }
+
+func Test_toModelMetric(t *testing.T) {
+	type testCase struct {
+		name                  string
+		listMetricsOutput     *cloudwatch.ListMetricsOutput
+		includeLinkedAccounts []string
+		expectedMetrics       []*model.Metric
+	}
+
+	testCases := []testCase{
+		{
+			name: "no linked accounts filter - original behavior",
+			listMetricsOutput: &cloudwatch.ListMetricsOutput{
+				Metrics: []*cloudwatch.Metric{
+					{
+						MetricName: aws.String("CPUUtilization"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-12345")},
+						},
+					},
+					{
+						MetricName: aws.String("NetworkIn"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-67890")},
+						},
+					},
+				},
+			},
+			includeLinkedAccounts: nil,
+			expectedMetrics: []*model.Metric{
+				{
+					MetricName: "CPUUtilization",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-12345"},
+					},
+				},
+				{
+					MetricName: "NetworkIn",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-67890"},
+					},
+				},
+			},
+		},
+		{
+			name: "with wildcard linked accounts - include all",
+			listMetricsOutput: &cloudwatch.ListMetricsOutput{
+				Metrics: []*cloudwatch.Metric{
+					{
+						MetricName: aws.String("CPUUtilization"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-12345")},
+						},
+					},
+					{
+						MetricName: aws.String("NetworkIn"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-67890")},
+						},
+					},
+				},
+				OwningAccounts: []*string{
+					aws.String("111111111111"),
+					aws.String("222222222222"),
+				},
+			},
+			includeLinkedAccounts: []string{"*"},
+			expectedMetrics: []*model.Metric{
+				{
+					MetricName: "CPUUtilization",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-12345"},
+					},
+					LinkedAccountID: "111111111111",
+				},
+				{
+					MetricName: "NetworkIn",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-67890"},
+					},
+					LinkedAccountID: "222222222222",
+				},
+			},
+		},
+		{
+			name: "with specific linked accounts - filter by account ID",
+			listMetricsOutput: &cloudwatch.ListMetricsOutput{
+				Metrics: []*cloudwatch.Metric{
+					{
+						MetricName: aws.String("CPUUtilization"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-12345")},
+						},
+					},
+					{
+						MetricName: aws.String("NetworkIn"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-67890")},
+						},
+					},
+					{
+						MetricName: aws.String("DiskReadOps"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-11111")},
+						},
+					},
+				},
+				OwningAccounts: []*string{
+					aws.String("111111111111"),
+					aws.String("222222222222"),
+					aws.String("333333333333"),
+				},
+			},
+			includeLinkedAccounts: []string{"111111111111", "333333333333"},
+			expectedMetrics: []*model.Metric{
+				{
+					MetricName: "CPUUtilization",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-12345"},
+					},
+					LinkedAccountID: "111111111111",
+				},
+				{
+					MetricName: "DiskReadOps",
+					Namespace:  "AWS/EC2",
+					Dimensions: []model.Dimension{
+						{Name: "InstanceId", Value: "i-11111"},
+					},
+					LinkedAccountID: "333333333333",
+				},
+			},
+		},
+		{
+			name: "with linked accounts filter - no matches",
+			listMetricsOutput: &cloudwatch.ListMetricsOutput{
+				Metrics: []*cloudwatch.Metric{
+					{
+						MetricName: aws.String("CPUUtilization"),
+						Namespace:  aws.String("AWS/EC2"),
+						Dimensions: []*cloudwatch.Dimension{
+							{Name: aws.String("InstanceId"), Value: aws.String("i-12345")},
+						},
+					},
+				},
+				OwningAccounts: []*string{
+					aws.String("111111111111"),
+				},
+			},
+			includeLinkedAccounts: []string{"999999999999"},
+			expectedMetrics:       []*model.Metric{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := toModelMetric(tc.listMetricsOutput, tc.includeLinkedAccounts)
+			require.Equal(t, tc.expectedMetrics, result)
+		})
+	}
+}

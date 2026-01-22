@@ -30,6 +30,7 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "sts_region.ok.yml"},
 		{configFile: "multiple_roles.ok.yml"},
 		{configFile: "custom_namespace.ok.yml"},
+		{configFile: "include_linked_accounts.ok.yml"},
 	}
 	for _, tc := range testCases {
 		config := ScrapeConf{}

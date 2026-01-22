@@ -1086,6 +1086,61 @@ func TestBuildMetrics(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			name: "metric with LinkedAccountID overrides context account_id",
+			data: []model.CloudwatchMetricResult{{
+				Context: &model.ScrapeContext{
+					Region:     "us-east-1",
+					AccountID:  "123456789012",
+					CustomTags: nil,
+				},
+				Data: []*model.CloudwatchData{
+					{
+						MetricName: "CPUUtilization",
+						MetricMigrationParams: model.MetricMigrationParams{
+							NilToZero:              false,
+							AddCloudwatchTimestamp: false,
+						},
+						Namespace:       "AWS/EC2",
+						LinkedAccountID: "999888777666",
+						GetMetricDataResult: &model.GetMetricDataResult{
+							Statistic:  "Average",
+							DataPoints: []model.DataPoint{{Value: aws.Float64(50), Timestamp: ts}},
+						},
+						Dimensions: []model.Dimension{
+							{
+								Name:  "InstanceId",
+								Value: "i-12345",
+							},
+						},
+						ResourceName: "arn:aws:ec2:us-east-1:999888777666:instance/i-12345",
+					},
+				},
+			}},
+			labelsSnakeCase: true,
+			expectedMetrics: []*PrometheusMetric{
+				{
+					Name:      "aws_ec2_cpuutilization_average",
+					Value:     50,
+					Timestamp: nullTs,
+					Labels: map[string]string{
+						"account_id":            "999888777666",
+						"name":                  "arn:aws:ec2:us-east-1:999888777666:instance/i-12345",
+						"region":                "us-east-1",
+						"dimension_instance_id": "i-12345",
+					},
+				},
+			},
+			expectedLabels: map[string]model.LabelSet{
+				"aws_ec2_cpuutilization_average": {
+					"account_id":            {},
+					"name":                  {},
+					"region":                {},
+					"dimension_instance_id": {},
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tc := range testCases {

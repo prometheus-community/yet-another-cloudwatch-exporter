@@ -67,6 +67,7 @@ type Job struct {
 	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
 	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
 	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
+	IncludeLinkedAccounts       []string          `yaml:"includeLinkedAccounts"`
 	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
 	JobLevelMetricFields        `yaml:",inline"`
 }
@@ -95,6 +96,7 @@ type CustomNamespace struct {
 	CustomTags                []Tag     `yaml:"customTags"`
 	DimensionNameRequirements []string  `yaml:"dimensionNameRequirements"`
 	RoundingPeriod            *int64    `yaml:"roundingPeriod"`
+	IncludeLinkedAccounts     []string  `yaml:"includeLinkedAccounts"`
 	JobLevelMetricFields      `yaml:",inline"`
 }
 
@@ -456,6 +458,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.CustomTags = toModelTags(discoveryJob.CustomTags)
 		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
+		job.IncludeLinkedAccounts = discoveryJob.IncludeLinkedAccounts
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
 		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
 
@@ -492,6 +495,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Roles = toModelRoles(customNamespaceJob.Roles)
 		job.CustomTags = toModelTags(customNamespaceJob.CustomTags)
 		job.Metrics = toModelMetricConfig(customNamespaceJob.Metrics)
+		job.IncludeLinkedAccounts = customNamespaceJob.IncludeLinkedAccounts
 		jobsCfg.CustomNamespaceJobs = append(jobsCfg.CustomNamespaceJobs, job)
 	}
 
