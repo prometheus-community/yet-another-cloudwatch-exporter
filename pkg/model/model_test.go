@@ -168,6 +168,107 @@ func Test_FilterThroughTags(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			testName: "exact match - matching value",
+			resourceTags: []Tag{
+				{
+					Key:   "Environment",
+					Value: "production",
+				},
+			},
+			filterTags: []SearchTag{
+				{
+					Key:        "Environment",
+					ExactValue: "production",
+					ExactMatch: true,
+				},
+			},
+			result: true,
+		},
+		{
+			testName: "exact match - non-matching value",
+			resourceTags: []Tag{
+				{
+					Key:   "Environment",
+					Value: "production-us",
+				},
+			},
+			filterTags: []SearchTag{
+				{
+					Key:        "Environment",
+					ExactValue: "production",
+					ExactMatch: true,
+				},
+			},
+			result: false,
+		},
+		{
+			testName: "exact match - value that would match as regex but not exact",
+			resourceTags: []Tag{
+				{
+					Key:   "Environment",
+					Value: "prod-123",
+				},
+			},
+			filterTags: []SearchTag{
+				{
+					Key:        "Environment",
+					ExactValue: "prod.*",
+					ExactMatch: true,
+				},
+			},
+			result: false,
+		},
+		{
+			testName: "mixed exact and regex filters - all match",
+			resourceTags: []Tag{
+				{
+					Key:   "Environment",
+					Value: "production",
+				},
+				{
+					Key:   "Team",
+					Value: "platform-infra",
+				},
+			},
+			filterTags: []SearchTag{
+				{
+					Key:        "Environment",
+					ExactValue: "production",
+					ExactMatch: true,
+				},
+				{
+					Key:   "Team",
+					Value: regexp.MustCompile("platform-.*"),
+				},
+			},
+			result: true,
+		},
+		{
+			testName: "mixed exact and regex filters - exact fails",
+			resourceTags: []Tag{
+				{
+					Key:   "Environment",
+					Value: "staging",
+				},
+				{
+					Key:   "Team",
+					Value: "platform-infra",
+				},
+			},
+			filterTags: []SearchTag{
+				{
+					Key:        "Environment",
+					ExactValue: "production",
+					ExactMatch: true,
+				},
+				{
+					Key:   "Team",
+					Value: regexp.MustCompile("platform-.*"),
+				},
+			},
+			result: false,
+		},
 	}
 
 	for _, tc := range testCases {

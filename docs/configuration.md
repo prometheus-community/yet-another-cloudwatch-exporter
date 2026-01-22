@@ -92,8 +92,8 @@ roles:
   [ - <role_config> ... ]
 
 # List of Key/Value pairs to use for tag filtering (all must match). 
-# The key is the AWS Tag key and is case-sensitive  
-# The value will be treated as a regex
+# The key is the AWS Tag key and is case-sensitive.
+# The value will be treated as a regex and filtered client side unless exactMatch is set.
 searchTags:
   [ - <search_tags_config> ... ]
 
@@ -393,7 +393,12 @@ This is an example of the `search_tags_config` block:
 ```yaml
 searchTags:
   - key: env
-    value: production
+    value: "(prod|staging)" # Regex pattern (default behavior)
+  - key: team
+    value: accounting 
+    # When exactMatch is `true`, the value is passed to AWS for server-side filtering.
+    # When `false` or omitted (default), the value is treated as a regex pattern and filtering happens client-side
+    exactMatch: true
 ```
 
 ### `custom_tags_config`

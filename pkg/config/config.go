@@ -41,8 +41,9 @@ type Discovery struct {
 type ExportedTagsOnMetrics map[string][]string
 
 type Tag struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	Key        string `yaml:"key"`
+	Value      string `yaml:"value"`
+	ExactMatch bool   `yaml:"exactMatch"`
 }
 
 type JobLevelMetricFields struct {
@@ -249,8 +250,10 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 	}
 
 	for _, st := range j.SearchTags {
-		if _, err := regexp.Compile(st.Value); err != nil {
-			return fmt.Errorf("Discovery job [%s/%d]: search tag value for %s has invalid regex value %s: %w", j.Type, jobIdx, st.Key, st.Value, err)
+		if !st.ExactMatch {
+			if _, err := regexp.Compile(st.Value); err != nil {
+				return fmt.Errorf("Discovery job [%s/%d]: search tag value for %s has invalid regex value %s: %w", j.Type, jobIdx, st.Key, st.Value, err)
+			}
 		}
 	}
 
@@ -492,12 +495,17 @@ func toModelTags(tags []Tag) []model.Tag {
 func toModelSearchTags(tags []Tag) []model.SearchTag {
 	ret := make([]model.SearchTag, 0, len(tags))
 	for _, t := range tags {
-		// This should never panic as long as regex validation continues to happen before model mapping
-		r := regexp.MustCompile(t.Value)
-		ret = append(ret, model.SearchTag{
-			Key:   t.Key,
-			Value: r,
-		})
+		st := model.SearchTag{
+			Key:        t.Key,
+			ExactMatch: t.ExactMatch,
+		}
+		if t.ExactMatch {
+			st.ExactValue = t.Value
+		} else {
+			// This should never panic as long as regex validation continues to happen before model mapping
+			st.Value = regexp.MustCompile(t.Value)
+		}
+		ret = append(ret, st)
 	}
 	return ret
 }
