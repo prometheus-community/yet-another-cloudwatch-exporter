@@ -393,11 +393,11 @@ This is an example of the `search_tags_config` block:
 ```yaml
 searchTags:
   - key: env
-    value: "(prod|staging)" # Regex pattern (default behavior)
+    # Value is a regex pattern. Keys are filtered server-side. Value filtering happens client-side.
+    value: "(prod|staging)"
   - key: team
     value: accounting 
-    # When exactMatch is `true`, the value is passed to AWS for server-side filtering.
-    # When `false` or omitted (default), the value is treated as a regex pattern and filtering happens client-side
+    # When exactMatch is `true`, the value is no longer treated as regex and filtering happens server-side.
     exactMatch: true
 ```
 
