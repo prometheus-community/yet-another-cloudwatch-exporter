@@ -247,6 +247,18 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/CodeBuild",
+		Alias:     "codebuild",
+		ResourceFilters: []*string{
+			aws.String("codebuild:build"),
+			aws.String("codebuild:project"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("project/(?P<ProjectName>[^/]+)"),
+			regexp.MustCompile("build/(?P<ProjectName>[^/]+):(?P<BuildId>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/CloudFront",
 		Alias:     "cloudfront",
 		ResourceFilters: []*string{
