@@ -15,6 +15,7 @@ package job
 import (
 	"testing"
 
+	"github.com/grafana/regexp"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 
@@ -32,6 +33,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 		tagsOnMetrics             []string
 		dimensionRegexps          []model.DimensionsRegexp
 		dimensionNameRequirements []string
+		dimensionValueExclusions  []model.DimensionValueExclusion
 		resources                 []*model.TaggedResource
 		metricsList               []*model.Metric
 		m                         *model.MetricConfig
@@ -479,11 +481,201 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				},
 			},
 		},
+		{
+			"dimension value exclusion - excludes matching metrics",
+			args{
+				namespace: "mq",
+				dimensionValueExclusions: []model.DimensionValueExclusion{
+					{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+				},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Broker", Value: "prod-broker"},
+							{Name: "Queue", Value: "celeryev.abc123-def456"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Broker", Value: "prod-broker"},
+							{Name: "Queue", Value: "normal-queue"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+				},
+				m: &model.MetricConfig{
+					Name:       "MessageCount",
+					Statistics: []string{"Maximum"},
+					Period:     60,
+					Length:     300,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName:   "MessageCount",
+					ResourceName: "global",
+					Namespace:    "mq",
+					Dimensions: []model.Dimension{
+						{Name: "Broker", Value: "prod-broker"},
+						{Name: "Queue", Value: "normal-queue"},
+					},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Maximum",
+						Period:    60,
+						Length:    300,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{},
+				},
+			},
+		},
+		{
+			"dimension value exclusion - empty exclusions has no effect",
+			args{
+				namespace:                "mq",
+				dimensionValueExclusions: []model.DimensionValueExclusion{},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Queue", Value: "celeryev.abc123"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+				},
+				m: &model.MetricConfig{
+					Name:       "MessageCount",
+					Statistics: []string{"Maximum"},
+					Period:     60,
+					Length:     300,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName:   "MessageCount",
+					ResourceName: "global",
+					Namespace:    "mq",
+					Dimensions: []model.Dimension{
+						{Name: "Queue", Value: "celeryev.abc123"},
+					},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Maximum",
+						Period:    60,
+						Length:    300,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{},
+				},
+			},
+		},
+		{
+			"dimension value exclusion - multiple exclusion patterns",
+			args{
+				namespace: "mq",
+				dimensionValueExclusions: []model.DimensionValueExclusion{
+					{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+					{Name: "Queue", Value: regexp.MustCompile(`.*\.pidbox$`)},
+				},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Queue", Value: "celeryev.abc123"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Queue", Value: "worker1.pidbox"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Queue", Value: "task-queue"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+				},
+				m: &model.MetricConfig{
+					Name:       "MessageCount",
+					Statistics: []string{"Maximum"},
+					Period:     60,
+					Length:     300,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName:   "MessageCount",
+					ResourceName: "global",
+					Namespace:    "mq",
+					Dimensions: []model.Dimension{
+						{Name: "Queue", Value: "task-queue"},
+					},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Maximum",
+						Period:    60,
+						Length:    300,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{},
+				},
+			},
+		},
+		{
+			"dimension value exclusion - exclusion on different dimension name",
+			args{
+				namespace: "mq",
+				dimensionValueExclusions: []model.DimensionValueExclusion{
+					{Name: "Topic", Value: regexp.MustCompile("internal-.*")},
+				},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Queue", Value: "internal-queue"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+					{
+						MetricName: "MessageCount",
+						Dimensions: []model.Dimension{
+							{Name: "Topic", Value: "internal-topic"},
+						},
+						Namespace: "AWS/AmazonMQ",
+					},
+				},
+				m: &model.MetricConfig{
+					Name:       "MessageCount",
+					Statistics: []string{"Maximum"},
+					Period:     60,
+					Length:     300,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName:   "MessageCount",
+					ResourceName: "global",
+					Namespace:    "mq",
+					Dimensions: []model.Dimension{
+						{Name: "Queue", Value: "internal-queue"},
+					},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Maximum",
+						Period:    60,
+						Length:    300,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assoc := maxdimassociator.NewAssociator(promslog.NewNopLogger(), tt.args.dimensionRegexps, tt.args.resources)
-			metricDatas := getFilteredMetricDatas(promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc)
+			metricDatas := getFilteredMetricDatas(promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.dimensionValueExclusions, tt.args.m, assoc)
 			if len(metricDatas) != len(tt.wantGetMetricsData) {
 				t.Errorf("len(getFilteredMetricDatas()) = %v, want %v", len(metricDatas), len(tt.wantGetMetricsData))
 			}
@@ -502,6 +694,92 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				assert.Nil(t, got.GetMetricDataResult)
 				assert.Nil(t, got.GetMetricStatisticsResult)
 			}
+		})
+	}
+}
+
+func Test_metricDimensionsMatchExclusions(t *testing.T) {
+	tests := []struct {
+		name       string
+		metric     *model.Metric
+		exclusions []model.DimensionValueExclusion
+		want       bool
+	}{
+		{
+			name: "matches single exclusion",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Queue", Value: "celeryev.abc123"}},
+			},
+			exclusions: []model.DimensionValueExclusion{
+				{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+			},
+			want: true,
+		},
+		{
+			name: "no match when dimension name differs",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Topic", Value: "celeryev.abc123"}},
+			},
+			exclusions: []model.DimensionValueExclusion{
+				{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+			},
+			want: false,
+		},
+		{
+			name: "no match when value doesn't match pattern",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Queue", Value: "normal-queue"}},
+			},
+			exclusions: []model.DimensionValueExclusion{
+				{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+			},
+			want: false,
+		},
+		{
+			name: "empty exclusions returns false",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Queue", Value: "anything"}},
+			},
+			exclusions: []model.DimensionValueExclusion{},
+			want:       false,
+		},
+		{
+			name: "nil exclusions returns false",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Queue", Value: "anything"}},
+			},
+			exclusions: nil,
+			want:       false,
+		},
+		{
+			name: "matches one of multiple exclusions",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{{Name: "Queue", Value: "worker1.pidbox"}},
+			},
+			exclusions: []model.DimensionValueExclusion{
+				{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+				{Name: "Queue", Value: regexp.MustCompile(`.*\.pidbox$`)},
+			},
+			want: true,
+		},
+		{
+			name: "matches exclusion on one of multiple dimensions",
+			metric: &model.Metric{
+				Dimensions: []model.Dimension{
+					{Name: "Broker", Value: "prod-broker"},
+					{Name: "Queue", Value: "celeryev.abc123"},
+				},
+			},
+			exclusions: []model.DimensionValueExclusion{
+				{Name: "Queue", Value: regexp.MustCompile("celeryev.*")},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := metricDimensionsMatchExclusions(tt.metric, tt.exclusions)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -91,8 +91,8 @@ type: <string>
 roles:
   [ - <role_config> ... ]
 
-# List of Key/Value pairs to use for tag filtering (all must match). 
-# The key is the AWS Tag key and is case-sensitive  
+# List of Key/Value pairs to use for tag filtering (all must match).
+# The key is the AWS Tag key and is case-sensitive
 # The value will be treated as a regex
 searchTags:
   [ - <search_tags_config> ... ]
@@ -104,6 +104,13 @@ customTags:
 # List of metric dimensions to query. Before querying metric values, the total list of metrics will be filtered to only those that contain exactly this list of dimensions. An empty or undefined list results in all dimension combinations being included.
 dimensionNameRequirements:
   [ - <string> ... ]
+
+# List of dimension value patterns to exclude. Metrics with dimensions matching any exclusion pattern
+# will be dropped before querying metric values. Patterns are regex. This reduces CloudWatch API calls
+# for high-cardinality dimensions (e.g., Celery event queues).
+dimensionValueExclusions:
+  [ - name: <string>
+      value: <regex_string> ... ]
 
 # Specifies how the current time is rounded before calculating start/end times for CloudWatch GetMetricData requests.
 # This rounding is optimize performance of the CloudWatch request.
@@ -259,6 +266,13 @@ customTags:
 # List of metric dimensions to query. Before querying metric values, the total list of metrics will be filtered to only those that contain exactly this list of dimensions. An empty or undefined list results in all dimension combinations being included.
 dimensionNameRequirements:
   [ - <string> ... ]
+
+# List of dimension value patterns to exclude. Metrics with dimensions matching any exclusion pattern
+# will be dropped before querying metric values. Patterns are regex. This reduces CloudWatch API calls
+# for high-cardinality dimensions (e.g., Celery event queues).
+dimensionValueExclusions:
+  [ - name: <string>
+      value: <regex_string> ... ]
 
 # Specifies how the current time is rounded before calculating start/end times for CloudWatch GetMetricData requests.
 # This rounding is optimize performance of the CloudWatch request.

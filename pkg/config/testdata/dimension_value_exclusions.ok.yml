@@ -1,0 +1,14 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/AmazonMQ
+      regions:
+        - us-east-1
+      dimensionValueExclusions:
+        - key: Queue
+          value: "celeryev.*"
+        - key: Queue
+          value: ".*\\.pidbox$"
+      metrics:
+        - name: MessageCount
+          statistics: [Maximum]

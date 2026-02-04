@@ -31,6 +31,7 @@ func (c CustomNamespaceJob) listMetricsParams() listmetrics.ProcessingParams {
 		Metrics:                   c.Job.Metrics,
 		RecentlyActiveOnly:        c.Job.RecentlyActiveOnly,
 		DimensionNameRequirements: c.Job.DimensionNameRequirements,
+		DimensionValueExclusions:  c.Job.DimensionValueExclusions,
 	}
 }
 

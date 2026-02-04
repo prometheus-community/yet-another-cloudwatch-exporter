@@ -71,6 +71,10 @@ func getMetricDataForQueriesForCustomNamespace(
 						continue
 					}
 
+					if len(customNamespaceJob.DimensionValueExclusions) > 0 && metricDimensionsMatchExclusions(cwMetric, customNamespaceJob.DimensionValueExclusions) {
+						continue
+					}
+
 					for _, stat := range metric.Statistics {
 						data = append(data, &model.CloudwatchData{
 							MetricName:   metric.Name,

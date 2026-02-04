@@ -1,0 +1,12 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/AmazonMQ
+      regions:
+        - us-east-1
+      dimensionValueExclusions:
+        - key: Queue
+          value: "[invalid(regex"
+      metrics:
+        - name: MessageCount
+          statistics: [Maximum]

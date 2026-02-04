@@ -30,6 +30,7 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "sts_region.ok.yml"},
 		{configFile: "multiple_roles.ok.yml"},
 		{configFile: "custom_namespace.ok.yml"},
+		{configFile: "dimension_value_exclusions.ok.yml"},
 	}
 	for _, tc := range testCases {
 		config := ScrapeConf{}
@@ -85,6 +86,10 @@ func TestBadConfigs(t *testing.T) {
 		{
 			configFile: "discovery_job_exported_tags_mismatch.bad.yml",
 			errorMsg:   "Discovery jobs: 'exportedTagsOnMetrics' key \"AWS/RDS\" does not match with any discovery job type",
+		},
+		{
+			configFile: "dimension_value_exclusions_invalid_regex.bad.yml",
+			errorMsg:   "dimensionValueExclusions for Queue has invalid regex",
 		},
 	}
 

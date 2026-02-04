@@ -7,7 +7,8 @@
 * [ENHANCEMENT] ...
 * [BUGFIX] ...
 
-* [FEATURE] Implement Enhanced Metrics (EM) for AWS Services by @andriikushch. 
+* [FEATURE] Implement Enhanced Metrics (EM) for AWS Services by @andriikushch.
+* [FEATURE] New config `dimensionValueExclusions` allows discovery and custom namespace jobs to exclude metrics with dimensions matching specified patterns. This reduces CloudWatch API costs for high-cardinality dimensions like Celery event queues. 
 
 ## 0.63.0 / 2025-09-25
 

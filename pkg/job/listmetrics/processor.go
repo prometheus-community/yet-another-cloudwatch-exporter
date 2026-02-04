@@ -19,4 +19,5 @@ type ProcessingParams struct {
 	Metrics                   []*model.MetricConfig
 	RecentlyActiveOnly        bool
 	DimensionNameRequirements []string
+	DimensionValueExclusions  []model.DimensionValueExclusion
 }

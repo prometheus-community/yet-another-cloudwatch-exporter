@@ -150,7 +150,7 @@ func getMetricDataForQueries(
 			defer wg.Done()
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, discoveryJob.DimensionValueExclusions, metric, assoc)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -179,12 +179,17 @@ func getFilteredMetricDatas(
 	tagsOnMetrics []string,
 	metricsList []*model.Metric,
 	dimensionNameList []string,
+	dimensionValueExclusions []model.DimensionValueExclusion,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
 ) []*model.CloudwatchData {
 	getMetricsData := make([]*model.CloudwatchData, 0, len(metricsList))
 	for _, cwMetric := range metricsList {
 		if len(dimensionNameList) > 0 && !metricDimensionsMatchNames(cwMetric, dimensionNameList) {
+			continue
+		}
+
+		if len(dimensionValueExclusions) > 0 && metricDimensionsMatchExclusions(cwMetric, dimensionValueExclusions) {
 			continue
 		}
 
@@ -251,4 +256,15 @@ func metricDimensionsMatchNames(metric *model.Metric, dimensionNameRequirements 
 		}
 	}
 	return true
+}
+
+func metricDimensionsMatchExclusions(metric *model.Metric, exclusions []model.DimensionValueExclusion) bool {
+	for _, dim := range metric.Dimensions {
+		for _, exclusion := range exclusions {
+			if dim.Name == exclusion.Name && exclusion.Value.MatchString(dim.Value) {
+				return true // Match found - this metric should be excluded
+			}
+		}
+	}
+	return false // No exclusion matched
 }

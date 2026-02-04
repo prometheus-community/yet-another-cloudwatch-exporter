@@ -36,6 +36,7 @@ func (d DiscoveryJob) listMetricsParams() listmetrics.ProcessingParams {
 		Metrics:                   d.Job.Metrics,
 		RecentlyActiveOnly:        d.Job.RecentlyActiveOnly,
 		DimensionNameRequirements: d.Job.DimensionNameRequirements,
+		DimensionValueExclusions:  d.Job.DimensionValueExclusions,
 	}
 }
 

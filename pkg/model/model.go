@@ -37,6 +37,7 @@ type DiscoveryJob struct {
 	SearchTags                  []SearchTag
 	CustomTags                  []Tag
 	DimensionNameRequirements   []string
+	DimensionValueExclusions    []DimensionValueExclusion
 	Metrics                     []*MetricConfig
 	RoundingPeriod              *int64
 	RecentlyActiveOnly          bool
@@ -76,6 +77,7 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	DimensionValueExclusions  []DimensionValueExclusion
 }
 
 type Role struct {
@@ -108,6 +110,11 @@ type Tag struct {
 
 type SearchTag struct {
 	Key   string
+	Value *regexp.Regexp
+}
+
+type DimensionValueExclusion struct {
+	Name  string
 	Value *regexp.Regexp
 }
 

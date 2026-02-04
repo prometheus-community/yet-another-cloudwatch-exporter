@@ -63,6 +63,7 @@ type Job struct {
 	SearchTags                  []Tag             `yaml:"searchTags"`
 	CustomTags                  []Tag             `yaml:"customTags"`
 	DimensionNameRequirements   []string          `yaml:"dimensionNameRequirements"`
+	DimensionValueExclusions    []Tag             `yaml:"dimensionValueExclusions"`
 	Metrics                     []*Metric         `yaml:"metrics"`
 	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
 	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
@@ -94,6 +95,7 @@ type CustomNamespace struct {
 	Metrics                   []*Metric `yaml:"metrics"`
 	CustomTags                []Tag     `yaml:"customTags"`
 	DimensionNameRequirements []string  `yaml:"dimensionNameRequirements"`
+	DimensionValueExclusions  []Tag     `yaml:"dimensionValueExclusions"`
 	RoundingPeriod            *int64    `yaml:"roundingPeriod"`
 	JobLevelMetricFields      `yaml:",inline"`
 }
@@ -260,6 +262,12 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 		}
 	}
 
+	for _, exclusion := range j.DimensionValueExclusions {
+		if _, err := regexp.Compile(exclusion.Value); err != nil {
+			return fmt.Errorf("Discovery job [%s/%d]: dimensionValueExclusions for %s has invalid regex value %s: %w", j.Type, jobIdx, exclusion.Key, exclusion.Value, err)
+		}
+	}
+
 	if j.RoundingPeriod != nil {
 		logger.Warn(fmt.Sprintf("Discovery job [%s/%d]: Setting a rounding period is deprecated. In a future release it will always be enabled and set to the value of the metric period.", j.Type, jobIdx))
 	}
@@ -307,6 +315,12 @@ func (j *CustomNamespace) validateCustomNamespaceJob(logger *slog.Logger, jobIdx
 		err := metric.validateMetric(logger, metricIdx, parent, &j.JobLevelMetricFields)
 		if err != nil {
 			return err
+		}
+	}
+
+	for _, exclusion := range j.DimensionValueExclusions {
+		if _, err := regexp.Compile(exclusion.Value); err != nil {
+			return fmt.Errorf("CustomNamespace job [%s/%d]: dimensionValueExclusions for %s has invalid regex value %s: %w", j.Name, jobIdx, exclusion.Key, exclusion.Value, err)
 		}
 	}
 
@@ -449,6 +463,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Regions = discoveryJob.Regions
 		job.Namespace = svc.Namespace
 		job.DimensionNameRequirements = discoveryJob.DimensionNameRequirements
+		job.DimensionValueExclusions = toModelDimensionValueExclusions(discoveryJob.DimensionValueExclusions)
 		job.RecentlyActiveOnly = discoveryJob.RecentlyActiveOnly
 		job.RoundingPeriod = discoveryJob.RoundingPeriod
 		job.Roles = toModelRoles(discoveryJob.Roles)
@@ -487,6 +502,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Name = customNamespaceJob.Name
 		job.Namespace = customNamespaceJob.Namespace
 		job.DimensionNameRequirements = customNamespaceJob.DimensionNameRequirements
+		job.DimensionValueExclusions = toModelDimensionValueExclusions(customNamespaceJob.DimensionValueExclusions)
 		job.RoundingPeriod = customNamespaceJob.RoundingPeriod
 		job.RecentlyActiveOnly = customNamespaceJob.RecentlyActiveOnly
 		job.Roles = toModelRoles(customNamespaceJob.Roles)
@@ -516,6 +532,19 @@ func toModelSearchTags(tags []Tag) []model.SearchTag {
 		r := regexp.MustCompile(t.Value)
 		ret = append(ret, model.SearchTag{
 			Key:   t.Key,
+			Value: r,
+		})
+	}
+	return ret
+}
+
+func toModelDimensionValueExclusions(exclusions []Tag) []model.DimensionValueExclusion {
+	ret := make([]model.DimensionValueExclusion, 0, len(exclusions))
+	for _, e := range exclusions {
+		// This should never panic as long as regex validation continues to happen before model mapping
+		r := regexp.MustCompile(e.Value)
+		ret = append(ret, model.DimensionValueExclusion{
+			Name:  e.Key,
 			Value: r,
 		})
 	}
