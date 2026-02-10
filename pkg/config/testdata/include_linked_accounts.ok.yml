@@ -1,5 +1,9 @@
 apiVersion: v1alpha1
 sts-region: eu-west-1
+linkedAccounts:
+  oam:
+    sinkIdentifier: "arn:aws:oam:eu-west-1:123456789012:sink/test"
+    region: "eu-west-1"
 discovery:
   jobs:
     - type: AWS/EC2

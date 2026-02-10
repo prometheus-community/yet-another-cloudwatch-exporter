@@ -90,6 +90,7 @@ func ScrapeAwsData(
 							oamRegion = region
 						}
 						linkedAliasResolver = newLinkedAccountAliasResolver(jobLogger, factory.GetOAMClient(oamRegion, role), jobsCfg.OAMSinkIdentifier)
+						jobLogger.Info("OAM linked account alias resolver created", "sink_identifier", jobsCfg.OAMSinkIdentifier, "oam_region", oamRegion)
 					}
 
 					resources, metrics := runDiscoveryJob(
@@ -202,6 +203,7 @@ func ScrapeAwsData(
 							oamRegion = region
 						}
 						linkedAliasResolver = newLinkedAccountAliasResolver(jobLogger, factory.GetOAMClient(oamRegion, role), jobsCfg.OAMSinkIdentifier)
+						jobLogger.Info("OAM linked account alias resolver created", "sink_identifier", jobsCfg.OAMSinkIdentifier, "oam_region", oamRegion)
 					}
 					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor, linkedAliasResolver)
 					metricResult := model.CloudwatchMetricResult{
