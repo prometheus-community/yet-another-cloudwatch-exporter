@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	aws_oam "github.com/aws/aws-sdk-go-v2/service/oam"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
@@ -44,6 +45,8 @@ import (
 	account_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account/v2"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	cloudwatch_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch/v2"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
+	oam_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	tagging_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -71,6 +74,7 @@ type cachedClients struct {
 	cloudwatch cloudwatch_client.Client
 	tagging    tagging.Client
 	account    account.Client
+	oam        oam.Client
 }
 
 // Ensure the struct properly implements the interface
@@ -156,6 +160,42 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 		}
 	}
 
+	// Ensure OAM region exists in cache when using linked account aliases (GetOAMClient is called with oamRegion)
+	if jobsCfg.OAMSinkIdentifier != "" && jobsCfg.OAMRegion != "" {
+		for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+			if len(discoveryJob.IncludeLinkedAccounts) > 0 {
+				for _, role := range discoveryJob.Roles {
+					if _, ok := cache[role]; !ok {
+						cache[role] = map[awsRegion]*cachedClients{}
+					}
+					if _, exists := cache[role][jobsCfg.OAMRegion]; !exists {
+						regionConfig := awsConfigForRegion(role, &c, jobsCfg.OAMRegion, stsOptions)
+						cache[role][jobsCfg.OAMRegion] = &cachedClients{
+							awsConfig:  regionConfig,
+							onlyStatic: true,
+						}
+					}
+				}
+			}
+		}
+		for _, customNamespaceJob := range jobsCfg.CustomNamespaceJobs {
+			if len(customNamespaceJob.IncludeLinkedAccounts) > 0 {
+				for _, role := range customNamespaceJob.Roles {
+					if _, ok := cache[role]; !ok {
+						cache[role] = map[awsRegion]*cachedClients{}
+					}
+					if _, exists := cache[role][jobsCfg.OAMRegion]; !exists {
+						regionConfig := awsConfigForRegion(role, &c, jobsCfg.OAMRegion, stsOptions)
+						cache[role][jobsCfg.OAMRegion] = &cachedClients{
+							awsConfig:  regionConfig,
+							onlyStatic: true,
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return &CachingFactory{
 		logger:              logger,
 		clients:             cache,
@@ -220,6 +260,19 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 	return c.clients[role][region].account
 }
 
+func (c *CachingFactory) GetOAMClient(region string, role model.Role) oam.Client {
+	if !c.refreshed.Load() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
+	if client := c.clients[role][region].oam; client != nil {
+		return client
+	}
+
+	c.clients[role][region].oam = oam_v2.NewClient(c.logger, c.createOAMClient(c.clients[role][region].awsConfig))
+	return c.clients[role][region].oam
+}
+
 func (c *CachingFactory) Refresh() {
 	if c.refreshed.Load() {
 		return
@@ -276,6 +329,7 @@ func (c *CachingFactory) Clear() {
 			cache.cloudwatch = nil
 			cache.account = nil
 			cache.tagging = nil
+			cache.oam = nil
 		}
 	}
 
@@ -429,6 +483,17 @@ func (c *CachingFactory) createStsClient(awsConfig *aws.Config) *sts.Client {
 
 func (c *CachingFactory) createIAMClient(awsConfig *aws.Config) *iam.Client {
 	return iam.NewFromConfig(*awsConfig)
+}
+
+func (c *CachingFactory) createOAMClient(awsConfig *aws.Config) *aws_oam.Client {
+	return aws_oam.NewFromConfig(*awsConfig, func(options *aws_oam.Options) {
+		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
+		}
+		if c.endpointURLOverride != "" {
+			options.BaseEndpoint = aws.String(c.endpointURLOverride)
+		}
+	})
 }
 
 func (c *CachingFactory) createShieldClient(awsConfig *aws.Config) *shield.Client {

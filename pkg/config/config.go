@@ -27,11 +27,13 @@ import (
 )
 
 type ScrapeConf struct {
-	APIVersion      string             `yaml:"apiVersion"`
-	StsRegion       string             `yaml:"sts-region"`
-	Discovery       Discovery          `yaml:"discovery"`
-	Static          []*Static          `yaml:"static"`
-	CustomNamespace []*CustomNamespace `yaml:"customNamespace"`
+	APIVersion        string             `yaml:"apiVersion"`
+	StsRegion         string             `yaml:"sts-region"`
+	OAMSinkIdentifier string             `yaml:"oamSinkIdentifier"`
+	OAMRegion         string             `yaml:"oamRegion"`
+	Discovery         Discovery          `yaml:"discovery"`
+	Static            []*Static          `yaml:"static"`
+	CustomNamespace   []*CustomNamespace `yaml:"customNamespace"`
 }
 
 type Discovery struct {
@@ -443,6 +445,8 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
+	jobsCfg.OAMSinkIdentifier = c.OAMSinkIdentifier
+	jobsCfg.OAMRegion = c.OAMRegion
 
 	for _, discoveryJob := range c.Discovery.Jobs {
 		svc := SupportedServices.GetService(discoveryJob.Type)

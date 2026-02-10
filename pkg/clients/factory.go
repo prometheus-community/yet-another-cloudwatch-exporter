@@ -15,6 +15,7 @@ package clients
 import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -25,4 +26,5 @@ type Factory interface {
 	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client
 	GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client
 	GetAccountClient(region string, role model.Role) account.Client
+	GetOAMClient(region string, role model.Role) oam.Client
 }

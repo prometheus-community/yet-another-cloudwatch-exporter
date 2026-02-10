@@ -13,6 +13,7 @@
 package job
 
 import (
+	"context"
 	"testing"
 
 	"github.com/prometheus/common/promslog"
@@ -544,7 +545,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assoc := maxdimassociator.NewAssociator(promslog.NewNopLogger(), tt.args.dimensionRegexps, tt.args.resources)
-			metricDatas := getFilteredMetricDatas(promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc)
+			metricDatas := getFilteredMetricDatas(context.Background(), promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc, nil)
 			if len(metricDatas) != len(tt.wantGetMetricsData) {
 				t.Errorf("len(getFilteredMetricDatas()) = %v, want %v", len(metricDatas), len(tt.wantGetMetricsData))
 			}
@@ -556,6 +557,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				assert.ElementsMatch(t, want.Dimensions, got.Dimensions)
 				assert.ElementsMatch(t, want.Tags, got.Tags)
 				assert.Equal(t, want.LinkedAccountID, got.LinkedAccountID)
+				assert.Equal(t, want.LinkedAccountAlias, got.LinkedAccountAlias)
 				assert.Equal(t, want.MetricMigrationParams, got.MetricMigrationParams)
 				assert.Equal(t, want.GetMetricDataProcessingParams.Statistic, got.GetMetricDataProcessingParams.Statistic)
 				assert.Equal(t, want.GetMetricDataProcessingParams.Length, got.GetMetricDataProcessingParams.Length)

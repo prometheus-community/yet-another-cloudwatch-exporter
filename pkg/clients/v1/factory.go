@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	aws_oam "github.com/aws/aws-sdk-go/service/oam"
 	"github.com/aws/aws-sdk-go/service/prometheusservice"
 	"github.com/aws/aws-sdk-go/service/prometheusservice/prometheusserviceiface"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
@@ -53,6 +54,8 @@ import (
 	account_v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account/v1"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	cloudwatch_v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch/v1"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
+	oam_v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam/v1"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	tagging_v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging/v1"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -80,6 +83,7 @@ type cachedClients struct {
 	cloudwatch cloudwatch_client.Client
 	tagging    tagging.Client
 	account    account.Client
+	oam        oam.Client
 }
 
 // Ensure the struct properly implements the interface
@@ -156,6 +160,34 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) *Cachi
 		}
 	}
 
+	// Ensure OAM region exists in cache when using linked account aliases (GetOAMClient is called with oamRegion)
+	if jobsCfg.OAMSinkIdentifier != "" && jobsCfg.OAMRegion != "" {
+		for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+			if len(discoveryJob.IncludeLinkedAccounts) > 0 {
+				for _, role := range discoveryJob.Roles {
+					if _, ok := cache[role]; !ok {
+						cache[role] = map[string]*cachedClients{}
+					}
+					if _, exists := cache[role][jobsCfg.OAMRegion]; !exists {
+						cache[role][jobsCfg.OAMRegion] = &cachedClients{onlyStatic: true}
+					}
+				}
+			}
+		}
+		for _, customNamespaceJob := range jobsCfg.CustomNamespaceJobs {
+			if len(customNamespaceJob.IncludeLinkedAccounts) > 0 {
+				for _, role := range customNamespaceJob.Roles {
+					if _, ok := cache[role]; !ok {
+						cache[role] = map[string]*cachedClients{}
+					}
+					if _, exists := cache[role][jobsCfg.OAMRegion]; !exists {
+						cache[role][jobsCfg.OAMRegion] = &cachedClients{onlyStatic: true}
+					}
+				}
+			}
+		}
+	}
+
 	endpointResolver := endpoints.DefaultResolver().EndpointFor
 
 	endpointURLOverride := os.Getenv("AWS_ENDPOINT_URL")
@@ -208,6 +240,7 @@ func (c *CachingFactory) Clear() {
 			cachedClient.account = nil
 			cachedClient.cloudwatch = nil
 			cachedClient.tagging = nil
+			cachedClient.oam = nil
 		}
 	}
 	c.cleared.Store(true)
@@ -324,6 +357,33 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 	}
 	c.clients[role][region].account = createAccountClient(c.logger, c.stscache[role], c.iamcache[role])
 	return c.clients[role][region].account
+}
+
+func (c *CachingFactory) GetOAMClient(region string, role model.Role) oam.Client {
+	if !c.refreshed.Load() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+	}
+	if client := c.clients[role][region].oam; client != nil {
+		return client
+	}
+	c.clients[role][region].oam = createOAMClient(c.logger, c.session, &region, role, c.fips)
+	return c.clients[role][region].oam
+}
+
+func createOAMClient(logger *slog.Logger, sess *session.Session, region *string, role model.Role, fips bool) oam.Client {
+	maxRetries := 5
+	config := &aws.Config{Region: region, MaxRetries: &maxRetries}
+
+	if fips {
+		config.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
+	}
+
+	if logger != nil && logger.Enabled(context.Background(), slog.LevelDebug) {
+		config.LogLevel = aws.LogLevel(aws.LogDebugWithHTTPBody)
+	}
+
+	return oam_v1.NewClient(logger, aws_oam.New(sess, setSTSCreds(sess, config, role)))
 }
 
 func setExternalID(ID string) func(p *stscreds.AssumeRoleProvider) {

@@ -25,6 +25,8 @@ const (
 
 type JobsConfig struct {
 	StsRegion           string
+	OAMSinkIdentifier   string
+	OAMRegion           string
 	DiscoveryJobs       []DiscoveryJob
 	StaticJobs          []StaticJob
 	CustomNamespaceJobs []CustomNamespaceJob
@@ -151,11 +153,12 @@ type CloudwatchData struct {
 	// DiscoveryJob = Resource ARN associated with the metric or global when it could not be associated but shouldn't be dropped
 	// StaticJob = Resource Name from static job config
 	// CustomNamespace = Custom Namespace job name
-	ResourceName    string
-	Namespace       string
-	Tags            []Tag
-	Dimensions      []Dimension
-	LinkedAccountID string
+	ResourceName       string
+	Namespace          string
+	Tags               []Tag
+	Dimensions         []Dimension
+	LinkedAccountID    string
+	LinkedAccountAlias string
 	// GetMetricDataProcessingParams includes necessary fields to run GetMetricData
 	GetMetricDataProcessingParams *GetMetricDataProcessingParams
 

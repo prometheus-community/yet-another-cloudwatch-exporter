@@ -83,6 +83,14 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
+					var linkedAliasResolver *linkedAccountAliasResolver
+					if len(discoveryJob.IncludeLinkedAccounts) > 0 && jobsCfg.OAMSinkIdentifier != "" {
+						oamRegion := jobsCfg.OAMRegion
+						if oamRegion == "" {
+							oamRegion = region
+						}
+						linkedAliasResolver = newLinkedAccountAliasResolver(jobLogger, factory.GetOAMClient(oamRegion, role), jobsCfg.OAMSinkIdentifier)
+					}
 
 					resources, metrics := runDiscoveryJob(
 						ctx,
@@ -94,6 +102,7 @@ func ScrapeAwsData(
 						gmdProcessor,
 						enhancedMetricsService,
 						role,
+						linkedAliasResolver,
 					)
 
 					addDataToOutput := len(metrics) != 0
@@ -186,7 +195,15 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor)
+					var linkedAliasResolver *linkedAccountAliasResolver
+					if len(customNamespaceJob.IncludeLinkedAccounts) > 0 && jobsCfg.OAMSinkIdentifier != "" {
+						oamRegion := jobsCfg.OAMRegion
+						if oamRegion == "" {
+							oamRegion = region
+						}
+						linkedAliasResolver = newLinkedAccountAliasResolver(jobLogger, factory.GetOAMClient(oamRegion, role), jobsCfg.OAMSinkIdentifier)
+					}
+					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor, linkedAliasResolver)
 					metricResult := model.CloudwatchMetricResult{
 						Context: &model.ScrapeContext{
 							Region:       region,
