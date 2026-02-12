@@ -27,11 +27,23 @@ import (
 )
 
 type ScrapeConf struct {
-	APIVersion      string             `yaml:"apiVersion"`
-	StsRegion       string             `yaml:"sts-region"`
-	Discovery       Discovery          `yaml:"discovery"`
-	Static          []*Static          `yaml:"static"`
-	CustomNamespace []*CustomNamespace `yaml:"customNamespace"`
+	APIVersion        string               `yaml:"apiVersion"`
+	StsRegion         string               `yaml:"sts-region"`
+	LinkedAccounts    LinkedAccountsConfig `yaml:"linkedAccounts"`
+	OAMSinkIdentifier string               `yaml:"oamSinkIdentifier"` // deprecated: use linkedAccounts.oam.sinkIdentifier
+	OAMRegion         string               `yaml:"oamRegion"`         // deprecated: use linkedAccounts.oam.region
+	Discovery         Discovery            `yaml:"discovery"`
+	Static            []*Static            `yaml:"static"`
+	CustomNamespace   []*CustomNamespace   `yaml:"customNamespace"`
+}
+
+type LinkedAccountsOAM struct {
+	SinkIdentifier string `yaml:"sinkIdentifier"`
+	Region         string `yaml:"region"`
+}
+
+type LinkedAccountsConfig struct {
+	OAM LinkedAccountsOAM `yaml:"oam"`
 }
 
 type Discovery struct {
@@ -67,6 +79,7 @@ type Job struct {
 	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
 	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
 	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
+	IncludeLinkedAccounts       []string          `yaml:"includeLinkedAccounts"`
 	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
 	JobLevelMetricFields        `yaml:",inline"`
 }
@@ -95,6 +108,7 @@ type CustomNamespace struct {
 	CustomTags                []Tag     `yaml:"customTags"`
 	DimensionNameRequirements []string  `yaml:"dimensionNameRequirements"`
 	RoundingPeriod            *int64    `yaml:"roundingPeriod"`
+	IncludeLinkedAccounts     []string  `yaml:"includeLinkedAccounts"`
 	JobLevelMetricFields      `yaml:",inline"`
 }
 
@@ -441,6 +455,13 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
+	if c.LinkedAccounts.OAM.SinkIdentifier != "" {
+		jobsCfg.OAMSinkIdentifier = c.LinkedAccounts.OAM.SinkIdentifier
+		jobsCfg.OAMRegion = c.LinkedAccounts.OAM.Region
+	} else {
+		jobsCfg.OAMSinkIdentifier = c.OAMSinkIdentifier
+		jobsCfg.OAMRegion = c.OAMRegion
+	}
 
 	for _, discoveryJob := range c.Discovery.Jobs {
 		svc := SupportedServices.GetService(discoveryJob.Type)
@@ -456,6 +477,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.CustomTags = toModelTags(discoveryJob.CustomTags)
 		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
+		job.IncludeLinkedAccounts = discoveryJob.IncludeLinkedAccounts
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
 		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
 
@@ -492,6 +514,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.Roles = toModelRoles(customNamespaceJob.Roles)
 		job.CustomTags = toModelTags(customNamespaceJob.CustomTags)
 		job.Metrics = toModelMetricConfig(customNamespaceJob.Metrics)
+		job.IncludeLinkedAccounts = customNamespaceJob.IncludeLinkedAccounts
 		jobsCfg.CustomNamespaceJobs = append(jobsCfg.CustomNamespaceJobs, job)
 	}
 

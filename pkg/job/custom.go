@@ -27,8 +27,9 @@ func runCustomNamespaceJob(
 	job model.CustomNamespaceJob,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
-	cloudwatchDatas := getMetricDataForQueriesForCustomNamespace(ctx, job, clientCloudwatch, logger)
+	cloudwatchDatas := getMetricDataForQueriesForCustomNamespace(ctx, job, clientCloudwatch, logger, linkedAliasResolver)
 	if len(cloudwatchDatas) == 0 {
 		logger.Debug("No metrics data found")
 		return nil
@@ -49,6 +50,7 @@ func getMetricDataForQueriesForCustomNamespace(
 	customNamespaceJob model.CustomNamespaceJob,
 	clientCloudwatch cloudwatch.Client,
 	logger *slog.Logger,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
 	mux := &sync.Mutex{}
 	var getMetricDatas []*model.CloudwatchData
@@ -63,7 +65,7 @@ func getMetricDataForQueriesForCustomNamespace(
 
 		go func(metric *model.MetricConfig) {
 			defer wg.Done()
-			err := clientCloudwatch.ListMetrics(ctx, customNamespaceJob.Namespace, metric, customNamespaceJob.RecentlyActiveOnly, func(page []*model.Metric) {
+			err := clientCloudwatch.ListMetrics(ctx, customNamespaceJob.Namespace, metric, customNamespaceJob.IncludeLinkedAccounts, customNamespaceJob.RecentlyActiveOnly, func(page []*model.Metric) {
 				var data []*model.CloudwatchData
 
 				for _, cwMetric := range page {
@@ -71,12 +73,18 @@ func getMetricDataForQueriesForCustomNamespace(
 						continue
 					}
 
+					linkedAccountAlias := ""
+					if linkedAliasResolver != nil && cwMetric.LinkedAccountID != "" {
+						linkedAccountAlias = linkedAliasResolver.Resolve(ctx, cwMetric.LinkedAccountID)
+					}
 					for _, stat := range metric.Statistics {
 						data = append(data, &model.CloudwatchData{
-							MetricName:   metric.Name,
-							ResourceName: customNamespaceJob.Name,
-							Namespace:    customNamespaceJob.Namespace,
-							Dimensions:   cwMetric.Dimensions,
+							MetricName:         metric.Name,
+							ResourceName:       customNamespaceJob.Name,
+							LinkedAccountID:    cwMetric.LinkedAccountID,
+							LinkedAccountAlias: linkedAccountAlias,
+							Namespace:          customNamespaceJob.Namespace,
+							Dimensions:         cwMetric.Dimensions,
 							GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 								Period:    metric.Period,
 								Length:    metric.Length,

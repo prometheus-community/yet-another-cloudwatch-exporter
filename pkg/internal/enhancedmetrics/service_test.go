@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
@@ -58,6 +59,10 @@ func (m *mockFactory) GetAccountClient(string, model.Role) account.Client {
 	return nil
 }
 
+func (m *mockFactory) GetOAMClient(string, model.Role) oam.Client {
+	return nil
+}
+
 // mockNonRegionalFactory is a mock that does NOT implement config.RegionalConfigProvider
 type mockNonRegionalFactory struct{}
 
@@ -70,6 +75,10 @@ func (m *mockNonRegionalFactory) GetTaggingClient(string, model.Role, int) taggi
 }
 
 func (m *mockNonRegionalFactory) GetAccountClient(string, model.Role) account.Client {
+	return nil
+}
+
+func (m *mockNonRegionalFactory) GetOAMClient(string, model.Role) oam.Client {
 	return nil
 }
 

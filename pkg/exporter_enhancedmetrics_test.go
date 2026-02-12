@@ -17,6 +17,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
 	enhancedmetricsDynamoDBService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
@@ -53,6 +54,11 @@ func (m *mockFactoryForEnhancedMetrics) GetCloudwatchClient(string, model.Role, 
 // GetTaggingClient implements clients.Factory
 func (m *mockFactoryForEnhancedMetrics) GetTaggingClient(string, model.Role, int) tagging.Client {
 	return m.taggingClient
+}
+
+// GetOAMClient implements clients.Factory
+func (m *mockFactoryForEnhancedMetrics) GetOAMClient(string, model.Role) oam.Client {
+	return nil
 }
 
 // GetAWSRegionalConfig implements config.RegionalConfigProvider

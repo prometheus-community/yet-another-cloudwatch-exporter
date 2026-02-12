@@ -30,6 +30,7 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "sts_region.ok.yml"},
 		{configFile: "multiple_roles.ok.yml"},
 		{configFile: "custom_namespace.ok.yml"},
+		{configFile: "include_linked_accounts.ok.yml"},
 	}
 	for _, tc := range testCases {
 		config := ScrapeConf{}
@@ -173,4 +174,12 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			require.Equal(t, tc.errorMsg, err.Error())
 		})
 	}
+}
+
+func TestLinkedAccountsConfigMappedToModel(t *testing.T) {
+	var c ScrapeConf
+	jobsCfg, err := c.Load("testdata/include_linked_accounts.ok.yml", promslog.NewNopLogger())
+	require.NoError(t, err)
+	require.Equal(t, "arn:aws:oam:eu-west-1:123456789012:sink/test", jobsCfg.OAMSinkIdentifier)
+	require.Equal(t, "eu-west-1", jobsCfg.OAMRegion)
 }

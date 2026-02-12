@@ -25,6 +25,8 @@ const (
 
 type JobsConfig struct {
 	StsRegion           string
+	OAMSinkIdentifier   string
+	OAMRegion           string
 	DiscoveryJobs       []DiscoveryJob
 	StaticJobs          []StaticJob
 	CustomNamespaceJobs []CustomNamespaceJob
@@ -42,6 +44,7 @@ type DiscoveryJob struct {
 	RecentlyActiveOnly          bool
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
+	IncludeLinkedAccounts       []string
 	DimensionsRegexps           []DimensionsRegexp
 
 	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
@@ -76,6 +79,7 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	IncludeLinkedAccounts     []string
 }
 
 type Role struct {
@@ -118,9 +122,10 @@ type Dimension struct {
 
 type Metric struct {
 	// The dimensions for the metric.
-	Dimensions []Dimension
-	MetricName string
-	Namespace  string
+	Dimensions      []Dimension
+	MetricName      string
+	Namespace       string
+	LinkedAccountID string
 }
 
 type CloudwatchMetricResult struct {
@@ -148,10 +153,12 @@ type CloudwatchData struct {
 	// DiscoveryJob = Resource ARN associated with the metric or global when it could not be associated but shouldn't be dropped
 	// StaticJob = Resource Name from static job config
 	// CustomNamespace = Custom Namespace job name
-	ResourceName string
-	Namespace    string
-	Tags         []Tag
-	Dimensions   []Dimension
+	ResourceName       string
+	Namespace          string
+	Tags               []Tag
+	Dimensions         []Dimension
+	LinkedAccountID    string
+	LinkedAccountAlias string
 	// GetMetricDataProcessingParams includes necessary fields to run GetMetricData
 	GetMetricDataProcessingParams *GetMetricDataProcessingParams
 

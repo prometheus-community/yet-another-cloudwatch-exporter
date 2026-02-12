@@ -24,6 +24,25 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
+func TestFormatAccountAlias(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"Foo Bar", "foo-bar"},
+		{"UPPER", "upper"},
+		{"Already-Lower", "already-lower"},
+		{"Multiple   Spaces", "multiple---spaces"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got := formatAccountAlias(tt.in)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestBuildNamespaceInfoMetrics(t *testing.T) {
 	type testCase struct {
 		name                 string
@@ -1082,6 +1101,65 @@ func TestBuildMetrics(t *testing.T) {
 					"name":                       {},
 					"region":                     {},
 					"dimension_cache_cluster_id": {},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "metric with linked account overrides context account labels",
+			data: []model.CloudwatchMetricResult{{
+				Context: &model.ScrapeContext{
+					Region:       "us-east-1",
+					AccountID:    "123456789012",
+					AccountAlias: "main-alias",
+					CustomTags:   nil,
+				},
+				Data: []*model.CloudwatchData{
+					{
+						MetricName: "CPUUtilization",
+						MetricMigrationParams: model.MetricMigrationParams{
+							NilToZero:              false,
+							AddCloudwatchTimestamp: false,
+						},
+						Namespace:          "AWS/EC2",
+						LinkedAccountID:    "999888777666",
+						LinkedAccountAlias: "linked-alias",
+						GetMetricDataResult: &model.GetMetricDataResult{
+							Statistic:  "Average",
+							DataPoints: []model.DataPoint{{Value: aws.Float64(50), Timestamp: ts}},
+						},
+						Dimensions: []model.Dimension{
+							{
+								Name:  "InstanceId",
+								Value: "i-12345",
+							},
+						},
+						ResourceName: "arn:aws:ec2:us-east-1:999888777666:instance/i-12345",
+					},
+				},
+			}},
+			labelsSnakeCase: true,
+			expectedMetrics: []*PrometheusMetric{
+				{
+					Name:      "aws_ec2_cpuutilization_average",
+					Value:     50,
+					Timestamp: nullTs,
+					Labels: map[string]string{
+						"account_id":            "999888777666",
+						"account_alias":         "linked-alias",
+						"name":                  "arn:aws:ec2:us-east-1:999888777666:instance/i-12345",
+						"region":                "us-east-1",
+						"dimension_instance_id": "i-12345",
+					},
+				},
+			},
+			expectedLabels: map[string]model.LabelSet{
+				"aws_ec2_cpuutilization_average": {
+					"account_id":            {},
+					"account_alias":         {},
+					"name":                  {},
+					"region":                {},
+					"dimension_instance_id": {},
 				},
 			},
 			expectedErr: nil,

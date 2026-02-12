@@ -13,6 +13,7 @@
 package job
 
 import (
+	"context"
 	"testing"
 
 	"github.com/prometheus/common/promslog"
@@ -479,11 +480,72 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				},
 			},
 		},
+		{
+			"ec2 with LinkedAccountID propagation",
+			args{
+				region:           "us-east-1",
+				accountID:        "123123123123",
+				namespace:        "ec2",
+				customTags:       nil,
+				tagsOnMetrics:    nil,
+				dimensionRegexps: config.SupportedServices.GetService("AWS/EC2").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{},
+				metricsList: []*model.Metric{
+					{
+						MetricName: "CPUUtilization",
+						Dimensions: []model.Dimension{
+							{
+								Name:  "InstanceId",
+								Value: "i-12312312312312312",
+							},
+						},
+						Namespace:       "AWS/EC2",
+						LinkedAccountID: "999888777666",
+					},
+				},
+				m: &model.MetricConfig{
+					Name: "CPUUtilization",
+					Statistics: []string{
+						"Average",
+					},
+					Period:                 60,
+					Length:                 600,
+					Delay:                  120,
+					NilToZero:              false,
+					AddCloudwatchTimestamp: false,
+				},
+			},
+			[]model.CloudwatchData{
+				{
+					MetricName:   "CPUUtilization",
+					ResourceName: "global",
+					Namespace:    "ec2",
+					Dimensions: []model.Dimension{
+						{
+							Name:  "InstanceId",
+							Value: "i-12312312312312312",
+						},
+					},
+					LinkedAccountID: "999888777666",
+					Tags:            []model.Tag{},
+					GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+						Statistic: "Average",
+						Period:    60,
+						Length:    600,
+						Delay:     120,
+					},
+					MetricMigrationParams: model.MetricMigrationParams{
+						NilToZero:              false,
+						AddCloudwatchTimestamp: false,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assoc := maxdimassociator.NewAssociator(promslog.NewNopLogger(), tt.args.dimensionRegexps, tt.args.resources)
-			metricDatas := getFilteredMetricDatas(promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc)
+			metricDatas := getFilteredMetricDatas(context.Background(), promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc, nil)
 			if len(metricDatas) != len(tt.wantGetMetricsData) {
 				t.Errorf("len(getFilteredMetricDatas()) = %v, want %v", len(metricDatas), len(tt.wantGetMetricsData))
 			}
@@ -494,6 +556,8 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				assert.Equal(t, want.Namespace, got.Namespace)
 				assert.ElementsMatch(t, want.Dimensions, got.Dimensions)
 				assert.ElementsMatch(t, want.Tags, got.Tags)
+				assert.Equal(t, want.LinkedAccountID, got.LinkedAccountID)
+				assert.Equal(t, want.LinkedAccountAlias, got.LinkedAccountAlias)
 				assert.Equal(t, want.MetricMigrationParams, got.MetricMigrationParams)
 				assert.Equal(t, want.GetMetricDataProcessingParams.Statistic, got.GetMetricDataProcessingParams.Statistic)
 				assert.Equal(t, want.GetMetricDataProcessingParams.Length, got.GetMetricDataProcessingParams.Length)

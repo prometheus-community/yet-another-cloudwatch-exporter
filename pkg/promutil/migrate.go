@@ -29,6 +29,14 @@ import (
 
 var Percentile = regexp.MustCompile(`^p(\d{1,2}(\.\d{0,2})?|100)$`)
 
+// formatAccountAlias lowercases the string and replaces spaces with "-" for use as the account_alias Prometheus label.
+func formatAccountAlias(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(strings.ReplaceAll(s, " ", "-"))
+}
+
 func BuildMetricName(namespace, metricName, statistic string) string {
 	sb := strings.Builder{}
 
@@ -144,6 +152,14 @@ func BuildMetrics(results []model.CloudwatchMetricResult, labelsSnakeCase bool, 
 					name := BuildMetricName(metric.Namespace, metric.MetricName, statistic)
 
 					promLabels := createPrometheusLabels(metric, labelsSnakeCase, contextLabels, logger)
+					maps.Copy(promLabels, contextLabels)
+					// When querying linked accounts, override account_id with the metric's owning account
+					if metric.LinkedAccountID != "" {
+						promLabels["account_id"] = metric.LinkedAccountID
+						if metric.LinkedAccountAlias != "" {
+							promLabels["account_alias"] = formatAccountAlias(metric.LinkedAccountAlias)
+						}
+					}
 					observedMetricLabels = recordLabelsForMetric(name, promLabels, observedMetricLabels)
 
 					if !metric.MetricMigrationParams.AddCloudwatchTimestamp {
@@ -296,7 +312,7 @@ func contextToLabels(context *model.ScrapeContext, labelsSnakeCase bool, logger 
 	labels["account_id"] = context.AccountID
 	// If there's no account alias, omit adding an extra label in the series, it will work either way query wise
 	if context.AccountAlias != "" {
-		labels["account_alias"] = context.AccountAlias
+		labels["account_alias"] = formatAccountAlias(context.AccountAlias)
 	}
 
 	for _, label := range context.CustomTags {
