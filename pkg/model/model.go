@@ -107,8 +107,10 @@ type Tag struct {
 }
 
 type SearchTag struct {
-	Key   string
-	Value *regexp.Regexp
+	Key        string
+	Value      *regexp.Regexp // Used for regex matching (when ExactMatch is false)
+	ExactValue string         // Used for exact matching (when ExactMatch is true)
+	ExactMatch bool           // When true, use ExactValue for exact string comparison
 }
 
 type Dimension struct {
@@ -250,7 +252,13 @@ func (r TaggedResource) FilterThroughTags(filterTags []SearchTag) bool {
 	for _, resourceTag := range r.Tags {
 		for _, filterTag := range filterTags {
 			if resourceTag.Key == filterTag.Key {
-				if !filterTag.Value.MatchString(resourceTag.Value) {
+				var matches bool
+				if filterTag.ExactMatch {
+					matches = resourceTag.Value == filterTag.ExactValue
+				} else {
+					matches = filterTag.Value.MatchString(resourceTag.Value)
+				}
+				if !matches {
 					return false
 				}
 				// A resource needs to match all SearchTags to be returned, so we track the number of tag filter
