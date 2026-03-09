@@ -115,6 +115,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 					Namespace: job.Namespace,
 					Region:    region,
 					Tags:      make([]model.Tag, 0, len(resourceTagMapping.Tags)),
+					Metadata:  make(map[string]string),
 				}
 
 				for _, t := range resourceTagMapping.Tags {
