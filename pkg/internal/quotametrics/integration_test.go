@@ -21,6 +21,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/quotametrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -58,6 +60,24 @@ func TestIntegration_QuotaMetrics(t *testing.T) {
 
 	namespaces := []string{"AWS/EC2", "AWS/ElastiCache", "AWS/S3"}
 
+	// Get real account ID and alias, same as the production scrapers do
+	cfg := *provider.GetAWSRegionalConfig(region, role)
+	stsClient := sts.NewFromConfig(cfg)
+	callerIdentity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		t.Fatalf("failed to get caller identity: %v", err)
+	}
+	accountID := *callerIdentity.Account
+
+	var accountAlias string
+	iamClient := iam.NewFromConfig(cfg)
+	aliasOutput, err := iamClient.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
+	if err != nil {
+		logger.Warn("Couldn't get account alias", "err", err)
+	} else if len(aliasOutput.AccountAliases) > 0 {
+		accountAlias = aliasOutput.AccountAliases[0]
+	}
+
 	var allResults []model.QuotaResult
 
 	for _, ns := range namespaces {
@@ -84,8 +104,9 @@ func TestIntegration_QuotaMetrics(t *testing.T) {
 
 		allResults = append(allResults, model.QuotaResult{
 			Context: &model.ScrapeContext{
-				Region:    region,
-				AccountID: "integration-test",
+				Region:       region,
+				AccountID:    accountID,
+				AccountAlias: accountAlias,
 			},
 			Data: data,
 		})
