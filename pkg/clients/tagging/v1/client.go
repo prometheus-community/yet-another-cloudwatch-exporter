@@ -89,12 +89,16 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 				// We can't take a pointer to any fields from loop variable or the pointer will always be the same and this logic will be broken.
 				st := job.SearchTags[i]
 
-				// AWS's GetResources has a TagFilter option which matches the semantics of our SearchTags where all filters must match
-				// Their value matching implementation is different though so instead of mapping the Key and Value we only map the Keys.
+				// When we call AWS's GetResources and specify a TagFilter the value is optional.
 				// Their API docs say, "If you don't specify a value for a key, the response returns all resources that are tagged with that key, with any or no value."
-				// which makes this a safe way to reduce the amount of data we need to filter out.
+				// So in the default case we just specify the key and do client side filtering on the results to allow for regex matching.
+				// If the ExactMatch flag is set we do server side filtering to reduce the volume of data being returned.
 				// https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html#resourcegrouptagging-GetResources-request-TagFilters
-				tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{Key: &st.Key})
+				tf := &resourcegroupstaggingapi.TagFilter{Key: &st.Key}
+				if st.ExactMatch {
+					tf.Values = []*string{&st.ExactValue}
+				}
+				tagFilters = append(tagFilters, tf)
 			}
 		}
 

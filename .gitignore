@@ -5,3 +5,4 @@ vendor
 dist
 /yace
 *.tar.gz
+.idea
