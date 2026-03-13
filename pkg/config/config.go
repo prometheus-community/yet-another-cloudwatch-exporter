@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/quotametrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -68,6 +69,7 @@ type Job struct {
 	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
 	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
 	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
+	QuotaMetrics                bool              `yaml:"quotaMetrics"`
 	JobLevelMetricFields        `yaml:",inline"`
 }
 
@@ -244,8 +246,8 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 	if len(j.Regions) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Regions should not be empty", j.Type, jobIdx)
 	}
-	if len(j.Metrics) == 0 && len(j.EnhancedMetrics) == 0 {
-		return fmt.Errorf("Discovery job [%s/%d]: Metrics and EnhancedMetrics should not both be empty", j.Type, jobIdx)
+	if len(j.Metrics) == 0 && len(j.EnhancedMetrics) == 0 && !j.QuotaMetrics {
+		return fmt.Errorf("Discovery job [%s/%d]: Metrics, EnhancedMetrics, and QuotaMetrics should not all be empty", j.Type, jobIdx)
 	}
 	for metricIdx, metric := range j.Metrics {
 		err := metric.validateMetric(logger, metricIdx, parent, &j.JobLevelMetricFields)
@@ -274,6 +276,12 @@ func (j *Job) validateDiscoveryJob(logger *slog.Logger, jobIdx int) error {
 			if !svc.IsMetricSupported(em.Name) {
 				return fmt.Errorf("Discovery job [%s/%d]: enhanced metric %q is not supported for this namespace", j.Type, jobIdx, em.Name)
 			}
+		}
+	}
+
+	if j.QuotaMetrics {
+		if !quotametrics.DefaultQuotaMetricServiceRegistry.IsNamespaceSupported(j.Type) {
+			return fmt.Errorf("Discovery job [%s/%d]: quota metrics are not supported for namespace %q", j.Type, jobIdx, j.Type)
 		}
 	}
 
@@ -458,6 +466,7 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
 		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
+		job.QuotaMetrics = discoveryJob.QuotaMetrics
 
 		job.ExportedTagsOnMetrics = []string{}
 		if len(c.Discovery.ExportedTagsOnMetrics) > 0 {

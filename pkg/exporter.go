@@ -196,7 +196,7 @@ func UpdateMetrics(
 	// add feature flags to context passed down to all other layers
 	ctx = config.CtxWithFlags(ctx, options.featureFlags)
 
-	tagsData, cloudwatchData := job.ScrapeAwsData(
+	tagsData, cloudwatchData, quotaData := job.ScrapeAwsData(
 		ctx,
 		logger,
 		jobsCfg,
@@ -212,6 +212,19 @@ func UpdateMetrics(
 		return nil
 	}
 	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
+
+	quotaMetrics, quotaLabels := promutil.BuildQuotaMetrics(quotaData, options.labelsSnakeCase, logger)
+	metrics = append(metrics, quotaMetrics...)
+	for k, v := range quotaLabels {
+		if existing, ok := observedMetricLabels[k]; ok {
+			for label := range v {
+				existing[label] = struct{}{}
+			}
+		} else {
+			observedMetricLabels[k] = v
+		}
+	}
+
 	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
 
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))

@@ -1,0 +1,8 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/EC2
+      regions:
+        - us-east-1
+      roles:
+        - {}
