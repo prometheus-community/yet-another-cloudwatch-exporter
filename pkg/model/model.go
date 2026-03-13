@@ -46,10 +46,29 @@ type DiscoveryJob struct {
 
 	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
 	EnhancedMetrics []*EnhancedMetricConfig
+
+	// QuotaMetrics enables fetching service quota limits and usage for the job's namespace.
+	QuotaMetrics bool
 }
 
 func (d *DiscoveryJob) HasEnhancedMetrics() bool {
 	return len(d.EnhancedMetrics) > 0
+}
+
+func (d *DiscoveryJob) HasQuotaMetrics() bool {
+	return d.QuotaMetrics
+}
+
+type QuotaMetricData struct {
+	ServiceCode string
+	LimitName   string
+	LimitValue  float64
+	UsageValue  *float64
+}
+
+type QuotaResult struct {
+	Context *ScrapeContext
+	Data    []QuotaMetricData
 }
 
 type EnhancedMetricConfig struct {

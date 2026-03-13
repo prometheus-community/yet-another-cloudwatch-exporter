@@ -1,0 +1,15 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Billing
+      regions:
+        - us-east-1
+      roles:
+        - {}
+      metrics:
+        - name: EstimatedCharges
+          statistics:
+            - Sum
+          period: 3600
+          length: 87600
+      quotaMetrics: true

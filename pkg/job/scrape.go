@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/quotametrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -33,14 +34,18 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
-) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
+) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult, []model.QuotaResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
 	awsInfoData := make([]model.TaggedResourceResult, 0)
+	quotaData := make([]model.QuotaResult, 0)
 	var wg sync.WaitGroup
 
 	var enhancedMetricsServiceErr error
 	var enhancedMetricsService *enhancedmetrics.Service
+
+	var quotaMetricsServiceErr error
+	var quotaMetricsService *quotametrics.Service
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		// initialize enhanced metrics service only if:
@@ -60,6 +65,20 @@ func ScrapeAwsData(
 			if enhancedMetricsServiceErr != nil {
 				logger.Warn("Couldn't initialize enhanced metrics service", "err", enhancedMetricsServiceErr)
 				enhancedMetricsService = nil
+			}
+		}
+
+		if discoveryJob.HasQuotaMetrics() &&
+			quotaMetricsService == nil &&
+			quotaMetricsServiceErr == nil {
+
+			quotaMetricsService, quotaMetricsServiceErr = quotametrics.NewService(
+				factory,
+				quotametrics.DefaultQuotaMetricServiceRegistry,
+			)
+			if quotaMetricsServiceErr != nil {
+				logger.Warn("Couldn't initialize quota metrics service", "err", quotaMetricsServiceErr)
+				quotaMetricsService = nil
 			}
 		}
 
@@ -95,6 +114,26 @@ func ScrapeAwsData(
 						enhancedMetricsService,
 						role,
 					)
+
+					if discoveryJob.HasQuotaMetrics() && quotaMetricsService != nil {
+						qData, qErr := quotaMetricsService.GetMetrics(ctx, jobLogger, discoveryJob.Namespace, region, role)
+						if qErr != nil {
+							jobLogger.Error("Failed to get quota metrics", "err", qErr)
+						} else if len(qData) > 0 {
+							sc := &model.ScrapeContext{
+								Region:       region,
+								AccountID:    accountID,
+								AccountAlias: accountAlias,
+								CustomTags:   discoveryJob.CustomTags,
+							}
+							mux.Lock()
+							quotaData = append(quotaData, model.QuotaResult{
+								Context: sc,
+								Data:    qData,
+							})
+							mux.Unlock()
+						}
+					}
 
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
@@ -204,5 +243,5 @@ func ScrapeAwsData(
 		}
 	}
 	wg.Wait()
-	return awsInfoData, cwData
+	return awsInfoData, cwData, quotaData
 }

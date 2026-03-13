@@ -311,6 +311,53 @@ func contextToLabels(context *model.ScrapeContext, labelsSnakeCase bool, logger 
 	return labels
 }
 
+func BuildQuotaMetrics(results []model.QuotaResult, labelsSnakeCase bool, logger *slog.Logger) ([]*PrometheusMetric, map[string]model.LabelSet) {
+	output := make([]*PrometheusMetric, 0)
+	observedMetricLabels := make(map[string]model.LabelSet)
+
+	for _, result := range results {
+		contextLabels := contextToLabels(result.Context, labelsSnakeCase, logger)
+		for _, qm := range result.Data {
+			baseName := buildQuotaMetricBaseName(qm)
+
+			// Limit metric
+			limitName := baseName + "_limit"
+			limitLabels := make(map[string]string, len(contextLabels))
+			maps.Copy(limitLabels, contextLabels)
+			observedMetricLabels = recordLabelsForMetric(limitName, limitLabels, observedMetricLabels)
+			output = append(output, &PrometheusMetric{
+				Name:   limitName,
+				Labels: limitLabels,
+				Value:  qm.LimitValue,
+			})
+
+			// Usage metric (if available)
+			if qm.UsageValue != nil {
+				usageName := baseName + "_usage"
+				usageLabels := make(map[string]string, len(contextLabels))
+				maps.Copy(usageLabels, contextLabels)
+				observedMetricLabels = recordLabelsForMetric(usageName, usageLabels, observedMetricLabels)
+				output = append(output, &PrometheusMetric{
+					Name:   usageName,
+					Labels: usageLabels,
+					Value:  *qm.UsageValue,
+				})
+			}
+		}
+	}
+
+	return output, observedMetricLabels
+}
+
+func buildQuotaMetricBaseName(qm model.QuotaMetricData) string {
+	sb := strings.Builder{}
+	sb.WriteString("aws_")
+	sb.WriteString(qm.ServiceCode)
+	sb.WriteString("_quota_")
+	sb.WriteString(PromString(qm.LimitName))
+	return sb.String()
+}
+
 // recordLabelsForMetric adds any missing labels from promLabels in to the LabelSet for the metric name and returns
 // the updated observedMetricLabels
 func recordLabelsForMetric(metricName string, promLabels map[string]string, observedMetricLabels map[string]model.LabelSet) map[string]model.LabelSet {

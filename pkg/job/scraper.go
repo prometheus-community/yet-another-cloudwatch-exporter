@@ -68,7 +68,15 @@ type Account struct {
 	Alias string
 }
 
-func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult, []Error) {
+type quotaMetricsService interface {
+	GetMetrics(ctx context.Context, logger *slog.Logger, namespace string, region string, role model.Role) ([]model.QuotaMetricData, error)
+}
+
+func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult, []model.QuotaResult, []Error) {
+	return s.ScrapeWithQuotas(ctx, nil)
+}
+
+func (s Scraper) ScrapeWithQuotas(ctx context.Context, quotaSvc quotaMetricsService) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult, []model.QuotaResult, []Error) {
 	// Setup so we only do one GetAccount call per region + role combo when running jobs
 	roleRegionToAccount := map[model.Role]map[string]func() (Account, error){}
 	jobConfigVisitor(s.jobsCfg, func(_ any, role model.Role, region string) {
@@ -99,6 +107,7 @@ func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []mo
 	jobErrors := make([]Error, 0)
 	metricResults := make([]model.CloudwatchMetricResult, 0)
 	resourceResults := make([]model.TaggedResourceResult, 0)
+	quotaResults := make([]model.QuotaResult, 0)
 	s.logger.Debug("Starting job runs")
 
 	jobConfigVisitor(s.jobsCfg, func(job any, role model.Role, region string) {
@@ -157,6 +166,20 @@ func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []mo
 					}
 					jobLogger.Debug("Resource discovery finished", "number_of_discovered_resources", len(resources))
 
+					if job.HasQuotaMetrics() && quotaSvc != nil {
+						quotaData, qErr := quotaSvc.GetMetrics(ctx, jobLogger, job.Namespace, region, role)
+						if qErr != nil {
+							jobLogger.Error("Failed to get quota metrics", "err", qErr)
+						} else if len(quotaData) > 0 {
+							mux.Lock()
+							quotaResults = append(quotaResults, model.QuotaResult{
+								Context: jobContext.ToScrapeContext(job.CustomTags),
+								Data:    quotaData,
+							})
+							mux.Unlock()
+						}
+					}
+
 					jobToRun = cloudwatchrunner.DiscoveryJob{Job: job, Resources: resources}
 				}, func(job model.CustomNamespaceJob) {
 					jobToRun = cloudwatchrunner.CustomNamespaceJob{Job: job}
@@ -198,7 +221,7 @@ func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []mo
 	})
 	wg.Wait()
 	s.logger.Debug("Finished job runs", "resource_results", len(resourceResults), "metric_results", len(metricResults))
-	return resourceResults, metricResults, jobErrors
+	return resourceResults, metricResults, quotaResults, jobErrors
 }
 
 // Walk through each custom namespace and discovery jobs and take an action

@@ -544,7 +544,7 @@ func TestScrapeRunner_Run(t *testing.T) {
 			lvl := promslog.NewLevel()
 			_ = lvl.Set("debug")
 			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf)
-			resources, metrics, errs := sr.Scrape(context.Background())
+			resources, metrics, _, errs := sr.Scrape(context.Background())
 
 			changelog, err := diff.Diff(tc.expectedResources, resources)
 			assert.NoError(t, err, "failed to diff resources")
