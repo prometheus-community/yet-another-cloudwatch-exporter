@@ -56,6 +56,7 @@ func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 		dr = append(dr, model.DimensionsRegexp{
 			Regexp:          dimensionRegexp,
 			DimensionsNames: dimensionNames,
+			Namespace:       sc.Namespace,
 		})
 	}
 
