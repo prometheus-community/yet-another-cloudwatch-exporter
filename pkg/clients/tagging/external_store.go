@@ -2,6 +2,7 @@ package tagging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -36,7 +37,11 @@ func (f *taggingWithExternalStore) GetResources(ctx context.Context, job model.D
 	}
 
 	if primErr != nil {
-		f.logger.Error("failed to get resources from primary", "error", primErr)
+		if errors.Is(primErr, ErrExpectedToFindResources) {
+			f.logger.Warn("primary tagging service returned no resources", "error", primErr)
+		} else {
+			f.logger.Error("failed to get resources from primary", "error", primErr)
+		}
 	}
 
 	if storeErr != nil && primErr != nil {
