@@ -139,6 +139,18 @@ func effectiveMaxPeriods(periodSeconds int64) int64 {
 	}
 }
 
+// CacheTTL computes the per-entry TTL for the timeseries cache based on the metric period.
+// The TTL equals (effectiveMaxPeriods + 1) * period so that entries survive long enough
+// to cover the full backfill window plus one additional period of headroom.
+// For very long periods (> 4 hours) the TTL is capped at 2 * period.
+func CacheTTL(periodSeconds int64) time.Duration {
+	const fourHours = 4 * 3600
+	if periodSeconds > fourHours {
+		return time.Duration(2*periodSeconds) * time.Second
+	}
+	return time.Duration((effectiveMaxPeriods(periodSeconds)+1)*periodSeconds) * time.Second
+}
+
 // effectiveDelay returns the query delay (in seconds) based on the metric period.
 // Short-period metrics need more delay because CloudWatch publishing latency (~2 min)
 // is significant relative to their period. Long-period metrics don't need delay since
@@ -327,6 +339,6 @@ func (cp *CachingProcessor) updateCacheFromResult(result *model.CloudwatchData, 
 		cp.cache.Set(meta.cacheKey, TimeseriesCacheEntry{
 			LastTimestamp: newestTimestamp,
 			Interval:      meta.period,
-		})
+		}, CacheTTL(meta.period))
 	}
 }

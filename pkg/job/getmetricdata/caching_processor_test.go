@@ -32,7 +32,7 @@ func float64Ptr(v float64) *float64 { return &v }
 func TestCachingProcessor_AdjustsLengthToMinPeriods(t *testing.T) {
 	// A metric with period=60, length=60 should get extended to length=300 (5*60)
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	var capturedLength int64
@@ -88,7 +88,7 @@ func TestCachingProcessor_DeduplicatesDataPoints(t *testing.T) {
 	oldTimestamp := now.Add(-5 * time.Minute)
 	newTimestamp := now.Add(-1 * time.Minute)
 
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	// Pre-populate cache with old timestamp
@@ -96,7 +96,7 @@ func TestCachingProcessor_DeduplicatesDataPoints(t *testing.T) {
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: oldTimestamp,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -154,14 +154,14 @@ func TestCachingProcessor_GapDetection(t *testing.T) {
 	// Simulate a gap: last seen 10 minutes ago, period is 60 seconds
 	lastSeen := now.Add(-10 * time.Minute)
 
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	var capturedLength int64
 	client := testClient{
@@ -214,14 +214,14 @@ func TestCachingProcessor_GapCappedByMaxPeriods(t *testing.T) {
 	// Simulate a very large gap: 2 hours ago
 	lastSeen := now.Add(-2 * time.Hour)
 
-	cache := NewTimeseriesCache(3 * time.Hour) // TTL larger than gap for test
+	cache := NewTimeseriesCache() // TTL larger than gap for test
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	var capturedLength int64
 	client := testClient{
@@ -271,7 +271,7 @@ func TestCachingProcessor_GapCappedByMaxPeriods(t *testing.T) {
 
 func TestCachingProcessor_CacheMiss_NoDedup(t *testing.T) {
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	client := testClient{
@@ -326,7 +326,7 @@ func TestCachingProcessor_CacheMiss_NoDedup(t *testing.T) {
 }
 
 func TestCachingProcessor_EmptyRequests(t *testing.T) {
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	inner := NewDefaultProcessor(promslog.NewNopLogger(), testClient{}, 500, 1)
@@ -339,7 +339,7 @@ func TestCachingProcessor_EmptyRequests(t *testing.T) {
 
 func TestCachingProcessor_UpdatesCacheWithInterval(t *testing.T) {
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	client := testClient{
@@ -404,7 +404,7 @@ func TestCachingProcessor_SmartLookback_ColdStart(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Now()
-			cache := NewTimeseriesCache(15 * time.Minute)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			var capturedLength int64
@@ -493,7 +493,7 @@ func TestCachingProcessor_SmartLookback_SteadyState(t *testing.T) {
 			now := time.Now()
 			lastTimestamp := now.Add(-tc.timeSinceLast)
 
-			cache := NewTimeseriesCache(15 * time.Minute)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			// Pre-populate cache
@@ -501,7 +501,7 @@ func TestCachingProcessor_SmartLookback_SteadyState(t *testing.T) {
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: lastTimestamp,
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedLength int64
 			client := testClient{
@@ -559,14 +559,14 @@ func TestCachingProcessor_SmartLookback_GapWithinLimits(t *testing.T) {
 	// 3 minute gap with period=60 and MaxPeriods=5 → needed=240s, cap=300s → fits
 	lastTimestamp := now.Add(-3 * time.Minute)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/Test", "TestMetric", []model.Dimension{{Name: "TestDim", Value: "test-val"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastTimestamp,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	var capturedLength int64
 	client := testClient{
@@ -648,14 +648,14 @@ func TestCachingProcessor_SmartLookback_MaxPeriodsCapping(t *testing.T) {
 			now := time.Now()
 			lastTimestamp := now.Add(-tc.gapDuration)
 
-			cache := NewTimeseriesCache(48 * time.Hour) // Large TTL to not evict
+			cache := NewTimeseriesCache() // Large TTL to not evict
 			defer cache.Stop()
 
 			cacheKey := BuildCacheKey("AWS/Test", "TestMetric", []model.Dimension{{Name: "TestDim", Value: "test-val"}}, "Average")
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: lastTimestamp,
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedLength int64
 			client := testClient{
@@ -707,7 +707,7 @@ func TestCachingProcessor_SmartLookback_MaxPeriodsCapping(t *testing.T) {
 func TestCachingProcessor_SmartLookback_MixedCacheStates(t *testing.T) {
 	// Multiple requests: some with cache hits, some misses
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	// Pre-populate cache for metric1 only
@@ -715,7 +715,7 @@ func TestCachingProcessor_SmartLookback_MixedCacheStates(t *testing.T) {
 	cache.Set(cacheKey1, TimeseriesCacheEntry{
 		LastTimestamp: now.Add(-1 * time.Minute), // 1 minute ago
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 	// Metric2 has no cache entry (cold start)
 
 	capturedLengths := make(map[string]int64)
@@ -812,14 +812,14 @@ func TestCachingProcessor_SmartLookback_EfficiencyComparison(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cache := NewTimeseriesCache(15 * time.Minute)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			cacheKey := BuildCacheKey("AWS/Test", "TestMetric", []model.Dimension{{Name: "Dim", Value: "val"}}, "Average")
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: now.Add(-tc.timeSinceLast),
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedLength int64
 			client := testClient{
@@ -879,7 +879,7 @@ func TestCachingProcessor_SmartLookback_EfficiencyComparison(t *testing.T) {
 func TestCachingProcessor_SmartLookback_ConsecutiveScrapes(t *testing.T) {
 	// Simulate multiple consecutive scrapes with realistic timing
 	// Note: We use time.Now() relative timestamps since the processor uses time.Now() internally
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	period := int64(60)
@@ -989,7 +989,7 @@ func TestCachingProcessor_SmartLookback_FloorEnforcement(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Now()
-			cache := NewTimeseriesCache(1 * time.Hour)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			// Set cached timestamp based on timeSinceLast (can be negative)
@@ -998,7 +998,7 @@ func TestCachingProcessor_SmartLookback_FloorEnforcement(t *testing.T) {
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: cachedTimestamp,
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedLength int64
 			client := testClient{
@@ -1053,7 +1053,7 @@ func TestCachingProcessor_SmartLookback_FloorEnforcement(t *testing.T) {
 func TestCachingProcessor_SmartLookback_DifferentStatisticsSameMetric(t *testing.T) {
 	// Same metric with different statistics should have separate cache entries
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	// Pre-populate cache for Average only
@@ -1061,7 +1061,7 @@ func TestCachingProcessor_SmartLookback_DifferentStatisticsSameMetric(t *testing
 	cache.Set(cacheKeyAvg, TimeseriesCacheEntry{
 		LastTimestamp: now.Add(-1 * time.Minute),
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 	// Sum has no cache entry
 
 	capturedLengths := make(map[string]int64)
@@ -1159,14 +1159,14 @@ func TestCachingProcessor_SmartLookback_BoundaryConditions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Now()
-			cache := NewTimeseriesCache(1 * time.Hour)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			cacheKey := BuildCacheKey("AWS/Test", "TestMetric", []model.Dimension{{Name: "Dim", Value: "val"}}, "Average")
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: now.Add(-tc.timeSinceLast),
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedLength int64
 			client := testClient{
@@ -1253,14 +1253,14 @@ func TestCachingProcessor_DelayApplied_SteadyState(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Now()
-			cache := NewTimeseriesCache(1 * time.Hour)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			cacheKey := BuildCacheKey("AWS/Test", "M", []model.Dimension{{Name: "D", Value: "v"}}, "Average")
 			cache.Set(cacheKey, TimeseriesCacheEntry{
 				LastTimestamp: now.Add(-time.Duration(tc.period) * time.Second),
 				Interval:      tc.period,
-			})
+			}, 1*time.Hour)
 
 			var capturedDelay int64
 			client := testClient{
@@ -1314,7 +1314,7 @@ func TestCachingProcessor_DelayApplied_ColdStart(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now := time.Now()
-			cache := NewTimeseriesCache(1 * time.Hour)
+			cache := NewTimeseriesCache()
 			defer cache.Stop()
 
 			var capturedDelay int64
@@ -1365,6 +1365,27 @@ func TestEffectiveMaxPeriods(t *testing.T) {
 	assert.Equal(t, int64(2), effectiveMaxPeriods(3600), "1 hour period → 2")
 }
 
+func TestCacheTTL(t *testing.T) {
+	testCases := []struct {
+		name     string
+		period   int64
+		expected time.Duration
+	}{
+		{"1 min period", 60, 11 * time.Minute},                   // (10+1)*60 = 660s
+		{"5 min period", 300, 30 * time.Minute},                  // (5+1)*300 = 1800s
+		{"10 min period", 600, 60 * time.Minute},                 // (5+1)*600 = 3600s
+		{"1 hour period", 3600, 3 * time.Hour},                   // (2+1)*3600 = 10800s
+		{"5 hour period (>4h override)", 18000, 10 * time.Hour},  // 2*18000 = 36000s
+		{"24 hour period (>4h override)", 86400, 48 * time.Hour}, // 2*86400 = 172800s
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, CacheTTL(tc.period))
+		})
+	}
+}
+
 // =============================================================================
 // Gap Fill NaN Tests
 // =============================================================================
@@ -1375,14 +1396,14 @@ func TestCachingProcessor_GapFill_NoNaNWhenFlagOff(t *testing.T) {
 	lastSeen := now.Add(-4 * time.Minute)
 	returnedTS := now
 
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -1430,14 +1451,14 @@ func TestCachingProcessor_GapFill_NoDataReturned_EmitsNaN(t *testing.T) {
 	now := time.Now().Truncate(time.Minute)
 	lastSeen := now.Add(-3 * time.Minute) // 10:00
 
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -1499,14 +1520,14 @@ func TestCachingProcessor_GapFill_NoNaNWhenRealDataReturned(t *testing.T) {
 	now := time.Now().Truncate(time.Minute)
 	lastSeen := now.Add(-30 * time.Minute)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -1562,7 +1583,7 @@ func TestCachingProcessor_GapFill_NoNaNWhenRealDataReturned(t *testing.T) {
 func TestCachingProcessor_GapFill_NoCacheEntry(t *testing.T) {
 	// Cold start — no cache entry → no NaN even with GapValue set
 	now := time.Now()
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	client := testClient{
@@ -1616,14 +1637,14 @@ func TestCachingProcessor_GapFill_PartialData_NoNaN(t *testing.T) {
 	now := time.Now().Truncate(time.Minute)
 	lastSeen := now.Add(-4 * time.Minute)
 
-	cache := NewTimeseriesCache(15 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", []model.Dimension{{Name: "InstanceId", Value: "i-123"}}, "Average")
 	cache.Set(cacheKey, TimeseriesCacheEntry{
 		LastTimestamp: lastSeen,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	// CW returns data at T+2min and T+4min, missing T+1min and T+3min
 	t2 := lastSeen.Add(2 * time.Minute)
@@ -1700,7 +1721,7 @@ func TestCachingProcessor_GapFill_MultiScrapeLifecycle(t *testing.T) {
 	t5 := t0.Add(5 * time.Minute)
 	t6 := t0.Add(6 * time.Minute)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	dims := []model.Dimension{{Name: "InstanceId", Value: "i-456"}}
@@ -1852,12 +1873,12 @@ func TestCachingProcessor_NoNaN_WhenRealDataReturned(t *testing.T) {
 	t1 := t0.Add(1 * time.Minute)
 	t2 := t0.Add(2 * time.Minute)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	dims := []model.Dimension{{Name: "InstanceId", Value: "i-789"}}
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", dims, "Average")
-	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60})
+	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -1914,12 +1935,12 @@ func TestCachingProcessor_NoNaN_WhenFlagOff_NoData(t *testing.T) {
 	// CW returned nothing, but GapValue is nil → no NaN emitted
 	t0 := time.Date(2026, 2, 12, 12, 0, 0, 0, time.UTC)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	dims := []model.Dimension{{Name: "InstanceId", Value: "i-789"}}
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUUtilization", dims, "Average")
-	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60})
+	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -1970,7 +1991,7 @@ func TestCachingProcessor_RealWorldBatch_MixedDataAndSilent(t *testing.T) {
 	t0 := time.Date(2026, 2, 15, 10, 0, 0, 0, time.UTC)
 	t1 := t0.Add(1 * time.Minute)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	// Both metrics have cache entries from a previous scrape at T0
@@ -1978,8 +1999,8 @@ func TestCachingProcessor_RealWorldBatch_MixedDataAndSilent(t *testing.T) {
 	creditDims := []model.Dimension{{Name: "AutoScalingGroupName", Value: "eks-infra-asg"}}
 	cpuKey := BuildCacheKey("AWS/EC2", "CPUUtilization", cpuDims, "Average")
 	creditKey := BuildCacheKey("AWS/EC2", "CPUCreditBalance", creditDims, "Average")
-	cache.Set(cpuKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60})
-	cache.Set(creditKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60})
+	cache.Set(cpuKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60}, 1*time.Hour)
+	cache.Set(creditKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60}, 1*time.Hour)
 
 	client := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -2080,12 +2101,12 @@ func TestCachingProcessor_NaN_Idempotent_SecondScrapeNoDoubleNaN(t *testing.T) {
 	t0 := time.Date(2026, 2, 15, 10, 0, 0, 0, time.UTC)
 	t1 := t0.Add(1 * time.Minute) // expected NaN timestamp
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	dims := []model.Dimension{{Name: "AutoScalingGroupName", Value: "eks-infra-asg"}}
 	cacheKey := BuildCacheKey("AWS/EC2", "CPUCreditBalance", dims, "Average")
-	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60})
+	cache.Set(cacheKey, TimeseriesCacheEntry{LastTimestamp: t0, Interval: 60}, 1*time.Hour)
 
 	emptyClient := testClient{
 		GetMetricDataFunc: func(_ context.Context, data []*model.CloudwatchData, _ string, _ time.Time, _ time.Time) []cloudwatch.MetricDataResult {
@@ -2152,7 +2173,7 @@ func TestCachingProcessor_NaN_Idempotent_SecondScrapeNoDoubleNaN(t *testing.T) {
 func TestCachingProcessor_SteadyState_NoNaN(t *testing.T) {
 	t0 := time.Date(2026, 2, 15, 10, 0, 0, 0, time.UTC)
 
-	cache := NewTimeseriesCache(1 * time.Hour)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	dims := []model.Dimension{{Name: "InstanceId", Value: "i-123"}}

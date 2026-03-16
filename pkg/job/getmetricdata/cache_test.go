@@ -107,7 +107,7 @@ func TestBuildCacheKeyWithPrefix_PrefixIsolatesSameMetric(t *testing.T) {
 }
 
 func TestTimeseriesCache_GetSet(t *testing.T) {
-	cache := NewTimeseriesCache(1 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	key := BuildCacheKey("test", "metric", []model.Dimension{{Name: "dim", Value: "val"}}, "Average")
@@ -119,7 +119,7 @@ func TestTimeseriesCache_GetSet(t *testing.T) {
 	cache.Set(key, TimeseriesCacheEntry{
 		LastTimestamp: ts,
 		Interval:      60,
-	})
+	}, 1*time.Hour)
 
 	entry, ok := cache.Get(key)
 	require.True(t, ok)
@@ -128,14 +128,14 @@ func TestTimeseriesCache_GetSet(t *testing.T) {
 }
 
 func TestTimeseriesCache_TTLExpiry(t *testing.T) {
-	cache := NewTimeseriesCache(50 * time.Millisecond)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	key := BuildCacheKey("test", "metric", []model.Dimension{{Name: "dim", Value: "val"}}, "Average")
 	cache.Set(key, TimeseriesCacheEntry{
 		LastTimestamp: time.Now(),
 		Interval:      60,
-	})
+	}, 50*time.Millisecond)
 
 	_, ok := cache.Get(key)
 	require.True(t, ok)
@@ -147,19 +147,19 @@ func TestTimeseriesCache_TTLExpiry(t *testing.T) {
 }
 
 func TestTimeseriesCache_Update(t *testing.T) {
-	cache := NewTimeseriesCache(1 * time.Minute)
+	cache := NewTimeseriesCache()
 	defer cache.Stop()
 
 	key := BuildCacheKey("test", "metric", []model.Dimension{{Name: "dim", Value: "val"}}, "Average")
 	ts1 := time.Now().Add(-5 * time.Minute)
 	ts2 := time.Now()
 
-	cache.Set(key, TimeseriesCacheEntry{LastTimestamp: ts1, Interval: 60})
+	cache.Set(key, TimeseriesCacheEntry{LastTimestamp: ts1, Interval: 60}, 1*time.Hour)
 	entry, ok := cache.Get(key)
 	require.True(t, ok)
 	assert.Equal(t, ts1, entry.LastTimestamp)
 
-	cache.Set(key, TimeseriesCacheEntry{LastTimestamp: ts2, Interval: 60})
+	cache.Set(key, TimeseriesCacheEntry{LastTimestamp: ts2, Interval: 60}, 1*time.Hour)
 	entry, ok = cache.Get(key)
 	require.True(t, ok)
 	assert.Equal(t, ts2, entry.LastTimestamp)

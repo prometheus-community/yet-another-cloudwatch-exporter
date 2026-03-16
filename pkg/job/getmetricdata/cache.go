@@ -37,11 +37,12 @@ type TimeseriesCache struct {
 	cache *ttlcache.Cache[uint64, TimeseriesCacheEntry]
 }
 
-// NewTimeseriesCache creates a new TimeseriesCache with the given TTL for entries.
+// NewTimeseriesCache creates a new TimeseriesCache with no default TTL.
+// Per-entry TTLs are set on each Set call based on the metric's period.
 // It starts the automatic cleanup goroutine provided by ttlcache.
-func NewTimeseriesCache(ttl time.Duration) *TimeseriesCache {
+func NewTimeseriesCache() *TimeseriesCache {
 	cache := ttlcache.New[uint64, TimeseriesCacheEntry](
-		ttlcache.WithTTL[uint64, TimeseriesCacheEntry](ttl),
+		ttlcache.WithTTL[uint64, TimeseriesCacheEntry](ttlcache.NoTTL),
 	)
 	go cache.Start()
 	return &TimeseriesCache{cache: cache}
@@ -57,9 +58,9 @@ func (tc *TimeseriesCache) Get(key uint64) (TimeseriesCacheEntry, bool) {
 	return item.Value(), true
 }
 
-// Set stores or updates the cache entry for the given key, resetting its TTL.
-func (tc *TimeseriesCache) Set(key uint64, entry TimeseriesCacheEntry) {
-	tc.cache.Set(key, entry, ttlcache.DefaultTTL)
+// Set stores or updates the cache entry for the given key with the given TTL.
+func (tc *TimeseriesCache) Set(key uint64, entry TimeseriesCacheEntry, ttl time.Duration) {
+	tc.cache.Set(key, entry, ttl)
 }
 
 // Stop halts the automatic cleanup goroutine. Should be called on shutdown.
