@@ -14,6 +14,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -53,7 +54,7 @@ func ScrapeAwsData(
 					enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
 				)
 			} else {
-				logger.Warn("Couldn't initialize enhanced metrics service: factory does not support regional config")
+				logger.Warn(fmt.Sprintf("Couldn't initialize enhanced metrics service: factory type %T does not implement GetAWSRegionalConfig", factory))
 			}
 		}
 
