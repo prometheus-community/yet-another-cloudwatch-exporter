@@ -71,7 +71,7 @@ func TestApiGatewayFilterFunc(t *testing.T) {
 		outputResources []*model.TaggedResource
 	}{
 		{
-			name: "v1 REST API stages are filtered and IDs replaced with names",
+			name: "API Gateway v1 REST API: stages are filtered and IDs replaced with names",
 			apiGatewayAPI: apigateway.New(apigateway.Options{
 				Region: "us-east-1",
 				APIOptions: []func(*middleware.Stack) error{
@@ -121,7 +121,7 @@ func TestApiGatewayFilterFunc(t *testing.T) {
 			},
 		},
 		{
-			name: "v2 API stages are filtered",
+			name: "API Gateway v2 REST API: stages are filtered",
 			apiGatewayAPI: apigateway.New(apigateway.Options{
 				Region: "us-east-1",
 				APIOptions: []func(*middleware.Stack) error{
