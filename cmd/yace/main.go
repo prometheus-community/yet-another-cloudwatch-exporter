@@ -29,9 +29,8 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	v1 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v1"
-	v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
@@ -268,16 +267,14 @@ func startScraper(c *cli.Context) error {
 	s := NewScraper(featureFlags)
 
 	var cache cachingFactory
-	cache, err = v2.NewFactory(logger, jobsCfg, fips)
+	cache, err = clients.NewFactory(logger, jobsCfg, fips)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
 
-	// Switch to v1 SDK if feature flag is enabled
 	for _, featureFlag := range featureFlags {
-		if featureFlag == config.AwsSdkV1 {
-			cache = v1.NewFactory(logger, jobsCfg, fips)
-			logger.Info("Using aws sdk v1")
+		if featureFlag == config.AwsSdkV1 { //nolint:staticcheck // SA1019 intentional use of deprecated constant for warning
+			logger.Warn("The aws-sdk-v1 feature flag is deprecated and will be ignored. AWS SDK v2 is now the only supported SDK.")
 		}
 	}
 
@@ -326,18 +323,10 @@ func startScraper(c *cli.Context) error {
 
 		logger.Info("Reset clients cache")
 		var cache cachingFactory
-		cache, err = v2.NewFactory(logger, newJobsCfg, fips)
+		cache, err = clients.NewFactory(logger, newJobsCfg, fips)
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
 			return
-		}
-
-		// Switch to v1 SDK if feature flag is enabled
-		for _, featureFlag := range featureFlags {
-			if featureFlag == config.AwsSdkV1 {
-				cache = v1.NewFactory(logger, newJobsCfg, fips)
-				logger.Info("Using aws sdk v1")
-			}
 		}
 
 		cancelRunningScrape()

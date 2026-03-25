@@ -10,7 +10,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2
+package clients
 
 import (
 	"context"
@@ -39,13 +39,9 @@ import (
 	aws_logging "github.com/aws/smithy-go/logging"
 	"go.uber.org/atomic"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
-	account_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account/v2"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	cloudwatch_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
-	tagging_v2 "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging/v2"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
@@ -74,7 +70,7 @@ type cachedClients struct {
 }
 
 // Ensure the struct properly implements the interface
-var _ clients.Factory = &CachingFactory{}
+var _ Factory = &CachingFactory{}
 
 // NewFactory creates a new client factory to use when fetching data from AWS with sdk v2
 func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
@@ -176,7 +172,7 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 	if client := c.clients[role][region].cloudwatch; client != nil {
 		return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 	}
-	c.clients[role][region].cloudwatch = cloudwatch_v2.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig))
+	c.clients[role][region].cloudwatch = cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig))
 	return cloudwatch_client.NewLimitedConcurrencyClient(c.clients[role][region].cloudwatch, concurrency.NewLimiter())
 }
 
@@ -189,7 +185,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 	if client := c.clients[role][region].tagging; client != nil {
 		return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 	}
-	c.clients[role][region].tagging = tagging_v2.NewClient(
+	c.clients[role][region].tagging = tagging.NewClient(
 		c.logger,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
@@ -216,7 +212,7 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 
 	stsClient := c.createStsClient(c.clients[role][region].awsConfig)
 	iamClient := c.createIAMClient(c.clients[role][region].awsConfig)
-	c.clients[role][region].account = account_v2.NewClient(c.logger, stsClient, iamClient)
+	c.clients[role][region].account = account.NewClient(c.logger, stsClient, iamClient)
 	return c.clients[role][region].account
 }
 
@@ -233,12 +229,12 @@ func (c *CachingFactory) Refresh() {
 
 	for _, regionClients := range c.clients {
 		for _, cache := range regionClients {
-			cache.cloudwatch = cloudwatch_v2.NewClient(c.logger, c.createCloudwatchClient(cache.awsConfig))
+			cache.cloudwatch = cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(cache.awsConfig))
 			if cache.onlyStatic {
 				continue
 			}
 
-			cache.tagging = tagging_v2.NewClient(
+			cache.tagging = tagging.NewClient(
 				c.logger,
 				c.createTaggingClient(cache.awsConfig),
 				c.createAutoScalingClient(cache.awsConfig),
@@ -251,7 +247,7 @@ func (c *CachingFactory) Refresh() {
 				c.createShieldClient(cache.awsConfig),
 			)
 
-			cache.account = account_v2.NewClient(c.logger, c.createStsClient(cache.awsConfig), c.createIAMClient(cache.awsConfig))
+			cache.account = account.NewClient(c.logger, c.createStsClient(cache.awsConfig), c.createIAMClient(cache.awsConfig))
 		}
 	}
 

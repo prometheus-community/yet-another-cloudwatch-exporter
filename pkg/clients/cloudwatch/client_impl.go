@@ -10,7 +10,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2
+package cloudwatch
 
 import (
 	"context"
@@ -18,20 +18,19 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	aws_cloudwatch "github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
-	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type client struct {
 	logger        *slog.Logger
-	cloudwatchAPI *cloudwatch.Client
+	cloudwatchAPI *aws_cloudwatch.Client
 }
 
-func NewClient(logger *slog.Logger, cloudwatchAPI *cloudwatch.Client) cloudwatch_client.Client {
+func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client) Client {
 	return &client{
 		logger:        logger,
 		cloudwatchAPI: cloudwatchAPI,
@@ -39,7 +38,7 @@ func NewClient(logger *slog.Logger, cloudwatchAPI *cloudwatch.Client) cloudwatch
 }
 
 func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
-	filter := &cloudwatch.ListMetricsInput{
+	filter := &aws_cloudwatch.ListMetricsInput{
 		MetricName: aws.String(metric.Name),
 		Namespace:  aws.String(namespace),
 	}
@@ -49,7 +48,7 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 
 	c.logger.Debug("ListMetrics", "input", filter)
 
-	paginator := cloudwatch.NewListMetricsPaginator(c.cloudwatchAPI, filter, func(options *cloudwatch.ListMetricsPaginatorOptions) {
+	paginator := aws_cloudwatch.NewListMetricsPaginator(c.cloudwatchAPI, filter, func(options *aws_cloudwatch.ListMetricsPaginatorOptions) {
 		options.StopOnDuplicateToken = true
 	})
 
@@ -71,7 +70,7 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 	return nil
 }
 
-func toModelMetric(page *cloudwatch.ListMetricsOutput) []*model.Metric {
+func toModelMetric(page *aws_cloudwatch.ListMetricsOutput) []*model.Metric {
 	modelMetrics := make([]*model.Metric, 0, len(page.Metrics))
 	for _, cloudwatchMetric := range page.Metrics {
 		modelMetric := &model.Metric{
@@ -96,7 +95,7 @@ func toModelDimensions(dimensions []types.Dimension) []model.Dimension {
 	return modelDimensions
 }
 
-func (c client) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []cloudwatch_client.MetricDataResult {
+func (c client) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
 	metricDataQueries := make([]types.MetricDataQuery, 0, len(getMetricData))
 	exportAllDataPoints := false
 	for _, data := range getMetricData {
@@ -117,17 +116,17 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		exportAllDataPoints = exportAllDataPoints || data.MetricMigrationParams.ExportAllDataPoints
 	}
 
-	input := &cloudwatch.GetMetricDataInput{
+	input := &aws_cloudwatch.GetMetricDataInput{
 		EndTime:           &endTime,
 		StartTime:         &startTime,
 		MetricDataQueries: metricDataQueries,
 		ScanBy:            "TimestampDescending",
 	}
-	var resp cloudwatch.GetMetricDataOutput
+	var resp aws_cloudwatch.GetMetricDataOutput
 	promutil.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
 	c.logger.Debug("GetMetricData", "input", input)
 
-	paginator := cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *cloudwatch.GetMetricDataPaginatorOptions) {
+	paginator := aws_cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *aws_cloudwatch.GetMetricDataPaginatorOptions) {
 		options.StopOnDuplicateToken = true
 	})
 	for paginator.HasMorePages() {
@@ -148,15 +147,15 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 	return toMetricDataResult(resp, exportAllDataPoints)
 }
 
-func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, exportAllDataPoints bool) []cloudwatch_client.MetricDataResult {
-	output := make([]cloudwatch_client.MetricDataResult, 0, len(resp.MetricDataResults))
+func toMetricDataResult(resp aws_cloudwatch.GetMetricDataOutput, exportAllDataPoints bool) []MetricDataResult {
+	output := make([]MetricDataResult, 0, len(resp.MetricDataResults))
 	for _, metricDataResult := range resp.MetricDataResults {
-		mappedResult := cloudwatch_client.MetricDataResult{
+		mappedResult := MetricDataResult{
 			ID:         *metricDataResult.Id,
-			DataPoints: make([]cloudwatch_client.DataPoint, 0, len(metricDataResult.Timestamps)),
+			DataPoints: make([]DataPoint, 0, len(metricDataResult.Timestamps)),
 		}
 		for i := 0; i < len(metricDataResult.Timestamps); i++ {
-			mappedResult.DataPoints = append(mappedResult.DataPoints, cloudwatch_client.DataPoint{
+			mappedResult.DataPoints = append(mappedResult.DataPoints, DataPoint{
 				Value:     &metricDataResult.Values[i],
 				Timestamp: metricDataResult.Timestamps[i],
 			})

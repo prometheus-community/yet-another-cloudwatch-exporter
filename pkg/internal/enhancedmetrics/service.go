@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -83,16 +82,11 @@ func (ep *Service) GetMetrics(
 }
 
 func NewService(
-	factory clients.Factory,
+	configProvider config.RegionalConfigProvider,
 	enhancedMetricsServiceRegistry MetricsServiceRegistry,
-) (*Service, error) {
-	emf, ok := factory.(config.RegionalConfigProvider)
-	if !ok {
-		return nil, fmt.Errorf("cannot create enhanced metric service with a factory type %T", factory)
-	}
-
+) *Service {
 	return &Service{
-		configProvider:                 emf,
+		configProvider:                 configProvider,
 		enhancedMetricsServiceRegistry: enhancedMetricsServiceRegistry,
-	}, nil
+	}
 }

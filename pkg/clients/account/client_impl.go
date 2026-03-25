@@ -10,7 +10,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2
+package account
 
 import (
 	"context"
@@ -19,8 +19,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 )
 
 type client struct {
@@ -29,7 +27,7 @@ type client struct {
 	iamClient *iam.Client
 }
 
-func NewClient(logger *slog.Logger, stsClient *sts.Client, iamClient *iam.Client) account.Client {
+func NewClient(logger *slog.Logger, stsClient *sts.Client, iamClient *iam.Client) Client {
 	return &client{
 		logger:    logger,
 		stsClient: stsClient,

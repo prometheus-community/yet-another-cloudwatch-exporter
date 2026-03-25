@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus/common/promslog"
 	"github.com/r3labs/diff/v3"
 	"github.com/stretchr/testify/assert"

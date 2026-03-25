@@ -15,7 +15,7 @@ package config
 import (
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/grafana/regexp"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"

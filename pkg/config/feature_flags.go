@@ -16,7 +16,8 @@ import "context"
 
 type flagsCtxKey struct{}
 
-// AwsSdkV1 is a feature flag used to enable the use of aws sdk v1 (v2 is the default)
+// Deprecated: AwsSdkV1 was used to enable the use of AWS SDK v1. SDK v1 support has been removed;
+// this constant is retained only to emit a deprecation warning when the flag is still passed.
 const AwsSdkV1 = "aws-sdk-v1"
 
 // AlwaysReturnInfoMetrics is a feature flag used to enable the return of info metrics even when there are no corresponding CloudWatch metrics

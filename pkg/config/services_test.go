@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +29,7 @@ func TestSupportedServices(t *testing.T) {
 			require.NotEmpty(t, svc.ResourceFilters)
 
 			for _, filter := range svc.ResourceFilters {
-				require.NotEmpty(t, aws.StringValue(filter))
+				require.NotEmpty(t, aws.ToString(filter))
 			}
 		}
 

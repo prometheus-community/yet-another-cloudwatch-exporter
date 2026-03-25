@@ -2,12 +2,10 @@
 
 **Important news and breaking changes**
 
-* [CHANGE] ...
-* [FEATURE] ...
-* [ENHANCEMENT] ...
-* [BUGFIX] ...
+- BREAKING CHANGE: AWS SDK v1 support has been removed. The `aws-sdk-v1` feature flag is deprecated and will be ignored. AWS SDK v1 reached end-of-support on July 31, 2025. SDK v2 has been the default since v0.63.0 (September 2025). Users who were passing `--enable-feature aws-sdk-v1` will see a deprecation warning; no other action is required.
 
-* [FEATURE] Implement Enhanced Metrics (EM) for AWS Services by @andriikushch. 
+* [CHANGE] Remove AWS SDK v1 support and deprecate `aws-sdk-v1` feature flag by @tristanburgess. #1825
+* [FEATURE] Implement Enhanced Metrics framework and initial set of metrics by @andriikushch. #1795
 
 ## 0.63.0 / 2025-09-25
 

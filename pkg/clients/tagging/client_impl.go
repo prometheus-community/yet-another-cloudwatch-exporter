@@ -10,7 +10,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package v2
+package tagging
 
 import (
 	"context"
@@ -29,7 +29,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
@@ -59,7 +58,7 @@ func NewClient(
 	prometheusClient *amp.Client,
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
-) tagging.Client {
+) Client {
 	return &client{
 		logger:            logger,
 		taggingAPI:        taggingAPI,
@@ -161,7 +160,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 	}
 
 	if shouldHaveDiscoveredResources && len(resources) == 0 {
-		return nil, tagging.ErrExpectedToFindResources
+		return nil, ErrExpectedToFindResources
 	}
 
 	return resources, nil
