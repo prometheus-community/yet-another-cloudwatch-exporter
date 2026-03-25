@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -266,16 +266,9 @@ func startScraper(c *cli.Context) error {
 	featureFlags := c.StringSlice(enableFeatureFlag)
 	s := NewScraper(featureFlags)
 
-	var cache cachingFactory
-	cache, err = clients.NewFactory(logger, jobsCfg, fips)
+	cache, err := clients.NewFactory(logger, jobsCfg, fips)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
-	}
-
-	for _, featureFlag := range featureFlags {
-		if featureFlag == config.AwsSdkV1 { //nolint:staticcheck // SA1019 intentional use of deprecated constant for warning
-			logger.Warn("The aws-sdk-v1 feature flag is deprecated and will be ignored. AWS SDK v2 is now the only supported SDK.")
-		}
 	}
 
 	ctx, cancelRunningScrape := context.WithCancel(context.Background())
@@ -322,8 +315,7 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		var cache cachingFactory
-		cache, err = clients.NewFactory(logger, newJobsCfg, fips)
+		cache, err := clients.NewFactory(logger, newJobsCfg, fips)
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
 			return

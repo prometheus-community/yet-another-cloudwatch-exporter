@@ -10,22 +10,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package tagging
+package account
 
-import (
-	"testing"
+import "context"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-)
+type Client interface {
+	// GetAccount returns the AWS account ID for the configured authenticated client.
+	GetAccount(ctx context.Context) (string, error)
 
-func TestValidServiceFilterNames(t *testing.T) {
-	for svc, filter := range ServiceFilters {
-		if config.SupportedServices.GetService(svc) == nil {
-			t.Errorf("invalid service name '%s' in ServiceFilters", svc)
-		}
-
-		if filter.FilterFunc == nil && filter.ResourceFunc == nil {
-			t.Errorf("no filter functions defined for service name '%s'", svc)
-		}
-	}
+	// GetAccountAlias returns the account alias if there's one set, otherwise an empty string.
+	GetAccountAlias(ctx context.Context) (string, error)
 }
