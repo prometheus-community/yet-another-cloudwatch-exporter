@@ -49,7 +49,7 @@ func mockAPIOption(responses map[string]interface{}) func(*middleware.Stack) err
 	return func(stack *middleware.Stack) error {
 		return stack.Finalize.Add(
 			middleware.FinalizeMiddlewareFunc("mock",
-				func(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
+				func(ctx context.Context, _ middleware.FinalizeInput, _ middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
 					opName := middleware.GetOperationName(ctx)
 					if resp, ok := responses[opName]; ok {
 						return middleware.FinalizeOutput{Result: resp}, middleware.Metadata{}, nil
