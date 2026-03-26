@@ -21,6 +21,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
+type Client interface {
+	// GetAccount returns the AWS account ID for the configured authenticated client.
+	GetAccount(ctx context.Context) (string, error)
+
+	// GetAccountAlias returns the account alias if there's one set, otherwise an empty string.
+	GetAccountAlias(ctx context.Context) (string, error)
+}
+
 type client struct {
 	logger    *slog.Logger
 	stsClient *sts.Client

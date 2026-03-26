@@ -25,6 +25,31 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
+type Client interface {
+	// ListMetrics returns the list of metrics and dimensions for a given namespace
+	// and metric name. Results pagination is handled automatically; the caller
+	// must provide a non-nil handler func that will be invoked for each page of
+	// results.
+	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
+
+	// GetMetricData returns the output of the GetMetricData CloudWatch API.
+	// Results pagination is handled automatically.
+	GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult
+
+	// GetMetricStatistics returns the output of the GetMetricStatistics CloudWatch API.
+	GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult
+}
+
+type MetricDataResult struct {
+	ID         string
+	DataPoints []DataPoint
+}
+
+type DataPoint struct {
+	Value     *float64
+	Timestamp time.Time
+}
+
 type client struct {
 	logger        *slog.Logger
 	cloudwatchAPI *aws_cloudwatch.Client

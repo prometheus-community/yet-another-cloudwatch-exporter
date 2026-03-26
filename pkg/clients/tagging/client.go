@@ -14,6 +14,7 @@ package tagging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -33,6 +34,12 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
+
+type Client interface {
+	GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error)
+}
+
+var ErrExpectedToFindResources = errors.New("expected to discover resources but none were found")
 
 type client struct {
 	logger            *slog.Logger

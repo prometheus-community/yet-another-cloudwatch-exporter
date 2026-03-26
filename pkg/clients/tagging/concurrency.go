@@ -14,16 +14,9 @@ package tagging
 
 import (
 	"context"
-	"errors"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
-
-type Client interface {
-	GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error)
-}
-
-var ErrExpectedToFindResources = errors.New("expected to discover resources but none were found")
 
 type limitedConcurrencyClient struct {
 	client Client

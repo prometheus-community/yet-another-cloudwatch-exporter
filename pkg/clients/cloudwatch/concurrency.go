@@ -12,6 +12,67 @@
 // limitations under the License.
 package cloudwatch
 
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+)
+
+const (
+	listMetricsCall         = "ListMetrics"
+	getMetricDataCall       = "GetMetricData"
+	getMetricStatisticsCall = "GetMetricStatistics"
+)
+
+// ConcurrencyLimiter limits the concurrency when calling AWS CloudWatch APIs. The functions implemented
+// by this interface follow the same as a normal semaphore, but accept and operation identifier. Some
+// implementations might use this to keep a different semaphore, with different reentrance values, per
+// operation.
+type ConcurrencyLimiter interface {
+	// Acquire takes one "ticket" from the concurrency limiter for op. If there's none available, the caller
+	// routine will be blocked until there's room available.
+	Acquire(op string)
+
+	// Release gives back one "ticket" to the concurrency limiter identified by op. If there's one or more
+	// routines waiting for one, one will be woken up.
+	Release(op string)
+}
+
+type limitedConcurrencyClient struct {
+	client  Client
+	limiter ConcurrencyLimiter
+}
+
+func NewLimitedConcurrencyClient(client Client, limiter ConcurrencyLimiter) Client {
+	return &limitedConcurrencyClient{
+		client:  client,
+		limiter: limiter,
+	}
+}
+
+func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+	c.limiter.Acquire(listMetricsCall)
+	err := c.client.ListMetrics(ctx, namespace, metric, recentlyActiveOnly, fn)
+	c.limiter.Release(listMetricsCall)
+	return err
+}
+
+func (c limitedConcurrencyClient) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
+	c.limiter.Acquire(getMetricDataCall)
+	res := c.client.GetMetricData(ctx, getMetricData, namespace, startTime, endTime)
+	c.limiter.Release(getMetricDataCall)
+	return res
+}
+
+func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
+	c.limiter.Acquire(getMetricStatisticsCall)
+	res := c.client.GetMetricStatistics(ctx, logger, dimensions, namespace, metric)
+	c.limiter.Release(getMetricStatisticsCall)
+	return res
+}
+
 // ConcurrencyConfig configures how concurrency should be limited in a Cloudwatch API client. It allows
 // one to pick between different limiter implementations: a single limit limiter, or one with a different limit per
 // API call.

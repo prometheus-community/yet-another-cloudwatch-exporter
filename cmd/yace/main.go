@@ -266,13 +266,13 @@ func startScraper(c *cli.Context) error {
 	featureFlags := c.StringSlice(enableFeatureFlag)
 	s := NewScraper(featureFlags)
 
-	cache, err := clients.NewFactory(logger, jobsCfg, fips)
+	cachingFactory, err := clients.NewFactory(logger, jobsCfg, fips)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
 
 	ctx, cancelRunningScrape := context.WithCancel(context.Background())
-	go s.decoupled(ctx, logger, jobsCfg, cache)
+	go s.decoupled(ctx, logger, jobsCfg, cachingFactory)
 
 	mux := http.NewServeMux()
 
