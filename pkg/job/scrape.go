@@ -54,7 +54,7 @@ func ScrapeAwsData(
 					enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
 				)
 			} else {
-				logger.Warn(fmt.Sprintf("Couldn't initialize enhanced metrics service: factory type %T does not implement GetAWSRegionalConfig", factory))
+				logger.Warn("Couldn't initialize enhanced metrics service", "factory_type", fmt.Sprintf("%T", factory), "err", "does not implement GetAWSRegionalConfig")
 			}
 		}
 

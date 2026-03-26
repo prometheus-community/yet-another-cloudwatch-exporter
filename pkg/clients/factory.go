@@ -84,7 +84,7 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 		case aws_logging.Warn:
 			logger.Warn(fmt.Sprintf(format, v...))
 		default: // AWS logging only supports debug or warn, log everything else as error
-			logger.Error(fmt.Sprintf(format, v...), "err", "unexected aws error classification", "classification", classification)
+			logger.Error(fmt.Sprintf(format, v...), "err", "unexpected aws error classification", "classification", classification)
 		}
 	})))
 
