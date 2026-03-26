@@ -28,8 +28,9 @@ const (
 
 type Client interface {
 	// ListMetrics returns the list of metrics and dimensions for a given namespace
-	// and metric name. Results pagination is handled automatically: the caller can
-	// optionally pass a non-nil func in order to handle results pages.
+	// and metric name. Results pagination is handled automatically; the caller
+	// must provide a non-nil handler func that will be invoked for each page of
+	// results.
 	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
 
 	// GetMetricData returns the output of the GetMetricData CloudWatch API.

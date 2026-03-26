@@ -42,18 +42,21 @@ func ScrapeAwsData(
 	var wg sync.WaitGroup
 
 	var enhancedMetricsService *enhancedmetrics.Service
+	var enhancedMetricsInitFailed bool
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		// initialize enhanced metrics service only if:
 		// - the current discovery job has enhanced metrics configured
 		// - the enhanced metrics service is not already initialized
-		if discoveryJob.HasEnhancedMetrics() && enhancedMetricsService == nil {
+		// - a previous initialization attempt has not already failed
+		if discoveryJob.HasEnhancedMetrics() && enhancedMetricsService == nil && !enhancedMetricsInitFailed {
 			if configProvider, ok := factory.(emconfig.RegionalConfigProvider); ok {
 				enhancedMetricsService = enhancedmetrics.NewService(
 					configProvider,
 					enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
 				)
 			} else {
+				enhancedMetricsInitFailed = true
 				logger.Warn("Couldn't initialize enhanced metrics service", "factory_type", fmt.Sprintf("%T", factory), "err", "does not implement GetAWSRegionalConfig")
 			}
 		}

@@ -41,7 +41,7 @@ func (c client) GetAccount(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if result.Account == nil {
-		return "", errors.New("aws sts GetCallerIdentityWithContext returned no account")
+		return "", errors.New("aws sts GetCallerIdentity returned no account")
 	}
 	return *result.Account, nil
 }
