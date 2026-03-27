@@ -60,7 +60,7 @@ func (rm dimensionsRegexpMapping) toString() string {
 	}
 	sb.WriteString("], dimensions_mappings={")
 	for sign, res := range rm.dimensionsMapping {
-		sb.WriteString(fmt.Sprintf("%d", sign))
+		fmt.Fprintf(&sb, "%d", sign)
 		sb.WriteString("=")
 		sb.WriteString(res.ARN)
 		sb.WriteString(",")
