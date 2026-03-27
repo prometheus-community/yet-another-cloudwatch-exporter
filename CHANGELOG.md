@@ -12,6 +12,7 @@
 * [FEATURE] Add support for `AWS/EKS` namespace by @LS80. #1760
 * [FEATURE] Split out Bedrock metrics into all needed namespaces by @tristanburgess. #1766
 * [FEATURE] Separate aliases for Bedrock namespaces by @tristanburgess. #1767
+* [ENHANCEMENT] Update Go build to 1.26, replace `gopkg.in/yaml.v2` with supported fork, sync upstream Prometheus files and migrate PromCI tooling by @SuperQ. #1831
 * [ENHANCEMENT] Add AWS/Bedrock GuardrailArn dimension-based resource tagging by @tristanburgess. #1761
 * [ENHANCEMENT] Add DimensionRegexps support for AWS Backup service by @amitshl. #1775
 * [ENHANCEMENT] Add DimensionRegexps for AWS/Cassandra by @bdeore. #1693
