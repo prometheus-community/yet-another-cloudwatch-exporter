@@ -1,4 +1,4 @@
-// Copyright 2026 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,21 +22,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
-	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-// mockFactory is a mock implementation of clients.Factory that also implements config.RegionalConfigProvider
-type mockFactory struct {
+// mockConfigProvider is a mock implementation of config.RegionalConfigProvider
+type mockConfigProvider struct {
 	configs map[string]*aws.Config
 }
 
-func (m *mockFactory) GetAWSRegionalConfig(region string, _ model.Role) *aws.Config {
+func (m *mockConfigProvider) GetAWSRegionalConfig(region string, _ model.Role) *aws.Config {
 	if m.configs == nil {
 		return &aws.Config{}
 	}
@@ -44,33 +40,6 @@ func (m *mockFactory) GetAWSRegionalConfig(region string, _ model.Role) *aws.Con
 		return cfg
 	}
 	return &aws.Config{}
-}
-
-func (m *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	return nil
-}
-
-func (m *mockFactory) GetTaggingClient(string, model.Role, int) tagging.Client {
-	return nil
-}
-
-func (m *mockFactory) GetAccountClient(string, model.Role) account.Client {
-	return nil
-}
-
-// mockNonRegionalFactory is a mock that does NOT implement config.RegionalConfigProvider
-type mockNonRegionalFactory struct{}
-
-func (m *mockNonRegionalFactory) GetCloudwatchClient(string, model.Role, cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
-	return nil
-}
-
-func (m *mockNonRegionalFactory) GetTaggingClient(string, model.Role, int) tagging.Client {
-	return nil
-}
-
-func (m *mockNonRegionalFactory) GetAccountClient(string, model.Role) account.Client {
-	return nil
 }
 
 // mockMetricsService is a mock implementation of service.EnhancedMetricsService
@@ -115,40 +84,9 @@ func (m *mockMetricsServiceRegistry) GetEnhancedMetricsService(namespace string)
 }
 
 func TestNewService(t *testing.T) {
-	tests := []struct {
-		name    string
-		factory clients.Factory
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name:    "success with factory implementing RegionalConfigProvider",
-			factory: &mockFactory{},
-			wantErr: false,
-		},
-		{
-			name:    "failure with factory not implementing RegionalConfigProvider",
-			factory: &mockNonRegionalFactory{},
-			wantErr: true,
-			errMsg:  "cannot create enhanced metric service with a factory type",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, err := NewService(tt.factory, &mockMetricsServiceRegistry{})
-
-			if tt.wantErr {
-				require.Error(t, err)
-				require.Nil(t, svc)
-				require.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, svc)
-				require.NotNil(t, svc.configProvider)
-			}
-		})
-	}
+	svc := NewService(&mockConfigProvider{}, &mockMetricsServiceRegistry{})
+	require.NotNil(t, svc)
+	require.NotNil(t, svc.configProvider)
 }
 
 func TestService_GetMetrics(t *testing.T) {
@@ -231,11 +169,10 @@ func TestService_GetMetrics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, err := NewService(
-				&mockFactory{},
+			svc := NewService(
+				&mockConfigProvider{},
 				tt.registry,
 			)
-			require.NoError(t, err)
 
 			data, err := svc.GetMetrics(ctx, logger, tt.namespace, resources, metrics, exportedTags, region, role)
 

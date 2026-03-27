@@ -2,12 +2,10 @@
 
 **Important news and breaking changes**
 
-* [CHANGE] ...
-* [FEATURE] ...
-* [ENHANCEMENT] ...
-* [BUGFIX] ...
+- BREAKING CHANGE: AWS SDK v1 support has been removed. The `aws-sdk-v1` feature flag is now a no-op and will be silently ignored. AWS SDK v1 reached end-of-support on July 31, 2025. SDK v2 has been the default since v0.63.0 (September 2025). Users who were passing `--enable-feature aws-sdk-v1` should remove the flag, as it no longer has any effect. If you use YACE as a library, the `v1` and `v2` sub-packages under `pkg/clients/` have been removed. All client implementations now live directly in their parent packages (e.g. `pkg/clients/cloudwatch`, `pkg/clients/tagging`, `pkg/clients/account`). Import paths like `pkg/clients/v1`, `pkg/clients/cloudwatch/v2`, etc. must be updated accordingly.
 
-* [FEATURE] Implement Enhanced Metrics (EM) for AWS Services by @andriikushch. 
+* [CHANGE] Remove AWS SDK v1 support and deprecate `aws-sdk-v1` feature flag by @tristanburgess. #1825
+* [FEATURE] Implement Enhanced Metrics framework and initial set of metrics by @andriikushch. #1795
 
 ## 0.63.0 / 2025-09-25
 

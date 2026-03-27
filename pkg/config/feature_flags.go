@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,9 +15,6 @@ package config
 import "context"
 
 type flagsCtxKey struct{}
-
-// AwsSdkV1 is a feature flag used to enable the use of aws sdk v1 (v2 is the default)
-const AwsSdkV1 = "aws-sdk-v1"
 
 // AlwaysReturnInfoMetrics is a feature flag used to enable the return of info metrics even when there are no corresponding CloudWatch metrics
 const AlwaysReturnInfoMetrics = "always-return-info-metrics"

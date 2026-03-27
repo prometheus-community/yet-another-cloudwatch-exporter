@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/grafana/regexp"
 	"gopkg.in/yaml.v2"
 
@@ -417,7 +417,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 		}
 	}
 
-	if aws.BoolValue(mExportAllDataPoints) && !aws.BoolValue(mAddCloudwatchTimestamp) {
+	if aws.ToBool(mExportAllDataPoints) && !aws.ToBool(mAddCloudwatchTimestamp) {
 		return fmt.Errorf("Metric [%s/%d] in %v: ExportAllDataPoints can only be enabled if AddCloudwatchTimestamp is enabled", m.Name, metricIdx, parent)
 	}
 
@@ -553,9 +553,9 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 			Period:                 m.Period,
 			Length:                 m.Length,
 			Delay:                  m.Delay,
-			NilToZero:              aws.BoolValue(m.NilToZero),
-			AddCloudwatchTimestamp: aws.BoolValue(m.AddCloudwatchTimestamp),
-			ExportAllDataPoints:    aws.BoolValue(m.ExportAllDataPoints),
+			NilToZero:              aws.ToBool(m.NilToZero),
+			AddCloudwatchTimestamp: aws.ToBool(m.AddCloudwatchTimestamp),
+			ExportAllDataPoints:    aws.ToBool(m.ExportAllDataPoints),
 		})
 	}
 	return ret

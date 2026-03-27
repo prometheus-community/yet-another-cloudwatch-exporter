@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,6 +14,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	emconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -39,27 +41,23 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
-	var enhancedMetricsServiceErr error
 	var enhancedMetricsService *enhancedmetrics.Service
+	var enhancedMetricsInitFailed bool
 
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
 		// initialize enhanced metrics service only if:
 		// - the current discovery job has enhanced metrics configured
 		// - the enhanced metrics service is not already initialized
-		// - there was no error initializing the enhanced metrics processor previously
-		//
-		// if the initialization fails, we log the error and continue without enhanced metrics
-		if discoveryJob.HasEnhancedMetrics() &&
-			enhancedMetricsService == nil &&
-			enhancedMetricsServiceErr == nil {
-
-			enhancedMetricsService, enhancedMetricsServiceErr = enhancedmetrics.NewService(
-				factory,
-				enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
-			)
-			if enhancedMetricsServiceErr != nil {
-				logger.Warn("Couldn't initialize enhanced metrics service", "err", enhancedMetricsServiceErr)
-				enhancedMetricsService = nil
+		// - a previous initialization attempt has not already failed
+		if discoveryJob.HasEnhancedMetrics() && enhancedMetricsService == nil && !enhancedMetricsInitFailed {
+			if configProvider, ok := factory.(emconfig.RegionalConfigProvider); ok {
+				enhancedMetricsService = enhancedmetrics.NewService(
+					configProvider,
+					enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
+				)
+			} else {
+				enhancedMetricsInitFailed = true
+				logger.Warn("Couldn't initialize enhanced metrics service", "factory_type", fmt.Sprintf("%T", factory), "err", "does not implement GetAWSRegionalConfig")
 			}
 		}
 

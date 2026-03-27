@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,7 +12,14 @@
 // limitations under the License.
 package account
 
-import "context"
+import (
+	"context"
+	"errors"
+	"log/slog"
+
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+)
 
 type Client interface {
 	// GetAccount returns the AWS account ID for the configured authenticated client.
@@ -20,4 +27,47 @@ type Client interface {
 
 	// GetAccountAlias returns the account alias if there's one set, otherwise an empty string.
 	GetAccountAlias(ctx context.Context) (string, error)
+}
+
+type client struct {
+	logger    *slog.Logger
+	stsClient *sts.Client
+	iamClient *iam.Client
+}
+
+func NewClient(logger *slog.Logger, stsClient *sts.Client, iamClient *iam.Client) Client {
+	return &client{
+		logger:    logger,
+		stsClient: stsClient,
+		iamClient: iamClient,
+	}
+}
+
+func (c client) GetAccount(ctx context.Context) (string, error) {
+	result, err := c.stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", err
+	}
+	if result.Account == nil {
+		return "", errors.New("aws sts GetCallerIdentity returned no account")
+	}
+	return *result.Account, nil
+}
+
+func (c client) GetAccountAlias(ctx context.Context) (string, error) {
+	acctAliasOut, err := c.iamClient.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
+	if err != nil {
+		return "", err
+	}
+
+	possibleAccountAlias := ""
+
+	// Since a single account can only have one alias, and an authenticated SDK session corresponds to a single account,
+	// the output can have at most one alias.
+	// https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListAccountAliases.html
+	if len(acctAliasOut.AccountAliases) > 0 {
+		possibleAccountAlias = acctAliasOut.AccountAliases[0]
+	}
+
+	return possibleAccountAlias, nil
 }

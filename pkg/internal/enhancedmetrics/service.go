@@ -1,4 +1,4 @@
-// Copyright 2026 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -83,16 +82,11 @@ func (ep *Service) GetMetrics(
 }
 
 func NewService(
-	factory clients.Factory,
+	configProvider config.RegionalConfigProvider,
 	enhancedMetricsServiceRegistry MetricsServiceRegistry,
-) (*Service, error) {
-	emf, ok := factory.(config.RegionalConfigProvider)
-	if !ok {
-		return nil, fmt.Errorf("cannot create enhanced metric service with a factory type %T", factory)
-	}
-
+) *Service {
 	return &Service{
-		configProvider:                 emf,
+		configProvider:                 configProvider,
 		enhancedMetricsServiceRegistry: enhancedMetricsServiceRegistry,
-	}, nil
+	}
 }

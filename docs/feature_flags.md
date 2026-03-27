@@ -4,12 +4,6 @@ List of features or changes that are disabled by default since they are breaking
 
 You can enable them using the `-enable-feature` flag with a comma separated list of features. They may be enabled by default in future versions.
 
-## AWS SDK v1
-
-`-enable-feature=aws-sdk-v1`
-
-Uses the v1 version of the aws sdk for go for backward compatibility. By default, YACE now uses AWS SDK v2 which was released in Jan 2021 and comes with large performance gains.
-
 ## Always return info metrics
 
 `-enable-feature=always-return-info-metrics`
