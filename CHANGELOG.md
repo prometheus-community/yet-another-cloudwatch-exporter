@@ -1,11 +1,26 @@
 ## main / (unreleased)
 
+## 0.64.0 / 2026-03-27
+
 **Important news and breaking changes**
 
 - BREAKING CHANGE: AWS SDK v1 support has been removed. The `aws-sdk-v1` feature flag is now a no-op and will be silently ignored. AWS SDK v1 reached end-of-support on July 31, 2025. SDK v2 has been the default since v0.63.0 (September 2025). Users who were passing `--enable-feature aws-sdk-v1` should remove the flag, as it no longer has any effect. If you use YACE as a library, the `v1` and `v2` sub-packages under `pkg/clients/` have been removed. All client implementations now live directly in their parent packages (e.g. `pkg/clients/cloudwatch`, `pkg/clients/tagging`, `pkg/clients/account`). Import paths like `pkg/clients/v1`, `pkg/clients/cloudwatch/v2`, etc. must be updated accordingly.
 
 * [CHANGE] Remove AWS SDK v1 support and deprecate `aws-sdk-v1` feature flag by @tristanburgess. #1825
+* [CHANGE] Add Andrii Kushch and Tristan Burgess as maintainers by @cristiangreco. #1788
 * [FEATURE] Implement Enhanced Metrics framework and initial set of metrics by @andriikushch. #1795
+* [FEATURE] Add support for `AWS/EKS` namespace by @LS80. #1760
+* [FEATURE] Split out Bedrock metrics into all needed namespaces by @tristanburgess. #1766
+* [FEATURE] Separate aliases for Bedrock namespaces by @tristanburgess. #1767
+* [ENHANCEMENT] Update Go build to 1.26, replace `gopkg.in/yaml.v2` with supported fork, sync upstream Prometheus files and migrate PromCI tooling by @SuperQ. #1831
+* [ENHANCEMENT] Add AWS/Bedrock GuardrailArn dimension-based resource tagging by @tristanburgess. #1761
+* [ENHANCEMENT] Add DimensionRegexps support for AWS Backup service by @amitshl. #1775
+* [ENHANCEMENT] Add DimensionRegexps for AWS/Cassandra by @bdeore. #1693
+* [ENHANCEMENT] Add DimensionRegexp to ElasticBeanstalk by @benbridts. #1690
+* [ENHANCEMENT] Test exporter with mocked clients by @jeschkies. #1791
+* [ENHANCEMENT] Add privatelink examples to docs by @cuscal-brad. #1765
+* [BUGFIX] Fix AWS SageMaker dimension name handling for case sensitivity by @andriikushch. #1793
+* [BUGFIX] Fix Docker configuration paths for AWS credentials by @andriikushch. #1804
 
 ## 0.63.0 / 2025-09-25
 
