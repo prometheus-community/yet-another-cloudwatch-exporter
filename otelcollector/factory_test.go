@@ -64,3 +64,54 @@ func TestFactoryCreateMetrics(t *testing.T) {
 		t.Fatalf("exporterCfg.ConfigFile = %q, want %q", exporterCfg.ConfigFile, validConfigFile())
 	}
 }
+
+func TestFactoryCreateMetrics_DecodeCloudwatchConcurrency(t *testing.T) {
+	t.Parallel()
+
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*prombridge.ReceiverConfig)
+	cfg.ExporterConfig = map[string]interface{}{
+		"config_file": validConfigFile(),
+		"cloudwatch_concurrency": map[string]interface{}{
+			"single_limit":          17,
+			"per_api_limit_enabled": true,
+			"list_metrics":          11,
+			"get_metric_data":       13,
+			"get_metric_statistics": 15,
+		},
+	}
+
+	recv, err := factory.CreateMetrics(
+		context.Background(),
+		receivertest.NewNopSettings(receiverType),
+		cfg,
+		new(consumertest.MetricsSink),
+	)
+	if err != nil {
+		t.Fatalf("CreateMetrics() error = %v", err)
+	}
+	if recv == nil {
+		t.Fatal("CreateMetrics() returned nil")
+	}
+
+	exporterCfg, ok := cfg.GetExporterConfig().(*Config)
+	if !ok {
+		t.Fatalf("GetExporterConfig() type = %T, want *Config", cfg.GetExporterConfig())
+	}
+
+	if exporterCfg.CloudwatchConcurrency.SingleLimit != 17 {
+		t.Fatalf("SingleLimit = %d, want 17", exporterCfg.CloudwatchConcurrency.SingleLimit)
+	}
+	if !exporterCfg.CloudwatchConcurrency.PerAPILimitEnabled {
+		t.Fatal("PerAPILimitEnabled = false, want true")
+	}
+	if exporterCfg.CloudwatchConcurrency.ListMetrics != 11 {
+		t.Fatalf("ListMetrics = %d, want 11", exporterCfg.CloudwatchConcurrency.ListMetrics)
+	}
+	if exporterCfg.CloudwatchConcurrency.GetMetricData != 13 {
+		t.Fatalf("GetMetricData = %d, want 13", exporterCfg.CloudwatchConcurrency.GetMetricData)
+	}
+	if exporterCfg.CloudwatchConcurrency.GetMetricStatistics != 15 {
+		t.Fatalf("GetMetricStatistics = %d, want 15", exporterCfg.CloudwatchConcurrency.GetMetricStatistics)
+	}
+}
