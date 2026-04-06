@@ -40,22 +40,7 @@ func TestFactoryCreateMetrics(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*prombridge.ReceiverConfig)
 	cfg.ExporterConfig = map[string]interface{}{
-		"discovery": map[string]interface{}{
-			"jobs": []map[string]interface{}{
-				{
-					"regions": []string{"us-east-1"},
-					"type":    "AWS/EC2",
-					"metrics": []map[string]interface{}{
-						{
-							"name":       "CPUUtilization",
-							"statistics": []string{"Average"},
-							"period":     300,
-							"length":     300,
-						},
-					},
-				},
-			},
-		},
+		"config_file": validConfigFile(),
 	}
 
 	recv, err := factory.CreateMetrics(
@@ -75,7 +60,7 @@ func TestFactoryCreateMetrics(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetExporterConfig() type = %T, want *Config", cfg.GetExporterConfig())
 	}
-	if len(exporterCfg.Discovery.Jobs) != 1 {
-		t.Fatalf("len(exporterCfg.Discovery.Jobs) = %d, want 1", len(exporterCfg.Discovery.Jobs))
+	if exporterCfg.ConfigFile != validConfigFile() {
+		t.Fatalf("exporterCfg.ConfigFile = %q, want %q", exporterCfg.ConfigFile, validConfigFile())
 	}
 }

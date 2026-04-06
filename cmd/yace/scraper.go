@@ -98,20 +98,19 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model
 	cache.Refresh()
 	defer cache.Clear()
 
-	options := []exporter.OptionsFunc{
-		exporter.MetricsPerQuery(metricsPerQuery),
-		exporter.LabelsSnakeCase(labelsSnakeCase),
-		exporter.EnableFeatureFlag(s.featureFlags...),
-		exporter.TaggingAPIConcurrency(tagConcurrency),
+	options, err := exporter.RuntimeConfig{
+		MetricsPerQuery:       metricsPerQuery,
+		LabelsSnakeCase:       labelsSnakeCase,
+		TaggingAPIConcurrency: tagConcurrency,
+		FeatureFlags:          append([]string(nil), s.featureFlags...),
+		CloudwatchConcurrency: cloudwatchConcurrency,
+	}.Options()
+	if err != nil {
+		logger.Error("invalid runtime scrape configuration", "err", err)
+		return
 	}
 
-	if cloudwatchConcurrency.PerAPILimitEnabled {
-		options = append(options, exporter.CloudWatchPerAPILimitConcurrency(cloudwatchConcurrency.ListMetrics, cloudwatchConcurrency.GetMetricData, cloudwatchConcurrency.GetMetricStatistics))
-	} else {
-		options = append(options, exporter.CloudWatchAPIConcurrency(cloudwatchConcurrency.SingleLimit))
-	}
-
-	err := exporter.UpdateMetrics(
+	err = exporter.UpdateMetrics(
 		ctx,
 		logger,
 		jobsCfg,

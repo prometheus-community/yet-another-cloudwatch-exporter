@@ -13,7 +13,10 @@
 
 package otelcollector
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
@@ -46,27 +49,8 @@ func TestConfigValidateAndJobsConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := defaultConfig()
-	cfg.StsRegion = "us-east-1"
+	cfg.ConfigFile = validConfigFile()
 	cfg.FeatureFlags = []string{"always-return-info-metrics"}
-	cfg.Discovery = Discovery{
-		ExportedTagsOnMetrics: map[string][]string{
-			"AWS/EC2": []string{"Name"},
-		},
-		Jobs: []*Job{
-			{
-				Regions: []string{"us-east-1"},
-				Type:    "AWS/EC2",
-				Metrics: []*Metric{
-					{
-						Name:       "CPUUtilization",
-						Statistics: []string{"Average"},
-						Period:     300,
-						Length:     300,
-					},
-				},
-			},
-		},
-	}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
@@ -98,6 +82,14 @@ func TestConfigValidateErrors(t *testing.T) {
 		cfg  *Config
 	}{
 		{
+			name: "missing config file",
+			cfg: func() *Config {
+				cfg := validConfig()
+				cfg.ConfigFile = ""
+				return cfg
+			}(),
+		},
+		{
 			name: "invalid metrics_per_query",
 			cfg: func() *Config {
 				cfg := validConfig()
@@ -114,10 +106,10 @@ func TestConfigValidateErrors(t *testing.T) {
 			}(),
 		},
 		{
-			name: "invalid yace configuration",
+			name: "invalid config_file path",
 			cfg: func() *Config {
 				cfg := validConfig()
-				cfg.Discovery.Jobs[0].Metrics = nil
+				cfg.ConfigFile = filepath.Join("testdata", "missing.yml")
 				return cfg
 			}(),
 		},
@@ -136,21 +128,10 @@ func TestConfigValidateErrors(t *testing.T) {
 
 func validConfig() *Config {
 	cfg := defaultConfig()
-	cfg.Discovery = Discovery{
-		Jobs: []*Job{
-			{
-				Regions: []string{"us-east-1"},
-				Type:    "AWS/EC2",
-				Metrics: []*Metric{
-					{
-						Name:       "CPUUtilization",
-						Statistics: []string{"Average"},
-						Period:     300,
-						Length:     300,
-					},
-				},
-			},
-		},
-	}
+	cfg.ConfigFile = validConfigFile()
 	return cfg
+}
+
+func validConfigFile() string {
+	return filepath.Join("testdata", "config.yml")
 }
