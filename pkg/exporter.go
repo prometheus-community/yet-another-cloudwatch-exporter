@@ -226,8 +226,7 @@ func UpdateMetrics(
 ) error {
 	metrics, err := BuildPrometheusMetrics(ctx, logger, jobsCfg, factory, optFuncs...)
 	if err != nil {
-		logger.Error("Error migrating cloudwatch metrics to prometheus metrics", "err", err)
-		return nil
+		return err
 	}
 
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
