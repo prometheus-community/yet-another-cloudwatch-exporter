@@ -1,0 +1,17 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/DataSync
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: BytesTransferred
+          statistics: [Sum]
+        - name: BytesWritten
+          statistics: [Sum]
+        - name: BytesVerified
+          statistics: [Sum]
+        - name: FilesTransferred
+          statistics: [Sum]
