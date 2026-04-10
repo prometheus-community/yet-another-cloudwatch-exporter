@@ -161,6 +161,47 @@ func defaultOptions() options {
 	}
 }
 
+// BuildPrometheusMetrics scrapes AWS data and converts it into Prometheus metrics.
+func BuildPrometheusMetrics(
+	ctx context.Context,
+	logger *slog.Logger,
+	jobsCfg model.JobsConfig,
+	factory clients.Factory,
+	optFuncs ...OptionsFunc,
+) ([]*promutil.PrometheusMetric, error) {
+	// Use legacy validation as that's the behaviour of former releases.
+	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
+
+	options := defaultOptions()
+	for _, f := range optFuncs {
+		if err := f(&options); err != nil {
+			return nil, err
+		}
+	}
+
+	// add feature flags to context passed down to all other layers
+	ctx = config.CtxWithFlags(ctx, options.featureFlags)
+
+	tagsData, cloudwatchData := job.ScrapeAwsData(
+		ctx,
+		logger,
+		jobsCfg,
+		factory,
+		options.metricsPerQuery,
+		options.cloudwatchConcurrency,
+		options.taggingAPIConcurrency,
+	)
+
+	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
+	if err != nil {
+		return nil, err
+	}
+	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
+	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
+
+	return metrics, nil
+}
+
 // UpdateMetrics is the entrypoint to scrape metrics from AWS on demand.
 //
 // Parameters are:
@@ -183,36 +224,10 @@ func UpdateMetrics(
 	factory clients.Factory,
 	optFuncs ...OptionsFunc,
 ) error {
-	// Use legacy validation as that's the behaviour of former releases.
-	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
-
-	options := defaultOptions()
-	for _, f := range optFuncs {
-		if err := f(&options); err != nil {
-			return err
-		}
-	}
-
-	// add feature flags to context passed down to all other layers
-	ctx = config.CtxWithFlags(ctx, options.featureFlags)
-
-	tagsData, cloudwatchData := job.ScrapeAwsData(
-		ctx,
-		logger,
-		jobsCfg,
-		factory,
-		options.metricsPerQuery,
-		options.cloudwatchConcurrency,
-		options.taggingAPIConcurrency,
-	)
-
-	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
+	metrics, err := BuildPrometheusMetrics(ctx, logger, jobsCfg, factory, optFuncs...)
 	if err != nil {
-		logger.Error("Error migrating cloudwatch metrics to prometheus metrics", "err", err)
-		return nil
+		return err
 	}
-	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
 
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
 	return nil
