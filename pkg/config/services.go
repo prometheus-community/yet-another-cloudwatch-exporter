@@ -36,7 +36,9 @@ type ServiceConfig struct {
 	// extract dimensions names from a resource ARN. The regex should
 	// use named groups that correspond to AWS dimensions names.
 	// In cases where the dimension name has a space, it should be
-	// replaced with an underscore (`_`).
+	// replaced with an underscore (`_`). In cases where the dimension
+	// name has a hyphen, it should be replaced with a double underscore
+	// (`__`), as Go regex named groups do not allow hyphens.
 	DimensionRegexps []*regexp.Regexp
 }
 
@@ -49,8 +51,12 @@ func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 
 		// skip first name, it's always an empty string
 		for i := 1; i < len(names); i++ {
-			// in the regex names we use underscores where AWS dimensions have spaces
-			dimensionNames = append(dimensionNames, strings.ReplaceAll(names[i], "_", " "))
+			// in the regex names we use double-underscores for hyphens and
+			// single underscores for spaces in AWS dimension names;
+			// double-underscore must be replaced before single-underscore
+			name := strings.ReplaceAll(names[i], "__", "-")
+			name = strings.ReplaceAll(name, "_", " ")
+			dimensionNames = append(dimensionNames, name)
 		}
 
 		dr = append(dr, model.DimensionsRegexp{
@@ -380,9 +386,11 @@ var SupportedServices = serviceConfigs{
 		Alias:     "ec2",
 		ResourceFilters: []*string{
 			aws.String("ec2:instance"),
+			aws.String("ec2:vpc"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile("instance/(?P<InstanceId>[^/]+)"),
+			regexp.MustCompile("vpc/(?P<Per__VPC__Metrics>[^/]+)"),
 		},
 	},
 	{
