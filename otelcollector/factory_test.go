@@ -17,7 +17,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	prombridge "github.com/prometheus/opentelemetry-collector-bridge"
+	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 )
@@ -114,4 +116,97 @@ func TestFactoryCreateMetrics_DecodeCloudwatchConcurrency(t *testing.T) {
 	if exporterCfg.CloudwatchConcurrency.GetMetricStatistics != 15 {
 		t.Fatalf("GetMetricStatistics = %d, want 15", exporterCfg.CloudwatchConcurrency.GetMetricStatistics)
 	}
+}
+
+func TestFactoryCreateMetrics_UsesDistinctLifecycleManagers(t *testing.T) {
+	t.Parallel()
+
+	var managers []*trackingLifecycleManager
+	factory := newFactoryWithLifecycleManagerBuilder(func() prombridge.ExporterLifecycleManager {
+		manager := &trackingLifecycleManager{}
+		managers = append(managers, manager)
+		return manager
+	})
+
+	cfgA := factory.CreateDefaultConfig().(*prombridge.ReceiverConfig)
+	cfgA.ExporterConfig = map[string]interface{}{
+		"config_file": validConfigFile(),
+	}
+
+	cfgB := factory.CreateDefaultConfig().(*prombridge.ReceiverConfig)
+	cfgB.ExporterConfig = map[string]interface{}{
+		"config_file": validConfigFile(),
+	}
+
+	recvA, err := factory.CreateMetrics(
+		context.Background(),
+		receivertest.NewNopSettings(receiverType),
+		cfgA,
+		new(consumertest.MetricsSink),
+	)
+	if err != nil {
+		t.Fatalf("CreateMetrics() for receiver A error = %v", err)
+	}
+
+	recvB, err := factory.CreateMetrics(
+		context.Background(),
+		receivertest.NewNopSettings(receiverType),
+		cfgB,
+		new(consumertest.MetricsSink),
+	)
+	if err != nil {
+		t.Fatalf("CreateMetrics() for receiver B error = %v", err)
+	}
+
+	if len(managers) != 2 {
+		t.Fatalf("len(managers) = %d, want 2", len(managers))
+	}
+
+	host := componenttest.NewNopHost()
+	if err := recvA.Start(context.Background(), host); err != nil {
+		t.Fatalf("receiver A Start() error = %v", err)
+	}
+	if err := recvB.Start(context.Background(), host); err != nil {
+		t.Fatalf("receiver B Start() error = %v", err)
+	}
+
+	if managers[0].startCalls != 1 {
+		t.Fatalf("receiver A startCalls = %d, want 1", managers[0].startCalls)
+	}
+	if managers[1].startCalls != 1 {
+		t.Fatalf("receiver B startCalls = %d, want 1", managers[1].startCalls)
+	}
+
+	if err := recvA.Shutdown(context.Background()); err != nil {
+		t.Fatalf("receiver A Shutdown() error = %v", err)
+	}
+
+	if managers[0].shutdownCalls != 1 {
+		t.Fatalf("receiver A shutdownCalls = %d, want 1", managers[0].shutdownCalls)
+	}
+	if managers[1].shutdownCalls != 0 {
+		t.Fatalf("receiver B shutdownCalls = %d, want 0 before receiver B shutdown", managers[1].shutdownCalls)
+	}
+
+	if err := recvB.Shutdown(context.Background()); err != nil {
+		t.Fatalf("receiver B Shutdown() error = %v", err)
+	}
+	if managers[1].shutdownCalls != 1 {
+		t.Fatalf("receiver B shutdownCalls = %d, want 1", managers[1].shutdownCalls)
+	}
+}
+
+type trackingLifecycleManager struct {
+	startCalls    int
+	shutdownCalls int
+}
+
+func (m *trackingLifecycleManager) Start(context.Context, prombridge.Config) (*prometheus.Registry, error) {
+	m.startCalls++
+	return prometheus.NewRegistry(), nil
+}
+
+func (m *trackingLifecycleManager) Shutdown(context.Context) error {
+	m.shutdownCalls++
+	return nil
 }
