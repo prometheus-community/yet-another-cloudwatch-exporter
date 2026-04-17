@@ -15,6 +15,7 @@ package otelcollector
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -33,15 +34,40 @@ func TestDefaultConfig(t *testing.T) {
 	}
 
 	defaults := defaultComponentDefaults()
-	if got := defaults["metrics_per_query"]; got != cfg.MetricsPerQuery {
-		t.Fatalf("defaults[metrics_per_query] = %v, want %d", got, cfg.MetricsPerQuery)
+
+	expectedDefaults := map[string]interface{}{
+		"fips_enabled":            cfg.FIPSEnabled,
+		"metrics_per_query":       cfg.MetricsPerQuery,
+		"labels_snake_case":       cfg.LabelsSnakeCase,
+		"tagging_api_concurrency": cfg.TaggingAPIConcurrency,
+		"feature_flags":           cfg.FeatureFlags,
+		"aws_scrape_interval":     cfg.AWSScrapeInterval,
 	}
+	for key, want := range expectedDefaults {
+		if got := defaults[key]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("defaults[%s] = %#v, want %#v", key, got, want)
+		}
+	}
+	if _, ok := defaults["config_file"]; ok {
+		t.Fatal("defaults[config_file] present, want omitted")
+	}
+
 	cloudwatchDefaults, ok := defaults["cloudwatch_concurrency"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("defaults[cloudwatch_concurrency] has type %T, want map[string]interface{}", defaults["cloudwatch_concurrency"])
 	}
-	if got := cloudwatchDefaults["single_limit"]; got != cfg.CloudwatchConcurrency.SingleLimit {
-		t.Fatalf("cloudwatch defaults single_limit = %v, want %d", got, cfg.CloudwatchConcurrency.SingleLimit)
+
+	expectedCloudwatchDefaults := map[string]interface{}{
+		"single_limit":          cfg.CloudwatchConcurrency.SingleLimit,
+		"per_api_limit_enabled": cfg.CloudwatchConcurrency.PerAPILimitEnabled,
+		"list_metrics":          cfg.CloudwatchConcurrency.ListMetrics,
+		"get_metric_data":       cfg.CloudwatchConcurrency.GetMetricData,
+		"get_metric_statistics": cfg.CloudwatchConcurrency.GetMetricStatistics,
+	}
+	for key, want := range expectedCloudwatchDefaults {
+		if got := cloudwatchDefaults[key]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("cloudwatch defaults %s = %#v, want %#v", key, got, want)
+		}
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
 	yaceconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -29,7 +30,7 @@ const defaultAWSScrapeInterval = "60s"
 
 // Config maps OTel receiver configuration into YACE's runtime configuration.
 type Config struct {
-	ConfigFile             string `mapstructure:"config_file"`
+	ConfigFile             string `mapstructure:"config_file,omitempty"`
 	FIPSEnabled            bool   `mapstructure:"fips_enabled"`
 	AWSScrapeInterval      string `mapstructure:"aws_scrape_interval"`
 	exporter.RuntimeConfig `mapstructure:",squash"`
@@ -45,22 +46,20 @@ func defaultConfig() *Config {
 }
 
 func defaultComponentDefaults() map[string]interface{} {
-	cfg := defaultConfig()
-	return map[string]interface{}{
-		"fips_enabled":            cfg.FIPSEnabled,
-		"metrics_per_query":       cfg.MetricsPerQuery,
-		"labels_snake_case":       cfg.LabelsSnakeCase,
-		"tagging_api_concurrency": cfg.TaggingAPIConcurrency,
-		"feature_flags":           cfg.FeatureFlags,
-		"aws_scrape_interval":     cfg.AWSScrapeInterval,
-		"cloudwatch_concurrency": map[string]interface{}{
-			"single_limit":          cfg.CloudwatchConcurrency.SingleLimit,
-			"per_api_limit_enabled": cfg.CloudwatchConcurrency.PerAPILimitEnabled,
-			"list_metrics":          cfg.CloudwatchConcurrency.ListMetrics,
-			"get_metric_data":       cfg.CloudwatchConcurrency.GetMetricData,
-			"get_metric_statistics": cfg.CloudwatchConcurrency.GetMetricStatistics,
-		},
+	defaults := make(map[string]interface{})
+
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:  &defaults,
+		TagName: "mapstructure",
+	})
+	if err != nil {
+		panic(fmt.Sprintf("create component defaults decoder: %v", err))
 	}
+	if err := decoder.Decode(defaultConfig()); err != nil {
+		panic(fmt.Sprintf("decode component defaults: %v", err))
+	}
+
+	return defaults
 }
 
 func (c *Config) Validate() error {
