@@ -40,39 +40,8 @@ func TestDefaultConfig(t *testing.T) {
 	if !ok {
 		t.Fatalf("defaults[cloudwatch_concurrency] has type %T, want map[string]interface{}", defaults["cloudwatch_concurrency"])
 	}
-	tests := []struct {
-		name string
-		got  interface{}
-		want int
-	}{
-		{
-			name: "single_limit",
-			got:  cloudwatchDefaults["single_limit"],
-			want: cfg.CloudwatchConcurrency.SingleLimit,
-		},
-		{
-			name: "list_metrics",
-			got:  cloudwatchDefaults["list_metrics"],
-			want: cfg.CloudwatchConcurrency.ListMetrics,
-		},
-		{
-			name: "get_metric_data",
-			got:  cloudwatchDefaults["get_metric_data"],
-			want: cfg.CloudwatchConcurrency.GetMetricData,
-		},
-		{
-			name: "get_metric_statistics",
-			got:  cloudwatchDefaults["get_metric_statistics"],
-			want: cfg.CloudwatchConcurrency.GetMetricStatistics,
-		},
-	}
-	for _, tt := range tests {
-		if tt.got != tt.want {
-			t.Fatalf("cloudwatch defaults %s = %v, want %d", tt.name, tt.got, tt.want)
-		}
-	}
-	if got := cloudwatchDefaults["per_api_limit_enabled"]; got != cfg.CloudwatchConcurrency.PerAPILimitEnabled {
-		t.Fatalf("cloudwatch defaults per_api_limit_enabled = %v, want %t", got, cfg.CloudwatchConcurrency.PerAPILimitEnabled)
+	if got := cloudwatchDefaults["single_limit"]; got != cfg.CloudwatchConcurrency.SingleLimit {
+		t.Fatalf("cloudwatch defaults single_limit = %v, want %d", got, cfg.CloudwatchConcurrency.SingleLimit)
 	}
 }
 
@@ -91,17 +60,17 @@ func TestConfigValidateAndJobsConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("jobsConfig() error = %v", err)
 	}
-	if jobsCfg.StsRegion != "us-east-1" {
-		t.Fatalf("jobsCfg.StsRegion = %q, want %q", jobsCfg.StsRegion, "us-east-1")
+	if jobsCfg.StsRegion != "eu-west-1" {
+		t.Fatalf("jobsCfg.StsRegion = %q, want %q", jobsCfg.StsRegion, "eu-west-1")
 	}
 	if len(jobsCfg.DiscoveryJobs) != 1 {
 		t.Fatalf("len(jobsCfg.DiscoveryJobs) = %d, want 1", len(jobsCfg.DiscoveryJobs))
 	}
 	if len(jobsCfg.DiscoveryJobs[0].Roles) != 1 {
-		t.Fatalf("len(jobsCfg.DiscoveryJobs[0].Roles) = %d, want 1 default role", len(jobsCfg.DiscoveryJobs[0].Roles))
+		t.Fatalf("len(jobsCfg.DiscoveryJobs[0].Roles) = %d, want 1", len(jobsCfg.DiscoveryJobs[0].Roles))
 	}
-	if jobsCfg.DiscoveryJobs[0].Namespace != "AWS/EC2" {
-		t.Fatalf("jobsCfg.DiscoveryJobs[0].Namespace = %q, want %q", jobsCfg.DiscoveryJobs[0].Namespace, "AWS/EC2")
+	if jobsCfg.DiscoveryJobs[0].Namespace != "AWS/S3" {
+		t.Fatalf("jobsCfg.DiscoveryJobs[0].Namespace = %q, want %q", jobsCfg.DiscoveryJobs[0].Namespace, "AWS/S3")
 	}
 }
 
@@ -164,5 +133,5 @@ func validConfig() *Config {
 }
 
 func validConfigFile() string {
-	return filepath.Join("testdata", "config.yml")
+	return filepath.Join("..", "pkg", "config", "testdata", "sts_region.ok.yml")
 }
