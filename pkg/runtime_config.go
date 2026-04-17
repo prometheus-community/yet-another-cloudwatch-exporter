@@ -15,7 +15,7 @@ package exporter
 
 import "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 
-// RuntimeConfig contains runtime-only scrape knobs that are not part of the YACE YAML config file.
+// RuntimeConfig contains runtime-only scrape knobs that are not part of the YAML config definitions in `pkg/config/config.go`.
 type RuntimeConfig struct {
 	MetricsPerQuery       int                          `mapstructure:"metrics_per_query"`
 	LabelsSnakeCase       bool                         `mapstructure:"labels_snake_case"`
