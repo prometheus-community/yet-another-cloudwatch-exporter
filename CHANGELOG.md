@@ -1,6 +1,7 @@
 ## main / (unreleased)
 
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843
+* [CHANGE] Remove copyright years from file headers per PROM-50 by @ShivamPanchbhai. #1841
 
 ## 0.64.0 / 2026-03-27
 
