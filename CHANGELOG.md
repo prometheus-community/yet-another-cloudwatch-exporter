@@ -1,5 +1,7 @@
 ## main / (unreleased)
 
+* [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843
+
 ## 0.64.0 / 2026-03-27
 
 **Important news and breaking changes**
