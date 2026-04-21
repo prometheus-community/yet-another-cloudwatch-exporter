@@ -109,6 +109,9 @@ var SupportedServices = serviceConfigs{
 		ResourceFilters: []*string{
 			aws.String("acm:certificate"),
 		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("(?P<CertificateArn>.*)"),
+		},
 	},
 	{
 		Namespace: "AWS/ACMPrivateCA",
