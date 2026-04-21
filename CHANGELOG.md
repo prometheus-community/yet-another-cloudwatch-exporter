@@ -1,7 +1,18 @@
 ## main / (unreleased)
 
+## 0.65.0 / 2026-04-21
+
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843
 * [CHANGE] Remove copyright years from file headers per PROM-50 by @ShivamPanchbhai. #1841
+* [CHANGE] Synchronize common files from prometheus/prometheus.
+
+**Dependency updates**
+
+* Bump the aws-sdk-v2 group with 19 updates. #1835
+* Bump github.com/aws/aws-sdk-go-v2/service/lambda from 1.87.1 to 1.88.5. #1839
+* Bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.7.4 to 1.7.8. #1840
+* Bump golang.org/x/sync from 0.19.0 to 0.20.0. #1836
+* Bump prometheus/promci from 0.6.0 to 0.6.1. #1833
 
 ## 0.64.0 / 2026-03-27
 
