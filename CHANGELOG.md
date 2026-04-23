@@ -1,5 +1,9 @@
 ## main / (unreleased)
 
+**Important news and breaking changes**
+
+- BREAKING CHANGE: `exporter.BuildPrometheusMetrics()` and `exporter.UpdateMetrics()` now return metric-conversion errors to library callers instead of only logging them and continuing without updated metrics.
+
 ## 0.65.0 / 2026-04-21
 
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843

@@ -9,6 +9,15 @@ updates:
       aws-sdk-v2:
         patterns:
           - "github.com/aws/aws-sdk-go-v2*"
+  - package-ecosystem: gomod
+    directory: /otelcollector
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    groups:
+      aws-sdk-v2:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
