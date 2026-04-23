@@ -27,6 +27,10 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 	prombridge "github.com/prometheus/opentelemetry-collector-bridge"
+	"go.opentelemetry.io/collector/receiver/receivertest"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestLifecycleManagerStart(t *testing.T) {
@@ -35,7 +39,7 @@ func TestLifecycleManagerStart(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		factory := &stubFactory{}
 		var buildCalls atomic.Int32
-		mgr := newLifecycleManager(discardLogger())
+		mgr := newLifecycleManager()
 		mgr.newFactory = func(*slog.Logger, model.JobsConfig, bool) (refreshingFactory, error) {
 			return factory, nil
 		}
@@ -49,8 +53,9 @@ func TestLifecycleManagerStart(t *testing.T) {
 
 		cfg := validConfig()
 		cfg.AWSScrapeInterval = "10ms"
+		settings := receivertest.NewNopSettings(receiverType)
 
-		registry, err := mgr.Start(context.Background(), cfg)
+		registry, err := mgr.Start(context.Background(), settings, cfg)
 		if err != nil {
 			t.Fatalf("Start() error = %v", err)
 		}
@@ -97,13 +102,13 @@ func TestLifecycleManagerStartErrors(t *testing.T) {
 		{
 			name: "invalid config type",
 			cfg:  fakeConfig{},
-			mgr:  newLifecycleManager(discardLogger()),
+			mgr:  newLifecycleManager(),
 		},
 		{
 			name: "factory construction error",
 			cfg:  validConfig(),
 			mgr: func() *lifecycleManager {
-				mgr := newLifecycleManager(discardLogger())
+				mgr := newLifecycleManager()
 				mgr.newFactory = func(*slog.Logger, model.JobsConfig, bool) (refreshingFactory, error) {
 					return nil, errors.New("boom")
 				}
@@ -116,7 +121,7 @@ func TestLifecycleManagerStartErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			registry, err := tt.mgr.Start(context.Background(), tt.cfg)
+			registry, err := tt.mgr.Start(context.Background(), receivertest.NewNopSettings(receiverType), tt.cfg)
 			if err == nil {
 				t.Fatal("Start() error = nil, want non-nil")
 			}
@@ -124,6 +129,41 @@ func TestLifecycleManagerStartErrors(t *testing.T) {
 				t.Fatal("Start() registry != nil, want nil")
 			}
 		})
+	}
+}
+
+func TestLifecycleManagerStartUsesReceiverLogger(t *testing.T) {
+	t.Parallel()
+
+	observedCore, observedLogs := observer.New(zapcore.ErrorLevel)
+	settings := receivertest.NewNopSettings(receiverType)
+	settings.Logger = zap.New(observedCore)
+
+	mgr := newLifecycleManager()
+	mgr.newFactory = func(*slog.Logger, model.JobsConfig, bool) (refreshingFactory, error) {
+		return &stubFactory{}, nil
+	}
+	mgr.buildMetrics = func(context.Context, *slog.Logger, model.JobsConfig, clients.Factory, ...exporter.OptionsFunc) ([]*promutil.PrometheusMetric, error) {
+		return nil, errors.New("boom")
+	}
+
+	cfg := validConfig()
+	cfg.AWSScrapeInterval = "1h"
+
+	registry, err := mgr.Start(context.Background(), settings, cfg)
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if registry == nil {
+		t.Fatal("Start() returned nil registry")
+	}
+	if err := mgr.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	entries := observedLogs.FilterMessage("initial YACE scrape failed").All()
+	if len(entries) != 1 {
+		t.Fatalf("len(entries) = %d, want 1", len(entries))
 	}
 }
 

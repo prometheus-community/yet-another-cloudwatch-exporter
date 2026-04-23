@@ -15,7 +15,6 @@ package otelcollector
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	prombridge "github.com/prometheus/opentelemetry-collector-bridge"
@@ -28,7 +27,7 @@ var receiverType = component.MustNewType("yace_exporter")
 
 func NewFactory() receiver.Factory {
 	return newFactoryWithLifecycleManagerBuilder(func() prombridge.ExporterLifecycleManager {
-		return newLifecycleManager(slog.Default())
+		return newLifecycleManager()
 	})
 }
 

@@ -21,6 +21,7 @@ import (
 	prombridge "github.com/prometheus/opentelemetry-collector-bridge"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 )
 
@@ -201,7 +202,7 @@ type trackingLifecycleManager struct {
 	shutdownCalls int
 }
 
-func (m *trackingLifecycleManager) Start(context.Context, prombridge.Config) (*prometheus.Registry, error) {
+func (m *trackingLifecycleManager) Start(context.Context, receiver.Settings, prombridge.Config) (*prometheus.Registry, error) {
 	m.startCalls++
 	return prometheus.NewRegistry(), nil
 }

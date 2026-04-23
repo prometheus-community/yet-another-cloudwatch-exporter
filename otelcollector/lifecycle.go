@@ -25,6 +25,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus/client_golang/prometheus"
 	prombridge "github.com/prometheus/opentelemetry-collector-bridge"
+	"go.opentelemetry.io/collector/receiver"
+	"go.uber.org/zap/exp/zapslog"
 )
 
 type factoryBuilderFunc func(*slog.Logger, model.JobsConfig, bool) (refreshingFactory, error)
@@ -46,9 +48,8 @@ type scrapeSession struct {
 	options []exporter.OptionsFunc
 }
 
-func newLifecycleManager(logger *slog.Logger) *lifecycleManager {
+func newLifecycleManager() *lifecycleManager {
 	return &lifecycleManager{
-		logger: logger,
 		newFactory: func(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (refreshingFactory, error) {
 			return clients.NewFactory(logger, jobsCfg, fips)
 		},
@@ -56,18 +57,21 @@ func newLifecycleManager(logger *slog.Logger) *lifecycleManager {
 	}
 }
 
-func (m *lifecycleManager) Start(ctx context.Context, exporterConfig prombridge.Config) (*prometheus.Registry, error) {
+func (m *lifecycleManager) Start(ctx context.Context, set receiver.Settings, exporterConfig prombridge.Config) (*prometheus.Registry, error) {
 	cfg, ok := exporterConfig.(*Config)
 	if !ok {
 		return nil, fmt.Errorf("invalid exporter config type: %T", exporterConfig)
 	}
 
-	jobsCfg, err := cfg.jobsConfig(m.logger)
+	logger := loggerFromSettings(set)
+	m.logger = logger
+
+	jobsCfg, err := cfg.jobsConfig(logger)
 	if err != nil {
 		return nil, err
 	}
 
-	factory, err := m.newFactory(m.logger, jobsCfg, cfg.FIPSEnabled)
+	factory, err := m.newFactory(logger, jobsCfg, cfg.FIPSEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct aws client factory: %w", err)
 	}
@@ -162,4 +166,11 @@ func (m *lifecycleManager) scrapeOnce(session scrapeSession, collector *cachedCo
 
 	collector.update(metrics)
 	return nil
+}
+
+func loggerFromSettings(set receiver.Settings) *slog.Logger {
+	if set.Logger == nil {
+		return discardLogger()
+	}
+	return slog.New(zapslog.NewHandler(set.Logger.Core()))
 }
