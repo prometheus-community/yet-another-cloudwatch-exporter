@@ -1,0 +1,23 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Bedrock
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: Invocations
+          statistics: [Sum]
+        - name: InvocationClientErrors
+          statistics: [Sum]
+        - name: InvocationServerErrors
+          statistics: [Sum]
+        - name: InvocationThrottles
+          statistics: [Sum]
+        - name: InvocationLatency
+          statistics: [Average, Maximum, Minimum]
+        - name: InputTokenCount
+          statistics: [Sum, Average]
+        - name: OutputTokenCount
+          statistics: [Sum, Average]
