@@ -15,10 +15,10 @@ package config
 
 import "testing"
 
-func TestDefaultRuntimeConfig(t *testing.T) {
+func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := DefaultRuntimeConfig()
+	cfg := DefaultConfig()
 	if cfg.MetricsPerQuery != DefaultMetricsPerQuery {
 		t.Fatalf("MetricsPerQuery = %d, want %d", cfg.MetricsPerQuery, DefaultMetricsPerQuery)
 	}

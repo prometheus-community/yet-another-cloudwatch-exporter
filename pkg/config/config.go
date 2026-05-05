@@ -26,7 +26,8 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
-type ScrapeConf struct {
+// AWScrapeConfig models the YAML file that defines AWS jobs and resources.
+type AWScrapeConfig struct {
 	APIVersion      string             `yaml:"apiVersion"`
 	StsRegion       string             `yaml:"sts-region"`
 	Discovery       Discovery          `yaml:"discovery"`
@@ -127,7 +128,7 @@ func (r *Role) ValidateRole(roleIdx int, parent string) error {
 	return nil
 }
 
-func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, error) {
+func (c *AWScrapeConfig) Load(file string, logger *slog.Logger) (model.JobsConfig, error) {
 	yamlFile, err := os.ReadFile(file)
 	if err != nil {
 		return model.JobsConfig{}, err
@@ -160,7 +161,7 @@ func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, e
 	return c.Validate(logger)
 }
 
-func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
+func (c *AWScrapeConfig) Validate(logger *slog.Logger) (model.JobsConfig, error) {
 	if c.Discovery.Jobs == nil && c.Static == nil && c.CustomNamespace == nil {
 		return model.JobsConfig{}, fmt.Errorf("at least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
 	}
@@ -438,7 +439,7 @@ func (m *Metric) validateMetric(logger *slog.Logger, metricIdx int, parent strin
 	return nil
 }
 
-func (c *ScrapeConf) toModelConfig() model.JobsConfig {
+func (c *AWScrapeConfig) toModelConfig() model.JobsConfig {
 	jobsCfg := model.JobsConfig{}
 	jobsCfg.StsRegion = c.StsRegion
 
@@ -563,7 +564,7 @@ func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
 
 // logConfigErrors logs as warning any config unmarshalling error.
 func logConfigErrors(cfg []byte, logger *slog.Logger) {
-	var sc ScrapeConf
+	var sc AWScrapeConfig
 	var errMsgs []string
 	if err := yaml.UnmarshalStrict(cfg, &sc); err != nil {
 		terr := &yaml.TypeError{}

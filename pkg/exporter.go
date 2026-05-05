@@ -153,7 +153,7 @@ func defaultOptions() options {
 	}
 }
 
-func RuntimeOptions(cfg config.RuntimeConfig) ([]OptionsFunc, error) {
+func ConfigOptions(cfg config.Config) ([]OptionsFunc, error) {
 	opts := []OptionsFunc{
 		MetricsPerQuery(cfg.MetricsPerQuery),
 		LabelsSnakeCase(cfg.LabelsSnakeCase),

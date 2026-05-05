@@ -220,7 +220,7 @@ func NewYACEApp() *cli.App {
 			Action: func(_ *cli.Context) error {
 				logger = newLogger(logFormat, logLevel).With("version", version.Version)
 				logger.Info("Parsing config")
-				cfg := config.ScrapeConf{}
+				cfg := config.AWScrapeConfig{}
 				if _, err := cfg.Load(configFile, logger); err != nil {
 					logger.Error("Couldn't read config file", "err", err, "path", configFile)
 					os.Exit(1)
@@ -257,7 +257,7 @@ func startScraper(c *cli.Context) error {
 
 	logger.Info("Parsing config")
 
-	cfg := config.ScrapeConf{}
+	cfg := config.AWScrapeConfig{}
 	jobsCfg, err := cfg.Load(configFile, logger)
 	if err != nil {
 		return fmt.Errorf("couldn't read %s: %w", configFile, err)
@@ -307,7 +307,7 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Parsing config")
-		newCfg := config.ScrapeConf{}
+		newCfg := config.AWScrapeConfig{}
 		newJobsCfg, err := newCfg.Load(configFile, logger)
 		if err != nil {
 			logger.Error("Couldn't read config file", "err", err, "path", configFile)
