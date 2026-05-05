@@ -253,3 +253,20 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
 	require.NoError(t, err)
 }
+
+func TestUpdateMetrics_ReturnsOptionValidationError(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	err := UpdateMetrics(
+		ctx,
+		logger,
+		model.JobsConfig{},
+		prometheus.NewRegistry(),
+		&mockFactory{},
+		MetricsPerQuery(0),
+	)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "MetricsPerQuery")
+}
