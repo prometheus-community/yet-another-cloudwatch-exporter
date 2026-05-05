@@ -46,20 +46,12 @@ var Metrics = []prometheus.Collector{
 }
 
 const (
-	DefaultMetricsPerQuery       = 500
-	DefaultLabelsSnakeCase       = false
-	DefaultTaggingAPIConcurrency = 5
+	DefaultMetricsPerQuery       = config.DefaultMetricsPerQuery
+	DefaultLabelsSnakeCase       = config.DefaultLabelsSnakeCase
+	DefaultTaggingAPIConcurrency = config.DefaultTaggingAPIConcurrency
 )
 
-var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
-	SingleLimit:        5,
-	PerAPILimitEnabled: false,
-
-	// If PerAPILimitEnabled is enabled, then use the same limit as the single limit by default.
-	ListMetrics:         5,
-	GetMetricData:       5,
-	GetMetricStatistics: 5,
-}
+var DefaultCloudwatchConcurrency = config.DefaultCloudwatchConcurrency
 
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
@@ -161,6 +153,77 @@ func defaultOptions() options {
 	}
 }
 
+func RuntimeOptions(cfg config.RuntimeConfig) ([]OptionsFunc, error) {
+	opts := []OptionsFunc{
+		MetricsPerQuery(cfg.MetricsPerQuery),
+		LabelsSnakeCase(cfg.LabelsSnakeCase),
+		TaggingAPIConcurrency(cfg.TaggingAPIConcurrency),
+		EnableFeatureFlag(cfg.FeatureFlags...),
+	}
+
+	if cfg.CloudwatchConcurrency.PerAPILimitEnabled {
+		opts = append(opts,
+			CloudWatchPerAPILimitConcurrency(
+				cfg.CloudwatchConcurrency.ListMetrics,
+				cfg.CloudwatchConcurrency.GetMetricData,
+				cfg.CloudwatchConcurrency.GetMetricStatistics,
+			),
+		)
+	} else {
+		opts = append(opts, CloudWatchAPIConcurrency(cfg.CloudwatchConcurrency.SingleLimit))
+	}
+
+	checked := defaultOptions()
+	for _, option := range opts {
+		if err := option(&checked); err != nil {
+			return nil, err
+		}
+	}
+
+	return opts, nil
+}
+
+// BuildPrometheusMetrics scrapes AWS data and converts it into Prometheus metrics.
+func BuildPrometheusMetrics(
+	ctx context.Context,
+	logger *slog.Logger,
+	jobsCfg model.JobsConfig,
+	factory clients.Factory,
+	optFuncs ...OptionsFunc,
+) ([]*promutil.PrometheusMetric, error) {
+	// Use legacy validation as that's the behaviour of former releases.
+	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
+
+	options := defaultOptions()
+	for _, f := range optFuncs {
+		if err := f(&options); err != nil {
+			return nil, err
+		}
+	}
+
+	// add feature flags to context passed down to all other layers
+	ctx = config.CtxWithFlags(ctx, options.featureFlags)
+
+	tagsData, cloudwatchData := job.ScrapeAwsData(
+		ctx,
+		logger,
+		jobsCfg,
+		factory,
+		options.metricsPerQuery,
+		options.cloudwatchConcurrency,
+		options.taggingAPIConcurrency,
+	)
+
+	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
+	if err != nil {
+		return nil, err
+	}
+	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
+	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
+
+	return metrics, nil
+}
+
 // UpdateMetrics is the entrypoint to scrape metrics from AWS on demand.
 //
 // Parameters are:
@@ -183,36 +246,10 @@ func UpdateMetrics(
 	factory clients.Factory,
 	optFuncs ...OptionsFunc,
 ) error {
-	// Use legacy validation as that's the behaviour of former releases.
-	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
-
-	options := defaultOptions()
-	for _, f := range optFuncs {
-		if err := f(&options); err != nil {
-			return err
-		}
-	}
-
-	// add feature flags to context passed down to all other layers
-	ctx = config.CtxWithFlags(ctx, options.featureFlags)
-
-	tagsData, cloudwatchData := job.ScrapeAwsData(
-		ctx,
-		logger,
-		jobsCfg,
-		factory,
-		options.metricsPerQuery,
-		options.cloudwatchConcurrency,
-		options.taggingAPIConcurrency,
-	)
-
-	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
+	metrics, err := BuildPrometheusMetrics(ctx, logger, jobsCfg, factory, optFuncs...)
 	if err != nil {
-		logger.Error("Error migrating cloudwatch metrics to prometheus metrics", "err", err)
-		return nil
+		return err
 	}
-	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
 
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
 	return nil
