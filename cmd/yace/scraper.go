@@ -99,7 +99,7 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model
 	cache.Refresh()
 	defer cache.Clear()
 
-	options, err := exporter.RuntimeOptions(config.RuntimeConfig{
+	options, err := exporter.ConfigOptions(config.Config{
 		MetricsPerQuery:       metricsPerQuery,
 		LabelsSnakeCase:       labelsSnakeCase,
 		TaggingAPIConcurrency: tagConcurrency,

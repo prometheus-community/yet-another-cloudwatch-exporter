@@ -19,30 +19,30 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
-func TestRuntimeOptions(t *testing.T) {
+func TestConfigOptions(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
-		cfg       config.RuntimeConfig
+		cfg       config.Config
 		wantError bool
 	}{
 		{
 			name: "default runtime config",
-			cfg:  config.DefaultRuntimeConfig(),
+			cfg:  config.DefaultConfig(),
 		},
 		{
 			name: "per api concurrency",
-			cfg: func() config.RuntimeConfig {
-				cfg := config.DefaultRuntimeConfig()
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
 				cfg.CloudwatchConcurrency.PerAPILimitEnabled = true
 				return cfg
 			}(),
 		},
 		{
 			name: "invalid metrics per query",
-			cfg: func() config.RuntimeConfig {
-				cfg := config.DefaultRuntimeConfig()
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
 				cfg.MetricsPerQuery = 0
 				return cfg
 			}(),
@@ -54,12 +54,12 @@ func TestRuntimeOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := RuntimeOptions(tt.cfg)
+			_, err := ConfigOptions(tt.cfg)
 			if tt.wantError && err == nil {
-				t.Fatal("RuntimeOptions() error = nil, want non-nil")
+				t.Fatal("ConfigOptions() error = nil, want non-nil")
 			}
 			if !tt.wantError && err != nil {
-				t.Fatalf("RuntimeOptions() error = %v, want nil", err)
+				t.Fatalf("ConfigOptions() error = %v, want nil", err)
 			}
 		})
 	}

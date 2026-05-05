@@ -31,13 +31,13 @@ var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
 	GetMetricStatistics: 5,
 }
 
-// RuntimeConfig contains scrape-time settings used by embedders and CLI glue.
+// Config contains scrape-time settings used by embedders and CLI glue.
 //
-// ScrapeConf in config.go models the YAML file that defines jobs and AWS
-// resources. RuntimeConfig is intentionally separate: these fields control how
-// a scrape is executed, and are commonly supplied by callers such as the YACE CLI or
-// downstream tools that embed YACE.
-type RuntimeConfig struct {
+// AWScrapeConfig in config.go models the YAML file that defines AWS jobs and
+// resources. Config is intentionally separate: these fields control how a
+// scrape is executed, and are commonly supplied by callers such as the YACE CLI
+// or downstream tools that embed YACE.
+type Config struct {
 	MetricsPerQuery       int                          `mapstructure:"metrics_per_query"`
 	LabelsSnakeCase       bool                         `mapstructure:"labels_snake_case"`
 	TaggingAPIConcurrency int                          `mapstructure:"tagging_api_concurrency"`
@@ -45,8 +45,8 @@ type RuntimeConfig struct {
 	CloudwatchConcurrency cloudwatch.ConcurrencyConfig `mapstructure:"cloudwatch_concurrency"`
 }
 
-func DefaultRuntimeConfig() RuntimeConfig {
-	return RuntimeConfig{
+func DefaultConfig() Config {
+	return Config{
 		MetricsPerQuery:       DefaultMetricsPerQuery,
 		LabelsSnakeCase:       DefaultLabelsSnakeCase,
 		TaggingAPIConcurrency: DefaultTaggingAPIConcurrency,
