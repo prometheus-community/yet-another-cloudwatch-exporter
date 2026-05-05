@@ -45,14 +45,6 @@ var Metrics = []prometheus.Collector{
 	promutil.DuplicateMetricsFilteredCounter,
 }
 
-const (
-	DefaultMetricsPerQuery       = config.DefaultMetricsPerQuery
-	DefaultLabelsSnakeCase       = config.DefaultLabelsSnakeCase
-	DefaultTaggingAPIConcurrency = config.DefaultTaggingAPIConcurrency
-)
-
-var DefaultCloudwatchConcurrency = config.DefaultCloudwatchConcurrency
-
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
 type featureFlagsMap map[string]struct{}
@@ -145,11 +137,11 @@ func EnableFeatureFlag(flags ...string) OptionsFunc {
 
 func defaultOptions() options {
 	return options{
-		metricsPerQuery:       DefaultMetricsPerQuery,
-		labelsSnakeCase:       DefaultLabelsSnakeCase,
-		taggingAPIConcurrency: DefaultTaggingAPIConcurrency,
+		metricsPerQuery:       config.DefaultMetricsPerQuery,
+		labelsSnakeCase:       config.DefaultLabelsSnakeCase,
+		taggingAPIConcurrency: config.DefaultTaggingAPIConcurrency,
 		featureFlags:          make(featureFlagsMap),
-		cloudwatchConcurrency: DefaultCloudwatchConcurrency,
+		cloudwatchConcurrency: config.DefaultCloudwatchConcurrency,
 	}
 }
 
