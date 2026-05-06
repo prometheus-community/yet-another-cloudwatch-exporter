@@ -78,19 +78,19 @@ func (c limitedConcurrencyClient) GetMetricStatistics(ctx context.Context, logge
 // API call.
 type ConcurrencyConfig struct {
 	// PerAPIEnabled configures whether to have a limit per API call.
-	PerAPILimitEnabled bool `mapstructure:"per_api_limit_enabled"`
+	PerAPILimitEnabled bool
 
 	// SingleLimit configures the concurrency limit when using a single limiter for api calls.
-	SingleLimit int `mapstructure:"single_limit"`
+	SingleLimit int
 
 	// ListMetrics limits the number for ListMetrics API concurrent API calls.
-	ListMetrics int `mapstructure:"list_metrics"`
+	ListMetrics int
 
 	// GetMetricData limits the number for GetMetricData API concurrent API calls.
-	GetMetricData int `mapstructure:"get_metric_data"`
+	GetMetricData int
 
 	// GetMetricStatistics limits the number for GetMetricStatistics API concurrent API calls.
-	GetMetricStatistics int `mapstructure:"get_metric_statistics"`
+	GetMetricStatistics int
 }
 
 // semaphore implements a simple semaphore using a channel.

@@ -38,11 +38,11 @@ var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
 // scrape is executed, and are commonly supplied by callers such as the YACE CLI
 // or downstream tools that embed YACE.
 type Config struct {
-	MetricsPerQuery       int                          `mapstructure:"metrics_per_query"`
-	LabelsSnakeCase       bool                         `mapstructure:"labels_snake_case"`
-	TaggingAPIConcurrency int                          `mapstructure:"tagging_api_concurrency"`
-	FeatureFlags          []string                     `mapstructure:"feature_flags"`
-	CloudwatchConcurrency cloudwatch.ConcurrencyConfig `mapstructure:"cloudwatch_concurrency"`
+	MetricsPerQuery       int
+	LabelsSnakeCase       bool
+	TaggingAPIConcurrency int
+	FeatureFlags          []string
+	CloudwatchConcurrency cloudwatch.ConcurrencyConfig
 }
 
 func DefaultConfig() Config {
