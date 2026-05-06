@@ -88,11 +88,11 @@ var (
 	CloudwatchRateLimitWaitCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "yace_cloudwatch_rate_limit_waits_total",
 		Help: "Number of times requests were delayed due to rate limiting",
-	}, []string{"api_name", "region", "role", "namespace"})
+	}, []string{"api_name", "region", "account_id", "role", "namespace"})
 	CloudwatchRateLimitAllowedCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "yace_cloudwatch_rate_limit_allowed_total",
 		Help: "Number of requests that were allowed immediately (not rate limited)",
-	}, []string{"api_name", "region", "role", "namespace"})
+	}, []string{"api_name", "region", "account_id", "role", "namespace"})
 	TimeseriesCacheHitCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "yace_timeseries_cache_hits_total",
 		Help: "Number of timeseries cache hits during GetMetricData pre-processing",

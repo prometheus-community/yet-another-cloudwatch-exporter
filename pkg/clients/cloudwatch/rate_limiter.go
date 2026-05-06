@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -36,16 +37,27 @@ type RateLimiterConfig struct {
 }
 
 type GlobalRateLimiter struct {
-	listMetrics         *rate.Limiter
-	getMetricData       *rate.Limiter
-	getMetricStatistics *rate.Limiter
+	listMetrics         *rateLimiterBuckets
+	getMetricData       *rateLimiterBuckets
+	getMetricStatistics *rateLimiterBuckets
+}
+
+type rateLimiterBucketKey struct {
+	accountID string
+	region    string
+}
+
+type rateLimiterBuckets struct {
+	cfg      APIRateLimit
+	limiters map[rateLimiterBucketKey]*rate.Limiter
+	mu       sync.Mutex
 }
 
 func NewGlobalRateLimiter(config RateLimiterConfig) (*GlobalRateLimiter, error) {
 	limiter := &GlobalRateLimiter{}
 
 	if config.ListMetrics != nil {
-		l, err := createLimiter(config.ListMetrics)
+		l, err := newRateLimiterBuckets(config.ListMetrics)
 		if err != nil {
 			return nil, fmt.Errorf("invalid ListMetrics rate limit: %w", err)
 		}
@@ -53,7 +65,7 @@ func NewGlobalRateLimiter(config RateLimiterConfig) (*GlobalRateLimiter, error) 
 	}
 
 	if config.GetMetricData != nil {
-		l, err := createLimiter(config.GetMetricData)
+		l, err := newRateLimiterBuckets(config.GetMetricData)
 		if err != nil {
 			return nil, fmt.Errorf("invalid GetMetricData rate limit: %w", err)
 		}
@@ -61,7 +73,7 @@ func NewGlobalRateLimiter(config RateLimiterConfig) (*GlobalRateLimiter, error) 
 	}
 
 	if config.GetMetricStatistics != nil {
-		l, err := createLimiter(config.GetMetricStatistics)
+		l, err := newRateLimiterBuckets(config.GetMetricStatistics)
 		if err != nil {
 			return nil, fmt.Errorf("invalid GetMetricStatistics rate limit: %w", err)
 		}
@@ -69,6 +81,36 @@ func NewGlobalRateLimiter(config RateLimiterConfig) (*GlobalRateLimiter, error) 
 	}
 
 	return limiter, nil
+}
+
+func newRateLimiterBuckets(cfg *APIRateLimit) (*rateLimiterBuckets, error) {
+	if _, err := createLimiter(cfg); err != nil {
+		return nil, err
+	}
+
+	return &rateLimiterBuckets{
+		cfg:      *cfg,
+		limiters: make(map[rateLimiterBucketKey]*rate.Limiter),
+	}, nil
+}
+
+func (b *rateLimiterBuckets) get(accountID string, region string) *rate.Limiter {
+	key := rateLimiterBucketKey{
+		accountID: accountID,
+		region:    region,
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	limiter, ok := b.limiters[key]
+	if ok {
+		return limiter
+	}
+
+	limiter, _ = createLimiter(&b.cfg)
+	b.limiters[key] = limiter
+	return limiter
 }
 
 func createLimiter(cfg *APIRateLimit) (*rate.Limiter, error) {
@@ -83,54 +125,57 @@ func createLimiter(cfg *APIRateLimit) (*rate.Limiter, error) {
 	return rate.NewLimiter(rate.Limit(ratePerSecond), cfg.Count), nil
 }
 
-func NewRateLimitedClient(client Client, globalLimiter *GlobalRateLimiter, region string, role string) Client {
+func NewRateLimitedClient(client Client, globalLimiter *GlobalRateLimiter, region string, accountID string, role string) Client {
 	if globalLimiter == nil {
 		return client
 	}
 	return &SimpleRateLimitedClient{
-		Client:  client,
-		limiter: globalLimiter,
-		region:  region,
-		role:    role,
+		Client:    client,
+		limiter:   globalLimiter,
+		region:    region,
+		accountID: accountID,
+		role:      role,
 	}
 }
 
 type SimpleRateLimitedClient struct {
-	Client  Client
-	limiter *GlobalRateLimiter
-	region  string
-	role    string
+	Client    Client
+	limiter   *GlobalRateLimiter
+	region    string
+	accountID string
+	role      string
 }
 
 func (c *SimpleRateLimitedClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
-	if err := c.limit(ctx, c.limiter.listMetrics, listMetricsCall, c.region, c.role, namespace); err != nil {
+	if err := c.limit(ctx, c.limiter.listMetrics, listMetricsCall, c.region, c.accountID, c.role, namespace); err != nil {
 		return err
 	}
 	return c.Client.ListMetrics(ctx, namespace, metric, recentlyActiveOnly, fn)
 }
 
 func (c *SimpleRateLimitedClient) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
-	if err := c.limit(ctx, c.limiter.getMetricData, getMetricDataCall, c.region, c.role, namespace); err != nil {
+	if err := c.limit(ctx, c.limiter.getMetricData, getMetricDataCall, c.region, c.accountID, c.role, namespace); err != nil {
 		return nil
 	}
 	return c.Client.GetMetricData(ctx, getMetricData, namespace, startTime, endTime)
 }
 
 func (c *SimpleRateLimitedClient) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
-	if err := c.limit(ctx, c.limiter.getMetricStatistics, getMetricStatisticsCall, c.region, c.role, namespace); err != nil {
+	if err := c.limit(ctx, c.limiter.getMetricStatistics, getMetricStatisticsCall, c.region, c.accountID, c.role, namespace); err != nil {
 		return nil
 	}
 	return c.Client.GetMetricStatistics(ctx, logger, dimensions, namespace, metric)
 }
 
-func (c *SimpleRateLimitedClient) limit(ctx context.Context, limiter *rate.Limiter, apiName string, region string, role string, namespace string) error {
-	if limiter == nil {
+func (c *SimpleRateLimitedClient) limit(ctx context.Context, buckets *rateLimiterBuckets, apiName string, region string, accountID string, role string, namespace string) error {
+	if buckets == nil {
 		return nil
 	}
+	limiter := buckets.get(accountID, region)
 	if limiter.Allow() {
-		promutil.CloudwatchRateLimitAllowedCounter.WithLabelValues(apiName, region, role, namespace).Inc()
+		promutil.CloudwatchRateLimitAllowedCounter.WithLabelValues(apiName, region, accountID, role, namespace).Inc()
 		return nil
 	}
-	promutil.CloudwatchRateLimitWaitCounter.WithLabelValues(apiName, region, role, namespace).Inc()
+	promutil.CloudwatchRateLimitWaitCounter.WithLabelValues(apiName, region, accountID, role, namespace).Inc()
 	return limiter.Wait(ctx)
 }

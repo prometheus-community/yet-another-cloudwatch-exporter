@@ -63,7 +63,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, globalRateLimiter)
+					cloudwatchClient := factory.GetCloudwatchClient(region, accountID, role, cloudwatchConcurrency, globalRateLimiter)
 					jobLogger.Info("Starting discovery job")
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 					var processor getMetricDataProcessor = gmdProcessor
@@ -124,7 +124,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, globalRateLimiter))
+					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, accountID, role, cloudwatchConcurrency, globalRateLimiter))
 					metricResult := model.CloudwatchMetricResult{
 						Context: &model.ScrapeContext{
 							Region:       region,
@@ -161,7 +161,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, globalRateLimiter)
+					cloudwatchClient := factory.GetCloudwatchClient(region, accountID, role, cloudwatchConcurrency, globalRateLimiter)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 					var processor getMetricDataProcessor = gmdProcessor
 					if tsCache != nil {

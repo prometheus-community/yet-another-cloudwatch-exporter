@@ -167,7 +167,7 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 	}, nil
 }
 
-func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, globalRateLimiter *cloudwatch_client.GlobalRateLimiter) cloudwatch_client.Client {
+func (c *CachingFactory) GetCloudwatchClient(region string, accountID string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, globalRateLimiter *cloudwatch_client.GlobalRateLimiter) cloudwatch_client.Client {
 	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
@@ -183,7 +183,7 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 
 	// Apply global rate limiter if provided
 	if globalRateLimiter != nil {
-		client = cloudwatch_client.NewRateLimitedClient(client, globalRateLimiter, region, role.RoleArn)
+		client = cloudwatch_client.NewRateLimitedClient(client, globalRateLimiter, region, accountID, role.RoleArn)
 	}
 
 	c.clients[role][region].cloudwatch = client
