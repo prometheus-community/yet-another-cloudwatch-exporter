@@ -33,10 +33,10 @@ var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
 
 // Config contains scrape-time settings used by embedders and CLI glue.
 //
-// AWScrapeConfig in config.go models the YAML file that defines AWS jobs and
-// resources. Config is intentionally separate: these fields control how a
-// scrape is executed, and are commonly supplied by callers such as the YACE CLI
-// or downstream tools that embed YACE.
+// ScrapeConf in config.go models the YAML file that defines AWS jobs and
+// resources. Config is intentionally separate: these fields control how a scrape
+// is executed, and are commonly supplied by callers such as the YACE CLI or
+// downstream tools that embed YACE.
 type Config struct {
 	MetricsPerQuery       int
 	LabelsSnakeCase       bool
