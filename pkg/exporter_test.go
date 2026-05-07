@@ -280,7 +280,7 @@ func TestConfigOptions(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name: "default runtime config",
+			name: "default config",
 			cfg:  config.DefaultConfig(),
 		},
 		{
