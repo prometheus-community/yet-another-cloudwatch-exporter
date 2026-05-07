@@ -270,3 +270,49 @@ func TestUpdateMetrics_ReturnsOptionValidationError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "MetricsPerQuery")
 }
+
+func TestConfigOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       config.Config
+		wantError bool
+	}{
+		{
+			name: "default runtime config",
+			cfg:  config.DefaultConfig(),
+		},
+		{
+			name: "per api concurrency",
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
+				cfg.CloudwatchConcurrency.PerAPILimitEnabled = true
+				return cfg
+			}(),
+		},
+		{
+			name: "invalid metrics per query",
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
+				cfg.MetricsPerQuery = 0
+				return cfg
+			}(),
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := ConfigOptions(tt.cfg)
+			if tt.wantError && err == nil {
+				t.Fatal("ConfigOptions() error = nil, want non-nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("ConfigOptions() error = %v, want nil", err)
+			}
+		})
+	}
+}
