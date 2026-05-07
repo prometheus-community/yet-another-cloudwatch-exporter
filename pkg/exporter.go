@@ -45,6 +45,18 @@ var Metrics = []prometheus.Collector{
 	promutil.DuplicateMetricsFilteredCounter,
 }
 
+const (
+	// Deprecated: use config.DefaultMetricsPerQuery.
+	DefaultMetricsPerQuery = config.DefaultMetricsPerQuery
+	// Deprecated: use config.DefaultLabelsSnakeCase.
+	DefaultLabelsSnakeCase = config.DefaultLabelsSnakeCase
+	// Deprecated: use config.DefaultTaggingAPIConcurrency.
+	DefaultTaggingAPIConcurrency = config.DefaultTaggingAPIConcurrency
+)
+
+// Deprecated: use config.DefaultCloudwatchConcurrency.
+var DefaultCloudwatchConcurrency = config.DefaultCloudwatchConcurrency
+
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
 type featureFlagsMap map[string]struct{}
