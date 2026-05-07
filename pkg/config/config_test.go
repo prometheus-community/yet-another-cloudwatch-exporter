@@ -32,7 +32,7 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "custom_namespace.ok.yml"},
 	}
 	for _, tc := range testCases {
-		config := AWScrapeConfig{}
+		config := ScrapeConf{}
 		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
 		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
 			t.Error(err)
@@ -89,7 +89,7 @@ func TestBadConfigs(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		config := AWScrapeConfig{}
+		config := ScrapeConf{}
 		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
 		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
 			if !strings.Contains(err.Error(), tc.errorMsg) {
@@ -105,12 +105,12 @@ func TestBadConfigs(t *testing.T) {
 
 func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 	type testcase struct {
-		config   AWScrapeConfig
+		config   ScrapeConf
 		errorMsg string
 	}
 	testCases := map[string]testcase{
 		"empty role should be configured when environment role is desired": {
-			config: AWScrapeConfig{
+			config: ScrapeConf{
 				APIVersion: "v1alpha1",
 				StsRegion:  "us-east-2",
 				Discovery: Discovery{
@@ -127,7 +127,7 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			errorMsg: "no IAM roles configured. If the current IAM role is desired, an empty Role should be configured",
 		},
 		"enhanced metric are not supported for the namespace": {
-			config: AWScrapeConfig{
+			config: ScrapeConf{
 				Discovery: Discovery{
 					Jobs: []*Job{{
 						Regions: []string{"us-east-2"},
@@ -146,7 +146,7 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			errorMsg: "Discovery job [AWS/S3/0]: enhanced metrics are not supported for this namespace: enhanced metrics service for namespace AWS/S3 not found",
 		},
 		"enhanced metric are not supported for the enhanced mertrics service": {
-			config: AWScrapeConfig{
+			config: ScrapeConf{
 				Discovery: Discovery{
 					Jobs: []*Job{{
 						Regions: []string{"us-east-2"},
