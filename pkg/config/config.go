@@ -50,6 +50,7 @@ type Config struct {
 	LabelsSnakeCase       bool
 	TaggingAPIConcurrency int
 	FeatureFlags          []string
+	FIPSEnabled           bool
 	CloudwatchConcurrency CloudWatchConcurrencyConfig
 }
 
@@ -59,6 +60,7 @@ func DefaultConfig() Config {
 		LabelsSnakeCase:       DefaultLabelsSnakeCase,
 		TaggingAPIConcurrency: DefaultTaggingAPIConcurrency,
 		FeatureFlags:          []string{},
+		FIPSEnabled:           false,
 		CloudwatchConcurrency: DefaultCloudwatchConcurrency,
 	}
 }
