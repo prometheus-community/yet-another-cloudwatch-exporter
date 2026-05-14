@@ -266,6 +266,7 @@ func startScraper(c *cli.Context) error {
 	cfg.LabelsSnakeCase = labelsSnakeCase
 	cfg.TaggingAPIConcurrency = tagConcurrency
 	cfg.FeatureFlags = c.StringSlice(enableFeatureFlag)
+	cfg.FIPSEnabled = fips
 	cfg.CloudwatchConcurrency = cloudwatchConcurrency
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid runtime scrape configuration: %w", err)
@@ -273,7 +274,7 @@ func startScraper(c *cli.Context) error {
 
 	s := NewScraper(cfg)
 
-	cachingFactory, err := clients.NewFactory(logger, jobsCfg, fips)
+	cachingFactory, err := clients.NewFactory(logger, jobsCfg, cfg.FIPSEnabled)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
@@ -322,7 +323,7 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		cache, err := clients.NewFactory(logger, newJobsCfg, fips)
+		cache, err := clients.NewFactory(logger, newJobsCfg, cfg.FIPSEnabled)
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
 			return

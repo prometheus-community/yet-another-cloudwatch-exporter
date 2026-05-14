@@ -19,13 +19,13 @@ if err != nil {
 	return err
 }
 
-factory, err := clients.NewFactory(logger, jobsCfg, false)
+cfg := config.DefaultConfig()
+cfg.MetricsPerQuery = 500
+
+factory, err := clients.NewFactory(logger, jobsCfg, cfg.FIPSEnabled)
 if err != nil {
 	return err
 }
-
-cfg := config.DefaultConfig()
-cfg.MetricsPerQuery = 500
 
 scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
 if err != nil {

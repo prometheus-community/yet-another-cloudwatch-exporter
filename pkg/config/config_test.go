@@ -31,6 +31,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.CloudwatchConcurrency != DefaultCloudwatchConcurrency {
 		t.Fatalf("CloudwatchConcurrency = %+v, want %+v", cfg.CloudwatchConcurrency, DefaultCloudwatchConcurrency)
 	}
+	if cfg.FIPSEnabled {
+		t.Fatal("FIPSEnabled = true, want false")
+	}
 }
 
 func TestConfigValidate(t *testing.T) {
