@@ -29,7 +29,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type ServiceFilter struct {
@@ -62,7 +61,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum <= maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.APIGatewayAPICounter.Inc()
+				client.scrapeMetrics.APIGatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling apiGatewayAPI.GetRestApis, %w", err)
 				}
@@ -107,7 +106,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum < 100 {
 				page, err := paginator.NextPage(ctx)
-				promutil.AutoScalingAPICounter.Inc()
+				client.scrapeMetrics.AutoScalingAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling autoscalingAPI.DescribeAutoScalingGroups, %w", err)
 				}
@@ -148,7 +147,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for instancesPaginator.HasMorePages() && pageNum < 100 {
 				page, err := instancesPaginator.NextPage(ctx)
-				promutil.DmsAPICounter.Inc()
+				client.scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationInstances, %w", err)
 				}
@@ -165,7 +164,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for tasksPaginator.HasMorePages() && pageNum < 100 {
 				page, err := tasksPaginator.NextPage(ctx)
-				promutil.DmsAPICounter.Inc()
+				client.scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationTasks, %w", err)
 				}
@@ -200,7 +199,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum < 100 {
 				page, err := paginator.NextPage(ctx)
-				promutil.Ec2APICounter.Inc()
+				client.scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling describing ec2API.DescribeSpotFleetRequests, %w", err)
 				}
@@ -235,7 +234,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum < 100 {
 				page, err := paginator.NextPage(ctx)
-				promutil.ManagedPrometheusAPICounter.Inc()
+				client.scrapeMetrics.ManagedPrometheusAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error while calling prometheusSvcAPI.ListWorkspaces, %w", err)
 				}
@@ -270,7 +269,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum < 100 {
 				page, err := paginator.NextPage(ctx)
-				promutil.StoragegatewayAPICounter.Inc()
+				client.scrapeMetrics.StoragegatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling storageGatewayAPI.ListGateways, %w", err)
 				}
@@ -287,7 +286,7 @@ var ServiceFilters = map[string]ServiceFilter{
 						ResourceARN: gwa.GatewayARN,
 					}
 					tagsResponse, _ := client.storageGatewayAPI.ListTagsForResource(ctx, tagsRequest)
-					promutil.StoragegatewayAPICounter.Inc()
+					client.scrapeMetrics.StoragegatewayAPICounter.Inc()
 
 					for _, t := range tagsResponse.Tags {
 						resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
@@ -311,7 +310,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			for paginator.HasMorePages() && pageNum < 100 {
 				page, err := paginator.NextPage(ctx)
-				promutil.Ec2APICounter.Inc()
+				client.scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling ec2API.DescribeTransitGatewayAttachments, %w", err)
 				}
@@ -350,7 +349,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			pageNum := 0
 			for paginator.HasMorePages() && pageNum < 100 {
-				promutil.ShieldAPICounter.Inc()
+				c.scrapeMetrics.ShieldAPICounter.Inc()
 				page, err := paginator.NextPage(ctx)
 				pageNum++
 				if err != nil {

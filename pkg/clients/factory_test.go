@@ -38,6 +38,7 @@ import (
 
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 var jobsCfgWithDefaultRoleAndRegion1 = model.JobsConfig{
@@ -179,10 +180,8 @@ func TestCachingFactory_Clear(t *testing.T) {
 		clients: map[model.Role]map[awsRegion]*cachedClients{
 			defaultRole: {
 				"region1": &cachedClients{
-					awsConfig:  nil,
-					cloudwatch: testClient{},
-					tagging:    testClient{},
-					account:    testClient{},
+					awsConfig: nil,
+					account:   testClient{},
 				},
 			},
 		},
@@ -196,9 +195,7 @@ func TestCachingFactory_Clear(t *testing.T) {
 
 	clients := cache.clients[defaultRole]["region1"]
 	require.NotNil(t, clients)
-	assert.Nil(t, clients.cloudwatch)
 	assert.Nil(t, clients.account)
-	assert.Nil(t, clients.tagging)
 }
 
 func TestCachingFactory_Refresh(t *testing.T) {
@@ -212,12 +209,10 @@ func TestCachingFactory_Refresh(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		assert.NotNil(t, clients.cloudwatch)
 		assert.NotNil(t, clients.account)
-		assert.NotNil(t, clients.tagging)
 	})
 
-	t.Run("creates only cloudwatch when config is only static jobs", func(t *testing.T) {
+	t.Run("does not create account when config is only static jobs", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			StaticJobs: []model.StaticJob{{
 				Regions: []string{"region1"},
@@ -238,9 +233,7 @@ func TestCachingFactory_Refresh(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		assert.NotNil(t, clients.cloudwatch)
 		assert.Nil(t, clients.account)
-		assert.Nil(t, clients.tagging)
 	})
 }
 
@@ -263,7 +256,7 @@ func TestCachingFactory_GetAccountClient(t *testing.T) {
 		assert.Equal(t, clients.account, output.GetAccountClient("region1", defaultRole))
 	})
 
-	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
+	t.Run("unrefreshed cache returns a client", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			DiscoveryJobs: []model.DiscoveryJob{{
 				Roles:   []model.Role{{}},
@@ -300,7 +293,7 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
 		// Can't do equality comparison due to concurrency limiter
-		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}))
+		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}, promutil.NewScrapeMetrics()))
 	})
 
 	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
@@ -316,10 +309,8 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		require.Nil(t, clients.cloudwatch)
 
-		output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1})
-		assert.NotNil(t, clients.cloudwatch)
+		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}, promutil.NewScrapeMetrics()))
 	})
 }
 
@@ -340,10 +331,10 @@ func TestCachingFactory_GetTaggingClient(t *testing.T) {
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
 		// Can't do equality comparison due to concurrency limiter
-		assert.NotNil(t, output.GetTaggingClient("region1", defaultRole, 1))
+		assert.NotNil(t, output.GetTaggingClient("region1", defaultRole, 1, promutil.NewScrapeMetrics()))
 	})
 
-	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
+	t.Run("unrefreshed cache returns a client", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			DiscoveryJobs: []model.DiscoveryJob{{
 				Roles:   []model.Role{{}},
@@ -356,10 +347,8 @@ func TestCachingFactory_GetTaggingClient(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		require.Nil(t, clients.tagging)
 
-		output.GetTaggingClient("region1", defaultRole, 1)
-		assert.NotNil(t, clients.tagging)
+		assert.NotNil(t, output.GetTaggingClient("region1", defaultRole, 1, promutil.NewScrapeMetrics()))
 	})
 }
 

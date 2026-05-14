@@ -52,6 +52,7 @@ type client struct {
 	prometheusSvcAPI  *amp.Client
 	storageGatewayAPI *storagegateway.Client
 	shieldAPI         *shield.Client
+	scrapeMetrics     *promutil.ScrapeMetrics
 }
 
 func NewClient(
@@ -65,6 +66,7 @@ func NewClient(
 	prometheusClient *amp.Client,
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
+	scrapeMetrics *promutil.ScrapeMetrics,
 ) Client {
 	return &client{
 		logger:            logger,
@@ -77,6 +79,7 @@ func NewClient(
 		prometheusSvcAPI:  prometheusClient,
 		storageGatewayAPI: storageGatewayAPI,
 		shieldAPI:         shieldAPI,
+		scrapeMetrics:     scrapeMetrics,
 	}
 }
 
@@ -116,7 +119,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			options.StopOnDuplicateToken = true
 		})
 		for paginator.HasMorePages() {
-			promutil.ResourceGroupTaggingAPICounter.Inc()
+			c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
 			page, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, err

@@ -42,11 +42,11 @@ type mockFactory struct {
 	accountClient    mockAccountClient
 }
 
-func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig, _ *promutil.ScrapeMetrics) cloudwatch.Client {
 	return &f.cloudwatchClient
 }
 
-func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Client {
+func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int, _ *promutil.ScrapeMetrics) tagging.Client {
 	return f.taggingClient
 }
 
@@ -207,7 +207,9 @@ func TestMetricsScrape_StaticJob(t *testing.T) {
 	}
 
 	registry := prometheus.NewRegistry()
-	metrics, err := yacemetrics.Scrape(ctx, logger, config.DefaultConfig(), jobsCfg, factory)
+	scraper, err := yacemetrics.NewScraper(logger, config.DefaultConfig(), jobsCfg, factory)
+	require.NoError(t, err)
+	metrics, err := scraper.Scrape(ctx)
 	require.NoError(t, err)
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
 

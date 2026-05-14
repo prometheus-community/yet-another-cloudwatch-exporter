@@ -16,67 +16,85 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus/client_golang/prometheus"
 	prom "github.com/prometheus/common/model"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	emconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
-// ScrapeCollectors contains metrics specific to the scraping process, such as API call counters.
-var ScrapeCollectors = []prometheus.Collector{
-	promutil.CloudwatchAPIErrorCounter,
-	promutil.CloudwatchAPICounter,
-	promutil.CloudwatchGetMetricDataAPICounter,
-	promutil.CloudwatchGetMetricDataAPIMetricsCounter,
-	promutil.CloudwatchGetMetricStatisticsAPICounter,
-	promutil.ResourceGroupTaggingAPICounter,
-	promutil.AutoScalingAPICounter,
-	promutil.TargetGroupsAPICounter,
-	promutil.APIGatewayAPICounter,
-	promutil.Ec2APICounter,
-	promutil.DmsAPICounter,
-	promutil.StoragegatewayAPICounter,
-	promutil.DuplicateMetricsFilteredCounter,
+// Scraper owns the configuration and scrape instrumentation for one embedded YACE instance.
+type Scraper struct {
+	logger        *slog.Logger
+	cfg           config.Config
+	jobsCfg       model.JobsConfig
+	factory       clients.Factory
+	scrapeMetrics *promutil.ScrapeMetrics
 }
 
-// Scrape performs one CloudWatch scrape and converts the result into Prometheus metrics.
-func Scrape(
-	ctx context.Context,
+// NewScraper creates a scraper with its own scrape instrumentation collectors.
+func NewScraper(
 	logger *slog.Logger,
 	cfg config.Config,
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
-) ([]*promutil.PrometheusMetric, error) {
+) (*Scraper, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
+	scrapeMetrics := promutil.NewScrapeMetrics()
+	return &Scraper{
+		logger:        logger,
+		cfg:           cfg,
+		jobsCfg:       jobsCfg,
+		factory:       newInstrumentedFactory(factory, scrapeMetrics),
+		scrapeMetrics: scrapeMetrics,
+	}, nil
+}
 
+// RegisterCollectors registers the scraper's instrumentation collectors with registry.
+func (s *Scraper) RegisterCollectors(registry *prometheus.Registry) error {
+	for _, collector := range s.scrapeMetrics.Collectors() {
+		if err := registry.Register(collector); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Scrape performs one CloudWatch scrape and converts the result into Prometheus metrics.
+func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, error) {
 	// Use legacy validation as that's the behaviour of former releases.
 	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
 
-	ctx = config.CtxWithFlags(ctx, featureFlagsMapFromSlice(cfg.FeatureFlags))
+	ctx = config.CtxWithFlags(ctx, featureFlagsMapFromSlice(s.cfg.FeatureFlags))
 
 	tagsData, cloudwatchData := job.ScrapeAwsData(
 		ctx,
-		logger,
-		jobsCfg,
-		factory,
-		cfg.MetricsPerQuery,
-		toCloudWatchConcurrency(cfg.CloudwatchConcurrency),
-		cfg.TaggingAPIConcurrency,
+		s.logger,
+		s.jobsCfg,
+		s.factory,
+		s.cfg.MetricsPerQuery,
+		toCloudWatchConcurrency(s.cfg.CloudwatchConcurrency),
+		s.cfg.TaggingAPIConcurrency,
+		s.scrapeMetrics,
 	)
 
-	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, cfg.LabelsSnakeCase, logger)
+	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, s.cfg.LabelsSnakeCase, s.logger)
 	if err != nil {
 		return nil, err
 	}
-	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, cfg.LabelsSnakeCase, logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
+	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, s.cfg.LabelsSnakeCase, s.logger)
+	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels, s.scrapeMetrics)
 
 	return metrics, nil
 }
@@ -104,4 +122,44 @@ func toCloudWatchConcurrency(cfg config.CloudWatchConcurrencyConfig) cloudwatch.
 		GetMetricData:       cfg.GetMetricData,
 		GetMetricStatistics: cfg.GetMetricStatistics,
 	}
+}
+
+type instrumentedFactory struct {
+	factory       clients.Factory
+	scrapeMetrics *promutil.ScrapeMetrics
+}
+
+type instrumentedRegionalFactory struct {
+	*instrumentedFactory
+	regionalConfigProvider emconfig.RegionalConfigProvider
+}
+
+func newInstrumentedFactory(factory clients.Factory, scrapeMetrics *promutil.ScrapeMetrics) clients.Factory {
+	wrapped := &instrumentedFactory{
+		factory:       factory,
+		scrapeMetrics: scrapeMetrics,
+	}
+	if regionalConfigProvider, ok := factory.(emconfig.RegionalConfigProvider); ok {
+		return &instrumentedRegionalFactory{
+			instrumentedFactory:    wrapped,
+			regionalConfigProvider: regionalConfigProvider,
+		}
+	}
+	return wrapped
+}
+
+func (f *instrumentedFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch.ConcurrencyConfig, _ *promutil.ScrapeMetrics) cloudwatch.Client {
+	return f.factory.GetCloudwatchClient(region, role, concurrency, f.scrapeMetrics)
+}
+
+func (f *instrumentedFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int, _ *promutil.ScrapeMetrics) tagging.Client {
+	return f.factory.GetTaggingClient(region, role, concurrencyLimit, f.scrapeMetrics)
+}
+
+func (f *instrumentedFactory) GetAccountClient(region string, role model.Role) account.Client {
+	return f.factory.GetAccountClient(region, role)
+}
+
+func (f *instrumentedRegionalFactory) GetAWSRegionalConfig(region string, role model.Role) *aws.Config {
+	return f.regionalConfigProvider.GetAWSRegionalConfig(region, role)
 }

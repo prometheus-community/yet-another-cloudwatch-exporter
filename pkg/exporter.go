@@ -27,11 +27,6 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
-// Metrics is a slice of prometheus metrics specific to the scraping process such API call counters.
-//
-// Deprecated: use metrics.ScrapeCollectors.
-var Metrics = metrics.ScrapeCollectors
-
 const (
 	// Deprecated: use config.DefaultMetricsPerQuery.
 	DefaultMetricsPerQuery = config.DefaultMetricsPerQuery
@@ -176,7 +171,7 @@ func ConfigOptions(cfg config.Config) ([]OptionsFunc, error) {
 
 // BuildPrometheusMetrics scrapes AWS data and converts it into Prometheus metrics.
 //
-// Deprecated: use metrics.Scrape.
+// Deprecated: use metrics.NewScraper and (*metrics.Scraper).Scrape.
 func BuildPrometheusMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -191,7 +186,11 @@ func BuildPrometheusMetrics(
 		}
 	}
 
-	return metrics.Scrape(ctx, logger, configFromOptions(options), jobsCfg, factory)
+	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory)
+	if err != nil {
+		return nil, err
+	}
+	return scraper.Scrape(ctx)
 }
 
 // UpdateMetrics is the entrypoint to scrape metrics from AWS on demand.
@@ -204,10 +203,22 @@ func BuildPrometheusMetrics(
 // - `factory`: any implementation of the `clients.Factory` interface
 // - `optFuncs`: (optional) any number of options funcs
 //
-// You can pre-register any of the default metrics from `Metrics` with the provided `registry` if you want them
-// included in the AWS scrape results. If you are using multiple instances of `registry` it
-// might make more sense to register these metrics in the application using YACE as a library to better
-// track them over the lifetime of the application.
+// To include scrape instrumentation metrics, use metrics.NewScraper and register its collectors:
+//
+//	scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
+//	if err != nil {
+//		return err
+//	}
+//	if err := scraper.RegisterCollectors(registry); err != nil {
+//		return err
+//	}
+//	generatedMetrics, err := scraper.Scrape(ctx)
+//	if err != nil {
+//		return err
+//	}
+//	registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
+//
+// Deprecated: use metrics.NewScraper, (*metrics.Scraper).RegisterCollectors, and (*metrics.Scraper).Scrape.
 func UpdateMetrics(
 	ctx context.Context,
 	logger *slog.Logger,

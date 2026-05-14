@@ -329,7 +329,7 @@ func recordLabelsForMetric(metricName string, promLabels map[string]string, obse
 // EnsureLabelConsistencyAndRemoveDuplicates ensures that every metric has the same set of labels based on the data
 // in observedMetricLabels and that there are no duplicate metrics.
 // Prometheus requires that all metrics with the same name have the same set of labels and that no duplicates are registered
-func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet) []*PrometheusMetric {
+func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, scrapeMetrics *ScrapeMetrics) []*PrometheusMetric {
 	metricKeys := make(map[string]struct{}, len(metrics))
 	output := make([]*PrometheusMetric, 0, len(metrics))
 
@@ -348,7 +348,7 @@ func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, obse
 			metricKeys[metricKey] = struct{}{}
 			output = append(output, metric)
 		} else {
-			DuplicateMetricsFilteredCounter.Inc()
+			scrapeMetrics.DuplicateMetricsFilteredCounter.Inc()
 		}
 	}
 
