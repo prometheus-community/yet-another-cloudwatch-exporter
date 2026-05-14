@@ -13,7 +13,7 @@
 
 package config
 
-import "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+import "fmt"
 
 const (
 	DefaultMetricsPerQuery       = 500
@@ -21,7 +21,7 @@ const (
 	DefaultTaggingAPIConcurrency = 5
 )
 
-var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
+var DefaultCloudwatchConcurrency = CloudWatchConcurrencyConfig{
 	SingleLimit:        5,
 	PerAPILimitEnabled: false,
 
@@ -29,6 +29,14 @@ var DefaultCloudwatchConcurrency = cloudwatch.ConcurrencyConfig{
 	ListMetrics:         5,
 	GetMetricData:       5,
 	GetMetricStatistics: 5,
+}
+
+type CloudWatchConcurrencyConfig struct {
+	SingleLimit         int
+	PerAPILimitEnabled  bool
+	ListMetrics         int
+	GetMetricData       int
+	GetMetricStatistics int
 }
 
 // Config contains scrape-time settings used by embedders and CLI glue.
@@ -42,7 +50,7 @@ type Config struct {
 	LabelsSnakeCase       bool
 	TaggingAPIConcurrency int
 	FeatureFlags          []string
-	CloudwatchConcurrency cloudwatch.ConcurrencyConfig
+	CloudwatchConcurrency CloudWatchConcurrencyConfig
 }
 
 func DefaultConfig() Config {
@@ -53,4 +61,32 @@ func DefaultConfig() Config {
 		FeatureFlags:          []string{},
 		CloudwatchConcurrency: DefaultCloudwatchConcurrency,
 	}
+}
+
+func (c Config) Validate() error {
+	if c.MetricsPerQuery <= 0 {
+		return fmt.Errorf("metrics per query must be a positive value")
+	}
+	if c.TaggingAPIConcurrency <= 0 {
+		return fmt.Errorf("tagging api concurrency must be a positive value")
+	}
+
+	if c.CloudwatchConcurrency.PerAPILimitEnabled {
+		if c.CloudwatchConcurrency.ListMetrics <= 0 {
+			return fmt.Errorf("listmetrics concurrency limit must be a positive value")
+		}
+		if c.CloudwatchConcurrency.GetMetricData <= 0 {
+			return fmt.Errorf("getmetricdata concurrency limit must be a positive value")
+		}
+		if c.CloudwatchConcurrency.GetMetricStatistics <= 0 {
+			return fmt.Errorf("getmetricstatistics concurrency limit must be a positive value")
+		}
+		return nil
+	}
+
+	if c.CloudwatchConcurrency.SingleLimit <= 0 {
+		return fmt.Errorf("cloudwatch api concurrency must be a positive value")
+	}
+
+	return nil
 }

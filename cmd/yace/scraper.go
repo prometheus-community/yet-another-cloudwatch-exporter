@@ -22,15 +22,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	yacemetrics "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type Scraper struct {
-	registry     atomic.Pointer[prometheus.Registry]
-	featureFlags []string
+	registry atomic.Pointer[prometheus.Registry]
+	config   config.Config
 }
 
 type cachingFactory interface {
@@ -39,10 +40,11 @@ type cachingFactory interface {
 	Clear()
 }
 
-func NewScraper(featureFlags []string) *Scraper {
+func NewScraper(cfg config.Config) *Scraper {
+	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
 	s := &Scraper{
-		registry:     atomic.Pointer[prometheus.Registry]{},
-		featureFlags: featureFlags,
+		registry: atomic.Pointer[prometheus.Registry]{},
+		config:   cfg,
 	}
 	s.registry.Store(prometheus.NewRegistry())
 	return s
@@ -87,7 +89,7 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model
 	defer sem.Release(1)
 
 	newRegistry := prometheus.NewRegistry()
-	for _, metric := range exporter.Metrics {
+	for _, metric := range yacemetrics.ScrapeCollectors {
 		if err := newRegistry.Register(metric); err != nil {
 			logger.Warn("Could not register cloudwatch api metric")
 		}
@@ -99,29 +101,18 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model
 	cache.Refresh()
 	defer cache.Clear()
 
-	options, err := exporter.ConfigOptions(config.Config{
-		MetricsPerQuery:       metricsPerQuery,
-		LabelsSnakeCase:       labelsSnakeCase,
-		TaggingAPIConcurrency: tagConcurrency,
-		FeatureFlags:          append([]string(nil), s.featureFlags...),
-		CloudwatchConcurrency: cloudwatchConcurrency,
-	})
-	if err != nil {
-		logger.Error("invalid runtime scrape configuration", "err", err)
-		return
-	}
-
-	err = exporter.UpdateMetrics(
+	metrics, err := yacemetrics.Scrape(
 		ctx,
 		logger,
+		s.config,
 		jobsCfg,
-		newRegistry,
 		cache,
-		options...,
 	)
 	if err != nil {
 		logger.Error("error updating metrics", "err", err)
+		return
 	}
+	newRegistry.MustRegister(promutil.NewPrometheusCollector(metrics))
 
 	s.registry.Store(newRegistry)
 	logger.Debug("Metrics scraped")

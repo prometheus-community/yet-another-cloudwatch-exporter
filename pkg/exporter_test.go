@@ -30,7 +30,9 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	yacemetrics "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 // mockFactory implements the clients.Factory interface for testing
@@ -160,6 +162,55 @@ func TestUpdateMetrics_StaticJob(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the expected metric exists using testutil
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_alias="test-account",account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="test-static-job",region="us-east-1"} 42
+	`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
+}
+
+func TestMetricsScrape_StaticJob(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	jobsCfg := model.JobsConfig{
+		StaticJobs: []model.StaticJob{
+			{
+				Name:      "test-static-job",
+				Regions:   []string{"us-east-1"},
+				Roles:     []model.Role{{}},
+				Namespace: "AWS/EC2",
+				Dimensions: []model.Dimension{
+					{Name: "InstanceId", Value: "i-1234567890abcdef0"},
+				},
+				Metrics: []*model.MetricConfig{
+					{
+						Name:       "CPUUtilization",
+						Statistics: []string{"Average"},
+						Period:     300,
+						Length:     300,
+					},
+				},
+			},
+		},
+	}
+
+	factory := &mockFactory{
+		accountClient: mockAccountClient{
+			accountID:    "123456789012",
+			accountAlias: "test-account",
+		},
+		cloudwatchClient: mockCloudwatchClient{},
+	}
+
+	registry := prometheus.NewRegistry()
+	metrics, err := yacemetrics.Scrape(ctx, logger, config.DefaultConfig(), jobsCfg, factory)
+	require.NoError(t, err)
+	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
+
 	expectedMetric := `
 		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
 		# TYPE aws_ec2_cpuutilization_average gauge

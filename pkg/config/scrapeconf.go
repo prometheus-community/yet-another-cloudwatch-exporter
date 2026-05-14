@@ -133,13 +133,22 @@ func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, e
 	if err != nil {
 		return model.JobsConfig{}, err
 	}
-	err = yaml.Unmarshal(yamlFile, c)
-	if err != nil {
+
+	return c.Parse(yamlFile, logger)
+}
+
+func (c *ScrapeConf) Parse(data []byte, logger *slog.Logger) (model.JobsConfig, error) {
+	if err := yaml.Unmarshal(data, c); err != nil {
 		return model.JobsConfig{}, err
 	}
 
-	logConfigErrors(yamlFile, logger)
+	logConfigErrors(data, logger)
+	c.applyDefaults()
 
+	return c.Validate(logger)
+}
+
+func (c *ScrapeConf) applyDefaults() {
 	for _, job := range c.Discovery.Jobs {
 		if len(job.Roles) == 0 {
 			job.Roles = []Role{{}} // use current IAM role
@@ -157,8 +166,6 @@ func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, e
 			job.Roles = []Role{{}} // use current IAM role
 		}
 	}
-
-	return c.Validate(logger)
 }
 
 func (c *ScrapeConf) Validate(logger *slog.Logger) (model.JobsConfig, error) {
