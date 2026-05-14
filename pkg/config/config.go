@@ -16,6 +16,7 @@ package config
 import "fmt"
 
 const (
+	DefaultScrapeConfigFile      = "config.yml"
 	DefaultMetricsPerQuery       = 500
 	DefaultLabelsSnakeCase       = false
 	DefaultTaggingAPIConcurrency = 5
@@ -46,6 +47,7 @@ type CloudWatchConcurrencyConfig struct {
 // is executed, and are commonly supplied by callers such as the YACE CLI or
 // downstream tools that embed YACE.
 type Config struct {
+	ScrapeConfigFile      string
 	MetricsPerQuery       int
 	LabelsSnakeCase       bool
 	TaggingAPIConcurrency int
@@ -56,6 +58,7 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
+		ScrapeConfigFile:      DefaultScrapeConfigFile,
 		MetricsPerQuery:       DefaultMetricsPerQuery,
 		LabelsSnakeCase:       DefaultLabelsSnakeCase,
 		TaggingAPIConcurrency: DefaultTaggingAPIConcurrency,

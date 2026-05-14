@@ -13,14 +13,15 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 )
 
+cfg := config.DefaultConfig()
+cfg.ScrapeConfigFile = "<config-file-path>"
+cfg.MetricsPerQuery = 500
+
 scrapeConf := config.ScrapeConf{}
-jobsCfg, err := scrapeConf.Load("<config-file-path>", logger)
+jobsCfg, err := scrapeConf.Load(cfg.ScrapeConfigFile, logger)
 if err != nil {
 	return err
 }
-
-cfg := config.DefaultConfig()
-cfg.MetricsPerQuery = 500
 
 factory, err := clients.NewFactory(logger, jobsCfg, cfg.FIPSEnabled)
 if err != nil {
