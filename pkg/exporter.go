@@ -18,32 +18,19 @@ import (
 	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
-	prom "github.com/prometheus/common/model"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
-// Metrics is a slice of prometheus metrics specific to the scraping process such API call counters
-var Metrics = []prometheus.Collector{
-	promutil.CloudwatchAPIErrorCounter,
-	promutil.CloudwatchAPICounter,
-	promutil.CloudwatchGetMetricDataAPICounter,
-	promutil.CloudwatchGetMetricDataAPIMetricsCounter,
-	promutil.CloudwatchGetMetricStatisticsAPICounter,
-	promutil.ResourceGroupTaggingAPICounter,
-	promutil.AutoScalingAPICounter,
-	promutil.TargetGroupsAPICounter,
-	promutil.APIGatewayAPICounter,
-	promutil.Ec2APICounter,
-	promutil.DmsAPICounter,
-	promutil.StoragegatewayAPICounter,
-	promutil.DuplicateMetricsFilteredCounter,
-}
+// Metrics is a slice of prometheus metrics specific to the scraping process such API call counters.
+//
+// Deprecated: use metrics.ScrapeCollectors.
+var Metrics = metrics.ScrapeCollectors
 
 const (
 	// Deprecated: use config.DefaultMetricsPerQuery.
@@ -55,7 +42,7 @@ const (
 )
 
 // Deprecated: use config.DefaultCloudwatchConcurrency.
-var DefaultCloudwatchConcurrency = config.DefaultCloudwatchConcurrency
+var DefaultCloudwatchConcurrency = toClientCloudWatchConcurrency(config.DefaultCloudwatchConcurrency)
 
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
@@ -153,7 +140,7 @@ func defaultOptions() options {
 		labelsSnakeCase:       config.DefaultLabelsSnakeCase,
 		taggingAPIConcurrency: config.DefaultTaggingAPIConcurrency,
 		featureFlags:          make(featureFlagsMap),
-		cloudwatchConcurrency: config.DefaultCloudwatchConcurrency,
+		cloudwatchConcurrency: toClientCloudWatchConcurrency(config.DefaultCloudwatchConcurrency),
 	}
 }
 
@@ -188,6 +175,8 @@ func ConfigOptions(cfg config.Config) ([]OptionsFunc, error) {
 }
 
 // BuildPrometheusMetrics scrapes AWS data and converts it into Prometheus metrics.
+//
+// Deprecated: use metrics.Scrape.
 func BuildPrometheusMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -195,9 +184,6 @@ func BuildPrometheusMetrics(
 	factory clients.Factory,
 	optFuncs ...OptionsFunc,
 ) ([]*promutil.PrometheusMetric, error) {
-	// Use legacy validation as that's the behaviour of former releases.
-	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
-
 	options := defaultOptions()
 	for _, f := range optFuncs {
 		if err := f(&options); err != nil {
@@ -205,27 +191,7 @@ func BuildPrometheusMetrics(
 		}
 	}
 
-	// add feature flags to context passed down to all other layers
-	ctx = config.CtxWithFlags(ctx, options.featureFlags)
-
-	tagsData, cloudwatchData := job.ScrapeAwsData(
-		ctx,
-		logger,
-		jobsCfg,
-		factory,
-		options.metricsPerQuery,
-		options.cloudwatchConcurrency,
-		options.taggingAPIConcurrency,
-	)
-
-	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, options.labelsSnakeCase, logger)
-	if err != nil {
-		return nil, err
-	}
-	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, options.labelsSnakeCase, logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels)
-
-	return metrics, nil
+	return metrics.Scrape(ctx, logger, configFromOptions(options), jobsCfg, factory)
 }
 
 // UpdateMetrics is the entrypoint to scrape metrics from AWS on demand.
@@ -257,4 +223,40 @@ func UpdateMetrics(
 
 	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
 	return nil
+}
+
+// configFromOptions is just a convenience function to convert the options to a config.Config struct.
+// It is needed just to convert the deprecated options to the new config.Config struct.
+func configFromOptions(o options) config.Config {
+	return config.Config{
+		MetricsPerQuery:       o.metricsPerQuery,
+		LabelsSnakeCase:       o.labelsSnakeCase,
+		TaggingAPIConcurrency: o.taggingAPIConcurrency,
+		FeatureFlags:          featureFlagsFromMap(o.featureFlags),
+		CloudwatchConcurrency: config.CloudWatchConcurrencyConfig{
+			SingleLimit:         o.cloudwatchConcurrency.SingleLimit,
+			PerAPILimitEnabled:  o.cloudwatchConcurrency.PerAPILimitEnabled,
+			ListMetrics:         o.cloudwatchConcurrency.ListMetrics,
+			GetMetricData:       o.cloudwatchConcurrency.GetMetricData,
+			GetMetricStatistics: o.cloudwatchConcurrency.GetMetricStatistics,
+		},
+	}
+}
+
+func featureFlagsFromMap(flags featureFlagsMap) []string {
+	ret := make([]string, 0, len(flags))
+	for flag := range flags {
+		ret = append(ret, flag)
+	}
+	return ret
+}
+
+func toClientCloudWatchConcurrency(cfg config.CloudWatchConcurrencyConfig) cloudwatch.ConcurrencyConfig {
+	return cloudwatch.ConcurrencyConfig{
+		SingleLimit:         cfg.SingleLimit,
+		PerAPILimitEnabled:  cfg.PerAPILimitEnabled,
+		ListMetrics:         cfg.ListMetrics,
+		GetMetricData:       cfg.GetMetricData,
+		GetMetricStatistics: cfg.GetMetricStatistics,
+	}
 }

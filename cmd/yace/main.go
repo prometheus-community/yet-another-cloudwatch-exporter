@@ -29,7 +29,6 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
@@ -60,7 +59,7 @@ var (
 	logLevel              string
 	logFormat             string
 	fips                  bool
-	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
+	cloudwatchConcurrency config.CloudWatchConcurrencyConfig
 	tagConcurrency        int
 	scrapingInterval      int
 	metricsPerQuery       int
@@ -256,14 +255,23 @@ func startScraper(c *cli.Context) error {
 
 	logger.Info("Parsing config")
 
-	cfg := config.ScrapeConf{}
-	jobsCfg, err := cfg.Load(configFile, logger)
+	scrapeCfg := config.ScrapeConf{}
+	jobsCfg, err := scrapeCfg.Load(configFile, logger)
 	if err != nil {
 		return fmt.Errorf("couldn't read %s: %w", configFile, err)
 	}
 
-	featureFlags := c.StringSlice(enableFeatureFlag)
-	s := NewScraper(featureFlags)
+	cfg := config.DefaultConfig()
+	cfg.MetricsPerQuery = metricsPerQuery
+	cfg.LabelsSnakeCase = labelsSnakeCase
+	cfg.TaggingAPIConcurrency = tagConcurrency
+	cfg.FeatureFlags = c.StringSlice(enableFeatureFlag)
+	cfg.CloudwatchConcurrency = cloudwatchConcurrency
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid runtime scrape configuration: %w", err)
+	}
+
+	s := NewScraper(cfg)
 
 	cachingFactory, err := clients.NewFactory(logger, jobsCfg, fips)
 	if err != nil {
@@ -325,7 +333,7 @@ func startScraper(c *cli.Context) error {
 		go s.decoupled(ctx, logger, newJobsCfg, cache)
 	})
 
-	logger.Info("Yace startup completed", "build_info", version.Info(), "build_context", version.BuildContext(), "feature_flags", strings.Join(featureFlags, ","))
+	logger.Info("Yace startup completed", "build_info", version.Info(), "build_context", version.BuildContext(), "feature_flags", strings.Join(cfg.FeatureFlags, ","))
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
