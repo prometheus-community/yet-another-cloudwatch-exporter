@@ -22,6 +22,9 @@ func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := DefaultConfig()
+	if cfg.ScrapeConfigFile != DefaultScrapeConfigFile {
+		t.Fatalf("ScrapeConfigFile = %q, want %q", cfg.ScrapeConfigFile, DefaultScrapeConfigFile)
+	}
 	if cfg.MetricsPerQuery != DefaultMetricsPerQuery {
 		t.Fatalf("MetricsPerQuery = %d, want %d", cfg.MetricsPerQuery, DefaultMetricsPerQuery)
 	}
