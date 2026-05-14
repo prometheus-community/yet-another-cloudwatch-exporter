@@ -24,6 +24,7 @@ import (
 	enhancedmetricsLambdaService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	enhancedmetricsService "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 var (
@@ -46,12 +47,12 @@ func (m *mockFactoryForEnhancedMetrics) GetAccountClient(string, model.Role) acc
 }
 
 // GetCloudwatchClient implements clients.Factory
-func (m *mockFactoryForEnhancedMetrics) GetCloudwatchClient(string, model.Role, cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+func (m *mockFactoryForEnhancedMetrics) GetCloudwatchClient(string, model.Role, cloudwatch.ConcurrencyConfig, *promutil.ScrapeMetrics) cloudwatch.Client {
 	return m.cloudwatchClient
 }
 
 // GetTaggingClient implements clients.Factory
-func (m *mockFactoryForEnhancedMetrics) GetTaggingClient(string, model.Role, int) tagging.Client {
+func (m *mockFactoryForEnhancedMetrics) GetTaggingClient(string, model.Role, int, *promutil.ScrapeMetrics) tagging.Client {
 	return m.taggingClient
 }
 

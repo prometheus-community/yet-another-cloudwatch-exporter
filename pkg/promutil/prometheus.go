@@ -22,70 +22,109 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var (
-	CloudwatchAPIErrorCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_request_errors",
-		Help: "Help is not implemented yet.",
-	}, []string{"api_name"})
-	CloudwatchAPICounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_requests_total",
-		Help: "Number of calls made to the CloudWatch APIs",
-	}, []string{"api_name"})
-	CloudwatchGetMetricDataAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_getmetricdata_requests_total",
-		Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
-	})
-	CloudwatchGetMetricDataAPIMetricsCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_getmetricdata_metrics_requested_total",
-		Help: "Number of metrics requested from the CloudWatch GetMetricData API which is how AWS bills",
-	})
-	CloudwatchGetMetricStatisticsAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_getmetricstatistics_requests_total",
-		Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
-	})
-	ResourceGroupTaggingAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_resourcegrouptaggingapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	AutoScalingAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_autoscalingapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	TargetGroupsAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_targetgroupapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	APIGatewayAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_apigatewayapi_requests_total",
-	})
-	APIGatewayAPIV2Counter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_apigatewayapiv2_requests_total",
-	})
-	Ec2APICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_ec2api_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	ShieldAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_shieldapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	ManagedPrometheusAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_managedprometheusapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	StoragegatewayAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_storagegatewayapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	DmsAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_dmsapi_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	DuplicateMetricsFilteredCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_duplicate_metrics_filtered",
-		Help: "Help is not implemented yet.",
-	})
-)
+type ScrapeMetrics struct {
+	CloudwatchAPIErrorCounter                *prometheus.CounterVec
+	CloudwatchAPICounter                     *prometheus.CounterVec
+	CloudwatchGetMetricDataAPICounter        prometheus.Counter
+	CloudwatchGetMetricDataAPIMetricsCounter prometheus.Counter
+	CloudwatchGetMetricStatisticsAPICounter  prometheus.Counter
+	ResourceGroupTaggingAPICounter           prometheus.Counter
+	AutoScalingAPICounter                    prometheus.Counter
+	TargetGroupsAPICounter                   prometheus.Counter
+	APIGatewayAPICounter                     prometheus.Counter
+	APIGatewayAPIV2Counter                   prometheus.Counter
+	Ec2APICounter                            prometheus.Counter
+	ShieldAPICounter                         prometheus.Counter
+	ManagedPrometheusAPICounter              prometheus.Counter
+	StoragegatewayAPICounter                 prometheus.Counter
+	DmsAPICounter                            prometheus.Counter
+	DuplicateMetricsFilteredCounter          prometheus.Counter
+}
+
+func NewScrapeMetrics() *ScrapeMetrics {
+	return &ScrapeMetrics{
+		CloudwatchAPIErrorCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_request_errors",
+			Help: "Help is not implemented yet.",
+		}, []string{"api_name"}),
+		CloudwatchAPICounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_requests_total",
+			Help: "Number of calls made to the CloudWatch APIs",
+		}, []string{"api_name"}),
+		CloudwatchGetMetricDataAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_getmetricdata_requests_total",
+			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
+		}),
+		CloudwatchGetMetricDataAPIMetricsCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_getmetricdata_metrics_requested_total",
+			Help: "Number of metrics requested from the CloudWatch GetMetricData API which is how AWS bills",
+		}),
+		CloudwatchGetMetricStatisticsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_getmetricstatistics_requests_total",
+			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
+		}),
+		ResourceGroupTaggingAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_resourcegrouptaggingapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		AutoScalingAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_autoscalingapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		TargetGroupsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_targetgroupapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		APIGatewayAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_apigatewayapi_requests_total",
+		}),
+		APIGatewayAPIV2Counter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_apigatewayapiv2_requests_total",
+		}),
+		Ec2APICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_ec2api_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		ShieldAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_shieldapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		ManagedPrometheusAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_managedprometheusapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		StoragegatewayAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_storagegatewayapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		DmsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_dmsapi_requests_total",
+			Help: "Help is not implemented yet.",
+		}),
+		DuplicateMetricsFilteredCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_duplicate_metrics_filtered",
+			Help: "Help is not implemented yet.",
+		}),
+	}
+}
+
+func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
+	return []prometheus.Collector{
+		m.CloudwatchAPIErrorCounter,
+		m.CloudwatchAPICounter,
+		m.CloudwatchGetMetricDataAPICounter,
+		m.CloudwatchGetMetricDataAPIMetricsCounter,
+		m.CloudwatchGetMetricStatisticsAPICounter,
+		m.ResourceGroupTaggingAPICounter,
+		m.AutoScalingAPICounter,
+		m.TargetGroupsAPICounter,
+		m.APIGatewayAPICounter,
+		m.Ec2APICounter,
+		m.DmsAPICounter,
+		m.StoragegatewayAPICounter,
+		m.DuplicateMetricsFilteredCounter,
+	}
+}
 
 var replacer = strings.NewReplacer(
 	" ", "_",

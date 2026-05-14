@@ -30,7 +30,9 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	yacemetrics "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 // mockFactory implements the clients.Factory interface for testing
@@ -40,11 +42,11 @@ type mockFactory struct {
 	accountClient    mockAccountClient
 }
 
-func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig, _ *promutil.ScrapeMetrics) cloudwatch.Client {
 	return &f.cloudwatchClient
 }
 
-func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Client {
+func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int, _ *promutil.ScrapeMetrics) tagging.Client {
 	return f.taggingClient
 }
 
@@ -170,6 +172,57 @@ func TestUpdateMetrics_StaticJob(t *testing.T) {
 	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
 }
 
+func TestMetricsScrape_StaticJob(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	jobsCfg := model.JobsConfig{
+		StaticJobs: []model.StaticJob{
+			{
+				Name:      "test-static-job",
+				Regions:   []string{"us-east-1"},
+				Roles:     []model.Role{{}},
+				Namespace: "AWS/EC2",
+				Dimensions: []model.Dimension{
+					{Name: "InstanceId", Value: "i-1234567890abcdef0"},
+				},
+				Metrics: []*model.MetricConfig{
+					{
+						Name:       "CPUUtilization",
+						Statistics: []string{"Average"},
+						Period:     300,
+						Length:     300,
+					},
+				},
+			},
+		},
+	}
+
+	factory := &mockFactory{
+		accountClient: mockAccountClient{
+			accountID:    "123456789012",
+			accountAlias: "test-account",
+		},
+		cloudwatchClient: mockCloudwatchClient{},
+	}
+
+	registry := prometheus.NewRegistry()
+	scraper, err := yacemetrics.NewScraper(logger, config.DefaultConfig(), jobsCfg, factory)
+	require.NoError(t, err)
+	metrics, err := scraper.Scrape(ctx)
+	require.NoError(t, err)
+	registry.MustRegister(promutil.NewPrometheusCollector(metrics))
+
+	expectedMetric := `
+		# HELP aws_ec2_cpuutilization_average Help is not implemented yet.
+		# TYPE aws_ec2_cpuutilization_average gauge
+		aws_ec2_cpuutilization_average{account_alias="test-account",account_id="123456789012",dimension_InstanceId="i-1234567890abcdef0",name="test-static-job",region="us-east-1"} 42
+	`
+
+	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
+	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
+}
+
 func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	ctx := context.Background()
 	logger := promslog.NewNopLogger()
@@ -252,4 +305,67 @@ func TestUpdateMetrics_DiscoveryJob(t *testing.T) {
 	`
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
 	require.NoError(t, err)
+}
+
+func TestUpdateMetrics_ReturnsOptionValidationError(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	err := UpdateMetrics(
+		ctx,
+		logger,
+		model.JobsConfig{},
+		prometheus.NewRegistry(),
+		&mockFactory{},
+		MetricsPerQuery(0),
+	)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "MetricsPerQuery")
+}
+
+func TestConfigOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       config.Config
+		wantError bool
+	}{
+		{
+			name: "default config",
+			cfg:  config.DefaultConfig(),
+		},
+		{
+			name: "per api concurrency",
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
+				cfg.CloudwatchConcurrency.PerAPILimitEnabled = true
+				return cfg
+			}(),
+		},
+		{
+			name: "invalid metrics per query",
+			cfg: func() config.Config {
+				cfg := config.DefaultConfig()
+				cfg.MetricsPerQuery = 0
+				return cfg
+			}(),
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := ConfigOptions(tt.cfg)
+			if tt.wantError && err == nil {
+				t.Fatal("ConfigOptions() error = nil, want non-nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("ConfigOptions() error = %v, want nil", err)
+			}
+		})
+	}
 }
