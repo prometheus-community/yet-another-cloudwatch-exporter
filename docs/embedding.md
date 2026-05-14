@@ -27,7 +27,12 @@ if err != nil {
 cfg := config.DefaultConfig()
 cfg.MetricsPerQuery = 500
 
-generatedMetrics, err := metrics.Scrape(ctx, logger, cfg, jobsCfg, factory)
+scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
+if err != nil {
+	return err
+}
+
+generatedMetrics, err := scraper.Scrape(ctx)
 if err != nil {
 	return err
 }
@@ -35,7 +40,7 @@ if err != nil {
 // Inspect, filter, transform, or forward generatedMetrics.
 ```
 
-Callers that want to expose the generated metrics through a Prometheus registry can register them with `promutil.NewPrometheusCollector()`.
+Callers that want to expose one scrape through a fresh Prometheus registry can register the scraper collectors and generated metrics explicitly.
 
 ```go
 import (
@@ -46,9 +51,19 @@ import (
 )
 
 registry := prometheus.NewRegistry()
-registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
+scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
+if err != nil {
+	return err
+}
+if err := scraper.RegisterCollectors(registry); err != nil {
+	return err
+}
 
-handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+generatedMetrics, err := scraper.Scrape(ctx)
+if err != nil {
+	return err
+}
+registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
 ```
 
 Applications embedding YACE:

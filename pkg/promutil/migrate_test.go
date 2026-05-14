@@ -1587,7 +1587,7 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := EnsureLabelConsistencyAndRemoveDuplicates(tc.metrics, tc.observedLabels)
+			actual := EnsureLabelConsistencyAndRemoveDuplicates(tc.metrics, tc.observedLabels, NewScrapeMetrics())
 			require.ElementsMatch(t, tc.output, actual)
 		})
 	}

@@ -43,13 +43,14 @@ import (
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 // Factory is an interface to abstract away all logic required to produce the different
 // YACE specific clients which wrap AWS clients
 type Factory interface {
-	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client
-	GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client
+	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch_client.Client
+	GetTaggingClient(region string, role model.Role, concurrencyLimit int, scrapeMetrics *promutil.ScrapeMetrics) tagging.Client
 	GetAccountClient(region string, role model.Role) account.Client
 }
 
@@ -72,8 +73,6 @@ type cachedClients struct {
 	// then we don't have to construct as many cached connections
 	// later on
 	onlyStatic bool
-	cloudwatch cloudwatch_client.Client
-	tagging    tagging.Client
 	account    account.Client
 }
 
@@ -171,29 +170,24 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 	}, nil
 }
 
-func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
+func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch_client.Client {
 	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
 		defer c.mu.Unlock()
 	}
-	if client := c.clients[role][region].cloudwatch; client != nil {
-		return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
-	}
-	c.clients[role][region].cloudwatch = cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig))
-	return cloudwatch_client.NewLimitedConcurrencyClient(c.clients[role][region].cloudwatch, concurrency.NewLimiter())
+
+	client := cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig), scrapeMetrics)
+	return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 }
 
-func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
+func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int, scrapeMetrics *promutil.ScrapeMetrics) tagging.Client {
 	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
 		defer c.mu.Unlock()
 	}
-	if client := c.clients[role][region].tagging; client != nil {
-		return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
-	}
-	c.clients[role][region].tagging = tagging.NewClient(
+	client := tagging.NewClient(
 		c.logger,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
@@ -204,8 +198,9 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
 		c.createStorageGatewayClient(c.clients[role][region].awsConfig),
 		c.createShieldClient(c.clients[role][region].awsConfig),
+		scrapeMetrics,
 	)
-	return tagging.NewLimitedConcurrencyClient(c.clients[role][region].tagging, concurrencyLimit)
+	return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {
@@ -237,23 +232,9 @@ func (c *CachingFactory) Refresh() {
 
 	for _, regionClients := range c.clients {
 		for _, cache := range regionClients {
-			cache.cloudwatch = cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(cache.awsConfig))
 			if cache.onlyStatic {
 				continue
 			}
-
-			cache.tagging = tagging.NewClient(
-				c.logger,
-				c.createTaggingClient(cache.awsConfig),
-				c.createAutoScalingClient(cache.awsConfig),
-				c.createAPIGatewayClient(cache.awsConfig),
-				c.createAPIGatewayV2Client(cache.awsConfig),
-				c.createEC2Client(cache.awsConfig),
-				c.createDMSClient(cache.awsConfig),
-				c.createPrometheusClient(cache.awsConfig),
-				c.createStorageGatewayClient(cache.awsConfig),
-				c.createShieldClient(cache.awsConfig),
-			)
 
 			cache.account = account.NewClient(c.logger, c.createStsClient(cache.awsConfig), c.createIAMClient(cache.awsConfig))
 		}
@@ -277,9 +258,7 @@ func (c *CachingFactory) Clear() {
 
 	for _, regions := range c.clients {
 		for _, cache := range regions {
-			cache.cloudwatch = nil
 			cache.account = nil
-			cache.tagging = nil
 		}
 	}
 
