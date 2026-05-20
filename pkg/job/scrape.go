@@ -25,7 +25,6 @@ import (
 	emconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 func ScrapeAwsData(
@@ -36,7 +35,6 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
-	scrapeMetrics *promutil.ScrapeMetrics,
 ) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
@@ -81,7 +79,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, scrapeMetrics)
+					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 
 					resources, metrics := runDiscoveryJob(
@@ -89,7 +87,7 @@ func ScrapeAwsData(
 						jobLogger,
 						discoveryJob,
 						region,
-						factory.GetTaggingClient(region, role, taggingAPIConcurrency, scrapeMetrics),
+						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
 						cloudwatchClient,
 						gmdProcessor,
 						enhancedMetricsService,
@@ -147,7 +145,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, scrapeMetrics))
+					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, role, cloudwatchConcurrency))
 					metricResult := model.CloudwatchMetricResult{
 						Context: &model.ScrapeContext{
 							Region:       region,
@@ -184,7 +182,7 @@ func ScrapeAwsData(
 						jobLogger.Warn("Couldn't get account alias", "err", err)
 					}
 
-					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency, scrapeMetrics)
+					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor)
 					metricResult := model.CloudwatchMetricResult{

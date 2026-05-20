@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
@@ -43,17 +44,21 @@ type mockFactory struct {
 	scrapeMetrics    *promutil.ScrapeMetrics
 }
 
-func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch.Client {
-	f.scrapeMetrics = scrapeMetrics
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
 	return &f.cloudwatchClient
 }
 
-func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int, _ *promutil.ScrapeMetrics) tagging.Client {
+func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Client {
 	return f.taggingClient
 }
 
 func (f *mockFactory) GetAccountClient(_ string, _ model.Role) account.Client {
 	return f.accountClient
+}
+
+func (f *mockFactory) WithScrapeMetrics(scrapeMetrics *promutil.ScrapeMetrics) clients.Factory {
+	f.scrapeMetrics = scrapeMetrics
+	return f
 }
 
 // mockAccountClient implements the account.Client interface

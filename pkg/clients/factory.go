@@ -49,9 +49,24 @@ import (
 // Factory is an interface to abstract away all logic required to produce the different
 // YACE specific clients which wrap AWS clients
 type Factory interface {
-	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch_client.Client
-	GetTaggingClient(region string, role model.Role, concurrencyLimit int, scrapeMetrics *promutil.ScrapeMetrics) tagging.Client
+	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client
+	GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client
 	GetAccountClient(region string, role model.Role) account.Client
+}
+
+type InstrumentedFactory interface {
+	Factory
+	WithScrapeMetrics(scrapeMetrics *promutil.ScrapeMetrics) Factory
+}
+
+type FactoryOption func(*CachingFactory)
+
+func WithScrapeMetrics(scrapeMetrics *promutil.ScrapeMetrics) FactoryOption {
+	return func(c *CachingFactory) {
+		if scrapeMetrics != nil {
+			c.scrapeMetrics = scrapeMetrics
+		}
+	}
 }
 
 type awsRegion = string
@@ -65,6 +80,12 @@ type CachingFactory struct {
 	cleared             *atomic.Bool
 	fipsEnabled         bool
 	endpointURLOverride string
+	scrapeMetrics       *promutil.ScrapeMetrics
+}
+
+type cachingFactoryWithScrapeMetrics struct {
+	*CachingFactory
+	scrapeMetrics *promutil.ScrapeMetrics
 }
 
 type cachedClients struct {
@@ -80,7 +101,7 @@ type cachedClients struct {
 var _ Factory = &CachingFactory{}
 
 // NewFactory creates a new client factory to use when fetching data from AWS with sdk v2
-func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
+func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool, optFuncs ...FactoryOption) (*CachingFactory, error) {
 	var options []func(*aws_config.LoadOptions) error
 	options = append(options, aws_config.WithLogger(aws_logging.LoggerFunc(func(classification aws_logging.Classification, format string, v ...interface{}) {
 		switch classification {
@@ -159,7 +180,7 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 		}
 	}
 
-	return &CachingFactory{
+	factory := &CachingFactory{
 		logger:              logger,
 		clients:             cache,
 		fipsEnabled:         fips,
@@ -167,10 +188,29 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 		endpointURLOverride: endpointURLOverride,
 		cleared:             atomic.NewBool(false),
 		refreshed:           atomic.NewBool(false),
-	}, nil
+		scrapeMetrics:       promutil.NewScrapeMetrics(),
+	}
+	for _, optFunc := range optFuncs {
+		optFunc(factory)
+	}
+	return factory, nil
 }
 
-func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch_client.Client {
+func (c *CachingFactory) WithScrapeMetrics(scrapeMetrics *promutil.ScrapeMetrics) Factory {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.NewScrapeMetrics()
+	}
+	return &cachingFactoryWithScrapeMetrics{
+		CachingFactory: c,
+		scrapeMetrics:  scrapeMetrics,
+	}
+}
+
+func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
+	return c.getCloudwatchClient(region, role, concurrency, c.scrapeMetrics)
+}
+
+func (c *CachingFactory) getCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch_client.Client {
 	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
@@ -181,7 +221,15 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 	return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 }
 
-func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int, scrapeMetrics *promutil.ScrapeMetrics) tagging.Client {
+func (c *cachingFactoryWithScrapeMetrics) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client {
+	return c.getCloudwatchClient(region, role, concurrency, c.scrapeMetrics)
+}
+
+func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
+	return c.getTaggingClient(region, role, concurrencyLimit, c.scrapeMetrics)
+}
+
+func (c *CachingFactory) getTaggingClient(region string, role model.Role, concurrencyLimit int, scrapeMetrics *promutil.ScrapeMetrics) tagging.Client {
 	if !c.refreshed.Load() {
 		// if we have not refreshed then we need to lock in case we are accessing concurrently
 		c.mu.Lock()
@@ -201,6 +249,10 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		scrapeMetrics,
 	)
 	return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
+}
+
+func (c *cachingFactoryWithScrapeMetrics) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
+	return c.getTaggingClient(region, role, concurrencyLimit, c.scrapeMetrics)
 }
 
 func (c *CachingFactory) GetAccountClient(region string, role model.Role) account.Client {

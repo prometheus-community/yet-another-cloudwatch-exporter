@@ -16,16 +16,12 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus/client_golang/prometheus"
 	prom "github.com/prometheus/common/model"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
-	emconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
@@ -72,11 +68,14 @@ func newScraperWithMetrics(
 	scrapeMetrics *promutil.ScrapeMetrics,
 ) (*Scraper, error) {
 	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
+	if instrumentedFactory, ok := factory.(clients.InstrumentedFactory); ok {
+		factory = instrumentedFactory.WithScrapeMetrics(scrapeMetrics)
+	}
 	return &Scraper{
 		logger:        logger,
 		cfg:           cfg,
 		jobsCfg:       jobsCfg,
-		factory:       newInstrumentedFactory(factory, scrapeMetrics),
+		factory:       factory,
 		scrapeMetrics: scrapeMetrics,
 	}, nil
 }
@@ -106,7 +105,6 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 		s.cfg.MetricsPerQuery,
 		toCloudWatchConcurrency(s.cfg.CloudwatchConcurrency),
 		s.cfg.TaggingAPIConcurrency,
-		s.scrapeMetrics,
 	)
 
 	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, s.cfg.LabelsSnakeCase, s.logger)
@@ -142,44 +140,4 @@ func toCloudWatchConcurrency(cfg config.CloudWatchConcurrencyConfig) cloudwatch.
 		GetMetricData:       cfg.GetMetricData,
 		GetMetricStatistics: cfg.GetMetricStatistics,
 	}
-}
-
-type instrumentedFactory struct {
-	factory       clients.Factory
-	scrapeMetrics *promutil.ScrapeMetrics
-}
-
-type instrumentedRegionalFactory struct {
-	*instrumentedFactory
-	regionalConfigProvider emconfig.RegionalConfigProvider
-}
-
-func newInstrumentedFactory(factory clients.Factory, scrapeMetrics *promutil.ScrapeMetrics) clients.Factory {
-	wrapped := &instrumentedFactory{
-		factory:       factory,
-		scrapeMetrics: scrapeMetrics,
-	}
-	if regionalConfigProvider, ok := factory.(emconfig.RegionalConfigProvider); ok {
-		return &instrumentedRegionalFactory{
-			instrumentedFactory:    wrapped,
-			regionalConfigProvider: regionalConfigProvider,
-		}
-	}
-	return wrapped
-}
-
-func (f *instrumentedFactory) GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch.ConcurrencyConfig, _ *promutil.ScrapeMetrics) cloudwatch.Client {
-	return f.factory.GetCloudwatchClient(region, role, concurrency, f.scrapeMetrics)
-}
-
-func (f *instrumentedFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int, _ *promutil.ScrapeMetrics) tagging.Client {
-	return f.factory.GetTaggingClient(region, role, concurrencyLimit, f.scrapeMetrics)
-}
-
-func (f *instrumentedFactory) GetAccountClient(region string, role model.Role) account.Client {
-	return f.factory.GetAccountClient(region, role)
-}
-
-func (f *instrumentedRegionalFactory) GetAWSRegionalConfig(region string, role model.Role) *aws.Config {
-	return f.regionalConfigProvider.GetAWSRegionalConfig(region, role)
 }
