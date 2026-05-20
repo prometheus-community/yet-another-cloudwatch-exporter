@@ -39,6 +39,13 @@ const (
 // Deprecated: use config.DefaultCloudwatchConcurrency.
 var DefaultCloudwatchConcurrency = toClientCloudWatchConcurrency(config.DefaultCloudwatchConcurrency)
 
+var deprecatedScrapeMetrics = promutil.NewScrapeMetrics()
+
+// Metrics is a slice of prometheus metrics specific to the scraping process such API call counters.
+//
+// Deprecated: use metrics.NewScraper and (*metrics.Scraper).RegisterCollectors.
+var Metrics = deprecatedScrapeMetrics.Collectors()
+
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
 type featureFlagsMap map[string]struct{}
@@ -197,7 +204,19 @@ func UpdateMetrics(
 	factory clients.Factory,
 	optFuncs ...OptionsFunc,
 ) error {
-	metrics, err := BuildPrometheusMetrics(ctx, logger, jobsCfg, factory, optFuncs...)
+	options := defaultOptions()
+	for _, f := range optFuncs {
+		if err := f(&options); err != nil {
+			return err
+		}
+	}
+
+	scraper, err := metrics.NewLegacyScraperWithMetrics(logger, configFromOptions(options), jobsCfg, factory, deprecatedScrapeMetrics)
+	if err != nil {
+		return err
+	}
+
+	metrics, err := scraper.Scrape(ctx)
 	if err != nil {
 		return err
 	}

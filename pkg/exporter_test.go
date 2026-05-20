@@ -40,9 +40,11 @@ type mockFactory struct {
 	cloudwatchClient mockCloudwatchClient
 	taggingClient    mockTaggingClient
 	accountClient    mockAccountClient
+	scrapeMetrics    *promutil.ScrapeMetrics
 }
 
-func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig, _ *promutil.ScrapeMetrics) cloudwatch.Client {
+func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig, scrapeMetrics *promutil.ScrapeMetrics) cloudwatch.Client {
+	f.scrapeMetrics = scrapeMetrics
 	return &f.cloudwatchClient
 }
 
@@ -170,6 +172,46 @@ func TestUpdateMetrics_StaticJob(t *testing.T) {
 
 	err = testutil.GatherAndCompare(registry, strings.NewReader(expectedMetric))
 	require.NoError(t, err, "Metric aws_ec2_cpuutilization_average should match expected output")
+}
+
+func TestUpdateMetrics_UsesDeprecatedScrapeMetrics(t *testing.T) {
+	ctx := context.Background()
+	logger := promslog.NewNopLogger()
+
+	jobsCfg := model.JobsConfig{
+		StaticJobs: []model.StaticJob{
+			{
+				Name:      "test-static-job",
+				Regions:   []string{"us-east-1"},
+				Roles:     []model.Role{{}},
+				Namespace: "AWS/EC2",
+				Dimensions: []model.Dimension{
+					{Name: "InstanceId", Value: "i-1234567890abcdef0"},
+				},
+				Metrics: []*model.MetricConfig{
+					{
+						Name:       "CPUUtilization",
+						Statistics: []string{"Average"},
+						Period:     300,
+						Length:     300,
+					},
+				},
+			},
+		},
+	}
+	factory := &mockFactory{
+		accountClient: mockAccountClient{
+			accountID:    "123456789012",
+			accountAlias: "test-account",
+		},
+		cloudwatchClient: mockCloudwatchClient{},
+	}
+
+	err := UpdateMetrics(ctx, logger, jobsCfg, prometheus.NewRegistry(), factory)
+	require.NoError(t, err)
+
+	require.Same(t, deprecatedScrapeMetrics, factory.scrapeMetrics)
+	require.Equal(t, deprecatedScrapeMetrics.Collectors(), Metrics)
 }
 
 func TestMetricsScrape_StaticJob(t *testing.T) {

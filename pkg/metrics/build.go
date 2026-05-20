@@ -48,8 +48,30 @@ func NewScraper(
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
 ) (*Scraper, error) {
+	return newScraperWithMetrics(logger, cfg, jobsCfg, factory, promutil.NewScrapeMetrics())
+}
+
+// NewLegacyScraperWithMetrics creates a scraper using caller-provided scrape instrumentation collectors.
+//
+// Deprecated: use NewScraper for isolated scrape instrumentation.
+func NewLegacyScraperWithMetrics(
+	logger *slog.Logger,
+	cfg config.Config,
+	jobsCfg model.JobsConfig,
+	factory clients.Factory,
+	scrapeMetrics *promutil.ScrapeMetrics,
+) (*Scraper, error) {
+	return newScraperWithMetrics(logger, cfg, jobsCfg, factory, scrapeMetrics)
+}
+
+func newScraperWithMetrics(
+	logger *slog.Logger,
+	cfg config.Config,
+	jobsCfg model.JobsConfig,
+	factory clients.Factory,
+	scrapeMetrics *promutil.ScrapeMetrics,
+) (*Scraper, error) {
 	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
-	scrapeMetrics := promutil.NewScrapeMetrics()
 	return &Scraper{
 		logger:        logger,
 		cfg:           cfg,
