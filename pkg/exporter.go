@@ -139,36 +139,6 @@ func defaultOptions() options {
 	}
 }
 
-func ConfigOptions(cfg config.Config) ([]OptionsFunc, error) {
-	opts := []OptionsFunc{
-		MetricsPerQuery(cfg.MetricsPerQuery),
-		LabelsSnakeCase(cfg.LabelsSnakeCase),
-		TaggingAPIConcurrency(cfg.TaggingAPIConcurrency),
-		EnableFeatureFlag(cfg.FeatureFlags...),
-	}
-
-	if cfg.CloudwatchConcurrency.PerAPILimitEnabled {
-		opts = append(opts,
-			CloudWatchPerAPILimitConcurrency(
-				cfg.CloudwatchConcurrency.ListMetrics,
-				cfg.CloudwatchConcurrency.GetMetricData,
-				cfg.CloudwatchConcurrency.GetMetricStatistics,
-			),
-		)
-	} else {
-		opts = append(opts, CloudWatchAPIConcurrency(cfg.CloudwatchConcurrency.SingleLimit))
-	}
-
-	checked := defaultOptions()
-	for _, option := range opts {
-		if err := option(&checked); err != nil {
-			return nil, err
-		}
-	}
-
-	return opts, nil
-}
-
 // BuildPrometheusMetrics scrapes AWS data and converts it into Prometheus metrics.
 //
 // Deprecated: use metrics.NewScraper and (*metrics.Scraper).Scrape.
