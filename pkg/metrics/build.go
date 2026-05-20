@@ -41,15 +41,13 @@ type Scraper struct {
 }
 
 // NewScraper creates a scraper with its own scrape instrumentation collectors.
+// Call 'cfg.Validate()' before calling this function.
 func NewScraper(
 	logger *slog.Logger,
 	cfg config.Config,
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
 ) (*Scraper, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
 	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
 	scrapeMetrics := promutil.NewScrapeMetrics()
 	return &Scraper{
