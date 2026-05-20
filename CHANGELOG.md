@@ -1,5 +1,12 @@
 ## main / (unreleased)
 
+**Important news and breaking changes**
+
+- BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil` have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics()`. Go library users importing `promutil.CloudwatchAPIErrorCounter`, `promutil.CloudwatchAPICounter`, `promutil.CloudwatchGetMetricDataAPICounter`, `promutil.CloudwatchGetMetricDataAPIMetricsCounter`, `promutil.CloudwatchGetMetricStatisticsAPICounter`, `promutil.ResourceGroupTaggingAPICounter`, `promutil.AutoScalingAPICounter`, `promutil.TargetGroupsAPICounter`, `promutil.APIGatewayAPICounter`, `promutil.APIGatewayAPIV2Counter`, `promutil.Ec2APICounter`, `promutil.ShieldAPICounter`, `promutil.ManagedPrometheusAPICounter`, `promutil.StoragegatewayAPICounter`, `promutil.DmsAPICounter`, or `promutil.DuplicateMetricsFilteredCounter` must create a `promutil.ScrapeMetrics` value and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` and `exporter.UpdateMetrics` do not need immediate changes, but those APIs are now deprecated.
+
+* [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
+* [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, `metrics.NewScraper`, `(*metrics.Scraper).RegisterCollectors`, and `(*metrics.Scraper).Scrape` instead of `exporter.DefaultMetricsPerQuery`, `exporter.DefaultLabelsSnakeCase`, `exporter.DefaultTaggingAPIConcurrency`, `exporter.DefaultCloudwatchConcurrency`, `exporter.Metrics`, `exporter.BuildPrometheusMetrics`, and `exporter.UpdateMetrics`. #1857
+
 ## 0.65.0 / 2026-04-21
 
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843
