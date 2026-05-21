@@ -57,6 +57,9 @@ type client struct {
 }
 
 func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client, scrapeMetrics *promutil.ScrapeMetrics) Client {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.NewScrapeMetrics()
+	}
 	return &client{
 		logger:        logger,
 		cloudwatchAPI: cloudwatchAPI,

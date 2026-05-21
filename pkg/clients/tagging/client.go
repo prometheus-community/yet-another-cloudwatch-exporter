@@ -68,6 +68,9 @@ func NewClient(
 	shieldAPI *shield.Client,
 	scrapeMetrics *promutil.ScrapeMetrics,
 ) Client {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.NewScrapeMetrics()
+	}
 	return &client{
 		logger:            logger,
 		taggingAPI:        taggingAPI,
