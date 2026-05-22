@@ -13,105 +13,141 @@
 package promutil
 
 import (
+	"context"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/model"
 	"golang.org/x/exp/maps"
 )
 
+// NOTE: these should be removed once exporter.Metrics is removed.
+var (
+	deprecatedRegistry      = prometheus.NewRegistry()
+	deprecatedScrapeMetrics = NewScrapeMetrics(deprecatedRegistry)
+)
+
+// Deprecated: new code should call NewScrapeMetrics with its own registry.
+func DeprecatedScrapeMetrics() *ScrapeMetrics { return deprecatedScrapeMetrics }
+
+var (
+	// NoopRegisterer is a registry which discards every registration.
+	NoopRegisterer prometheus.Registerer = noopRegisterer{}
+	Discard                              = NewScrapeMetrics(NoopRegisterer)
+)
+
+type noopRegisterer struct{}
+
+func (noopRegisterer) Register(prometheus.Collector) error  { return nil }
+func (noopRegisterer) MustRegister(...prometheus.Collector) {}
+func (noopRegisterer) Unregister(prometheus.Collector) bool { return true }
+
 type ScrapeMetrics struct {
-	CloudwatchAPIErrorCounter                *prometheus.CounterVec
-	CloudwatchAPICounter                     *prometheus.CounterVec
-	CloudwatchGetMetricDataAPICounter        prometheus.Counter
-	CloudwatchGetMetricDataAPIMetricsCounter prometheus.Counter
-	CloudwatchGetMetricStatisticsAPICounter  prometheus.Counter
-	ResourceGroupTaggingAPICounter           prometheus.Counter
-	AutoScalingAPICounter                    prometheus.Counter
-	TargetGroupsAPICounter                   prometheus.Counter
-	APIGatewayAPICounter                     prometheus.Counter
-	APIGatewayAPIV2Counter                   prometheus.Counter
-	Ec2APICounter                            prometheus.Counter
-	ShieldAPICounter                         prometheus.Counter
-	ManagedPrometheusAPICounter              prometheus.Counter
-	StoragegatewayAPICounter                 prometheus.Counter
-	DmsAPICounter                            prometheus.Counter
-	DuplicateMetricsFilteredCounter          prometheus.Counter
+	CloudwatchAPIErrorCounter                CounterVec // labels: api_name
+	CloudwatchAPICounter                     CounterVec // labels: api_name
+	CloudwatchGetMetricDataAPICounter        Counter
+	CloudwatchGetMetricDataAPIMetricsCounter Counter
+	CloudwatchGetMetricStatisticsAPICounter  Counter
+	ResourceGroupTaggingAPICounter           Counter
+	AutoScalingAPICounter                    Counter
+	TargetGroupsAPICounter                   Counter
+	APIGatewayAPICounter                     Counter
+	APIGatewayAPIV2Counter                   Counter
+	Ec2APICounter                            Counter
+	ShieldAPICounter                         Counter
+	ManagedPrometheusAPICounter              Counter
+	StoragegatewayAPICounter                 Counter
+	DmsAPICounter                            Counter
+	DuplicateMetricsFilteredCounter          Counter
 }
 
-func NewScrapeMetrics() *ScrapeMetrics {
+func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
+	if r == nil {
+		r = NoopRegisterer
+	}
+	f := promauto.With(r)
+
 	return &ScrapeMetrics{
-		CloudwatchAPIErrorCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+		CloudwatchAPIErrorCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_request_errors",
 			Help: "Help is not implemented yet.",
-		}, []string{"api_name"}),
-		CloudwatchAPICounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+		}, []string{"api_name"})},
+		CloudwatchAPICounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_requests_total",
 			Help: "Number of calls made to the CloudWatch APIs",
-		}, []string{"api_name"}),
-		CloudwatchGetMetricDataAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		}, []string{"api_name"})},
+		CloudwatchGetMetricDataAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_requests_total",
 			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
-		}),
-		CloudwatchGetMetricDataAPIMetricsCounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		CloudwatchGetMetricDataAPIMetricsCounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_metrics_requested_total",
 			Help: "Number of metrics requested from the CloudWatch GetMetricData API which is how AWS bills",
-		}),
-		CloudwatchGetMetricStatisticsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		CloudwatchGetMetricStatisticsAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricstatistics_requests_total",
 			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
-		}),
-		ResourceGroupTaggingAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		ResourceGroupTaggingAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_resourcegrouptaggingapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		AutoScalingAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		AutoScalingAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_autoscalingapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		TargetGroupsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		TargetGroupsAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_targetgroupapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		APIGatewayAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		APIGatewayAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_apigatewayapi_requests_total",
-		}),
-		APIGatewayAPIV2Counter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		APIGatewayAPIV2Counter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_apigatewayapiv2_requests_total",
-		}),
-		Ec2APICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		Ec2APICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_ec2api_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		ShieldAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		ShieldAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_shieldapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		ManagedPrometheusAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		ManagedPrometheusAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_managedprometheusapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		StoragegatewayAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		StoragegatewayAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_storagegatewayapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		DmsAPICounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		DmsAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_dmsapi_requests_total",
 			Help: "Help is not implemented yet.",
-		}),
-		DuplicateMetricsFilteredCounter: prometheus.NewCounter(prometheus.CounterOpts{
+		})},
+		DuplicateMetricsFilteredCounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_duplicate_metrics_filtered",
 			Help: "Help is not implemented yet.",
-		}),
+		})},
 	}
 }
 
+// Collectors returns the underlying prometheus collectors for direct
+// registration on a caller-supplied registry. Returns nil for a nil receiver
+// or zero-value ScrapeMetrics.
 func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{
+	if m == nil {
+		return nil
+	}
+	vecs := []CounterVec{
 		m.CloudwatchAPIErrorCounter,
 		m.CloudwatchAPICounter,
+	}
+	counters := []Counter{
 		m.CloudwatchGetMetricDataAPICounter,
 		m.CloudwatchGetMetricDataAPIMetricsCounter,
 		m.CloudwatchGetMetricStatisticsAPICounter,
@@ -119,11 +155,26 @@ func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
 		m.AutoScalingAPICounter,
 		m.TargetGroupsAPICounter,
 		m.APIGatewayAPICounter,
+		m.APIGatewayAPIV2Counter,
 		m.Ec2APICounter,
-		m.DmsAPICounter,
+		m.ShieldAPICounter,
+		m.ManagedPrometheusAPICounter,
 		m.StoragegatewayAPICounter,
+		m.DmsAPICounter,
 		m.DuplicateMetricsFilteredCounter,
 	}
+	out := make([]prometheus.Collector, 0, len(vecs)+len(counters))
+	for _, c := range vecs {
+		if c.inner != nil {
+			out = append(out, c.inner)
+		}
+	}
+	for _, c := range counters {
+		if c.inner != nil {
+			out = append(out, c.inner)
+		}
+	}
+	return out
 }
 
 var replacer = strings.NewReplacer(
@@ -270,4 +321,56 @@ func sanitize(text string) string {
 		}
 	}
 	return string(b)
+}
+
+// Counter wraps a prometheus.Counter so Inc and Add are no-ops when inner is nil.
+type Counter struct {
+	inner prometheus.Counter
+}
+
+func (c Counter) Inc() {
+	if c.inner != nil {
+		c.inner.Inc()
+	}
+}
+
+func (c Counter) Add(v float64) {
+	if c.inner != nil {
+		c.inner.Add(v)
+	}
+}
+
+func (c Counter) Raw() prometheus.Counter { return c.inner }
+
+// CounterVec wraps a *prometheus.CounterVec so Inc and Add are no-ops when inner is nil.
+type CounterVec struct {
+	inner *prometheus.CounterVec
+}
+
+func (c CounterVec) Inc(labels ...string) {
+	if c.inner != nil {
+		c.inner.WithLabelValues(labels...).Inc()
+	}
+}
+
+func (c CounterVec) Add(v float64, labels ...string) {
+	if c.inner != nil {
+		c.inner.WithLabelValues(labels...).Add(v)
+	}
+}
+
+func (c CounterVec) Raw() *prometheus.CounterVec { return c.inner }
+
+// scrapeMetricsCtxKey allows us to store ScrapeMetrics in a context.
+type scrapeMetricsCtxKey struct{}
+
+func ContextWithScrapeMetrics(ctx context.Context, m *ScrapeMetrics) context.Context {
+	return context.WithValue(ctx, scrapeMetricsCtxKey{}, m)
+}
+
+func ScrapeMetricsFromContext(ctx context.Context) *ScrapeMetrics {
+	if m, ok := ctx.Value(scrapeMetricsCtxKey{}).(*ScrapeMetrics); ok && m != nil {
+		return m
+	}
+	return Discard
 }

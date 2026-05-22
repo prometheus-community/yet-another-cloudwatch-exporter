@@ -39,12 +39,10 @@ const (
 // Deprecated: use config.DefaultCloudwatchConcurrency.
 var DefaultCloudwatchConcurrency = toClientCloudWatchConcurrency(config.DefaultCloudwatchConcurrency)
 
-var deprecatedScrapeMetrics = promutil.NewScrapeMetrics()
-
 // Metrics is a slice of prometheus metrics specific to the scraping process such API call counters.
 //
-// Deprecated: use metrics.NewScraper and (*metrics.Scraper).RegisterCollectors.
-var Metrics = deprecatedScrapeMetrics.Collectors()
+// Deprecated: use metrics.NewScraper with promutil.NewScrapeMetrics(registry).
+var Metrics = promutil.DeprecatedScrapeMetrics().Collectors() //nolint:staticcheck
 
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
 // is disabled.
@@ -163,7 +161,7 @@ func BuildPrometheusMetrics(
 		}
 	}
 
-	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory)
+	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory, promutil.DeprecatedScrapeMetrics())
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +193,7 @@ func BuildPrometheusMetrics(
 //	}
 //	registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
 //
-// Deprecated: use metrics.NewScraper, (*metrics.Scraper).RegisterCollectors, and (*metrics.Scraper).Scrape.
+// Deprecated: use metrics.NewScraper and (*metrics.Scraper).Scrape.
 func UpdateMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -211,7 +209,7 @@ func UpdateMetrics(
 		}
 	}
 
-	scraper, err := metrics.NewLegacyScraperWithMetrics(logger, configFromOptions(options), jobsCfg, factory, deprecatedScrapeMetrics)
+	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory, promutil.DeprecatedScrapeMetrics())
 	if err != nil {
 		return err
 	}

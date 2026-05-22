@@ -13,6 +13,7 @@
 package promutil
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -326,15 +327,11 @@ func recordLabelsForMetric(metricName string, promLabels map[string]string, obse
 	return observedMetricLabels
 }
 
-// EnsureLabelConsistencyAndRemoveDuplicates ensures that every metric has the same set of labels based on the data
-// in observedMetricLabels and that there are no duplicate metrics.
-// Prometheus requires that all metrics with the same name have the same set of labels and that no duplicates are registered
-func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, scrapeMetrics *ScrapeMetrics) []*PrometheusMetric {
-	if scrapeMetrics == nil {
-		// Local instance only; not registered, so counters here cannot be collected.
-		// TODO: This is a temporary fix to avoid panicking. We should find a better way to handle this.
-		scrapeMetrics = NewScrapeMetrics()
-	}
+// EnsureLabelConsistencyAndRemoveDuplicates aligns the label set of every
+// metric with the same name and drops duplicates. The duplicate-filtered
+// counter is read from the *ScrapeMetrics carried in ctx, or Discard if none.
+func EnsureLabelConsistencyAndRemoveDuplicates(ctx context.Context, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet) []*PrometheusMetric {
+	scrapeMetrics := ScrapeMetricsFromContext(ctx)
 	metricKeys := make(map[string]struct{}, len(metrics))
 	output := make([]*PrometheusMetric, 0, len(metrics))
 

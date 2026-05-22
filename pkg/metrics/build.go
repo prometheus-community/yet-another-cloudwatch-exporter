@@ -16,7 +16,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/prometheus/client_golang/prometheus"
 	prom "github.com/prometheus/common/model"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
@@ -43,34 +42,12 @@ func NewScraper(
 	cfg config.Config,
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
-) (*Scraper, error) {
-	return newScraperWithMetrics(logger, cfg, jobsCfg, factory, promutil.NewScrapeMetrics())
-}
-
-// NewLegacyScraperWithMetrics creates a scraper using caller-provided scrape instrumentation collectors.
-//
-// Deprecated: use NewScraper for isolated scrape instrumentation.
-func NewLegacyScraperWithMetrics(
-	logger *slog.Logger,
-	cfg config.Config,
-	jobsCfg model.JobsConfig,
-	factory clients.Factory,
 	scrapeMetrics *promutil.ScrapeMetrics,
 ) (*Scraper, error) {
-	return newScraperWithMetrics(logger, cfg, jobsCfg, factory, scrapeMetrics)
-}
-
-func newScraperWithMetrics(
-	logger *slog.Logger,
-	cfg config.Config,
-	jobsCfg model.JobsConfig,
-	factory clients.Factory,
-	scrapeMetrics *promutil.ScrapeMetrics,
-) (*Scraper, error) {
-	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
-	if instrumentedFactory, ok := factory.(clients.InstrumentedFactory); ok {
-		factory = instrumentedFactory.WithScrapeMetrics(scrapeMetrics)
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.Discard
 	}
+	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
 	return &Scraper{
 		logger:        logger,
 		cfg:           cfg,
@@ -80,21 +57,12 @@ func newScraperWithMetrics(
 	}, nil
 }
 
-// RegisterCollectors registers the scraper's instrumentation collectors with registry.
-func (s *Scraper) RegisterCollectors(registry *prometheus.Registry) error {
-	for _, collector := range s.scrapeMetrics.Collectors() {
-		if err := registry.Register(collector); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Scrape performs one CloudWatch scrape and converts the result into Prometheus metrics.
 func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, error) {
 	// Use legacy validation as that's the behaviour of former releases.
 	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
 
+	ctx = promutil.ContextWithScrapeMetrics(ctx, s.scrapeMetrics)
 	ctx = config.CtxWithFlags(ctx, featureFlagsMapFromSlice(s.cfg.FeatureFlags))
 
 	tagsData, cloudwatchData := job.ScrapeAwsData(
@@ -112,7 +80,7 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 		return nil, err
 	}
 	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, s.cfg.LabelsSnakeCase, s.logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(metrics, observedMetricLabels, s.scrapeMetrics)
+	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(ctx, metrics, observedMetricLabels)
 
 	return metrics, nil
 }

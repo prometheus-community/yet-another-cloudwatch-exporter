@@ -13,6 +13,7 @@
 package promutil
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -1587,20 +1588,8 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := EnsureLabelConsistencyAndRemoveDuplicates(tc.metrics, tc.observedLabels, NewScrapeMetrics())
+			actual := EnsureLabelConsistencyAndRemoveDuplicates(context.Background(), tc.metrics, tc.observedLabels)
 			require.ElementsMatch(t, tc.output, actual)
 		})
 	}
-
-	t.Run("nil scrapeMetrics does not panic", func(t *testing.T) {
-		metrics := []*PrometheusMetric{
-			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 1.0},
-			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 2.0},
-		}
-		observed := map[string]model.LabelSet{"metric1": {"label1": {}}}
-
-		require.NotPanics(t, func() {
-			EnsureLabelConsistencyAndRemoveDuplicates(metrics, observed, nil)
-		})
-	})
 }

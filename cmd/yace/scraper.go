@@ -29,9 +29,14 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
+// Scraper holds two registries served together via prometheus.Gatherers:
+//   - stableReg: scrape instrumentation counters that accumulate across scrapes.
+//   - resultReg: latest-scrape result collector, swapped atomically each scrape.
 type Scraper struct {
-	registry atomic.Pointer[prometheus.Registry]
-	config   config.Config
+	stableReg     *prometheus.Registry
+	resultReg     atomic.Pointer[prometheus.Registry]
+	scrapeMetrics *promutil.ScrapeMetrics
+	config        config.Config
 }
 
 type cachingFactory interface {
@@ -42,17 +47,20 @@ type cachingFactory interface {
 
 func NewScraper(cfg config.Config) *Scraper {
 	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
+	stableReg := prometheus.NewRegistry()
 	s := &Scraper{
-		registry: atomic.Pointer[prometheus.Registry]{},
-		config:   cfg,
+		stableReg:     stableReg,
+		scrapeMetrics: promutil.NewScrapeMetrics(stableReg),
+		config:        cfg,
 	}
-	s.registry.Store(prometheus.NewRegistry())
+	s.resultReg.Store(prometheus.NewRegistry())
 	return s
 }
 
 func (s *Scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler := promhttp.HandlerFor(s.registry.Load(), promhttp.HandlerOpts{
+		gatherers := prometheus.Gatherers{s.stableReg, s.resultReg.Load()}
+		handler := promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
 			DisableCompression: false,
 		})
 		handler.ServeHTTP(w, r)
@@ -60,7 +68,7 @@ func (s *Scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func (s *Scraper) decoupled(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
-	metricsScraper, err := yacemetrics.NewScraper(logger, s.config, jobsCfg, cache)
+	metricsScraper, err := yacemetrics.NewScraper(logger, s.config, jobsCfg, cache, s.scrapeMetrics)
 	if err != nil {
 		logger.Error("invalid runtime scrape configuration", "err", err)
 		return
@@ -100,19 +108,14 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, scraper *yace
 	cache.Refresh()
 	defer cache.Clear()
 
-	newRegistry := prometheus.NewRegistry()
-	if err := scraper.RegisterCollectors(newRegistry); err != nil {
-		logger.Error("error registering scrape collectors", "err", err)
-		return
-	}
-
 	metrics, err := scraper.Scrape(ctx)
 	if err != nil {
 		logger.Error("error updating metrics", "err", err)
 		return
 	}
-	newRegistry.MustRegister(promutil.NewPrometheusCollector(metrics))
 
-	s.registry.Store(newRegistry)
+	newResultReg := prometheus.NewRegistry()
+	newResultReg.MustRegister(promutil.NewPrometheusCollector(metrics))
+	s.resultReg.Store(newResultReg)
 	logger.Debug("Metrics scraped")
 }

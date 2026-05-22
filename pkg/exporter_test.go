@@ -26,7 +26,6 @@ import (
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
@@ -41,7 +40,6 @@ type mockFactory struct {
 	cloudwatchClient mockCloudwatchClient
 	taggingClient    mockTaggingClient
 	accountClient    mockAccountClient
-	scrapeMetrics    *promutil.ScrapeMetrics
 }
 
 func (f *mockFactory) GetCloudwatchClient(_ string, _ model.Role, _ cloudwatch.ConcurrencyConfig) cloudwatch.Client {
@@ -54,11 +52,6 @@ func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Cl
 
 func (f *mockFactory) GetAccountClient(_ string, _ model.Role) account.Client {
 	return f.accountClient
-}
-
-func (f *mockFactory) WithScrapeMetrics(scrapeMetrics *promutil.ScrapeMetrics) clients.Factory {
-	f.scrapeMetrics = scrapeMetrics
-	return f
 }
 
 // mockAccountClient implements the account.Client interface
@@ -215,8 +208,7 @@ func TestUpdateMetrics_UsesDeprecatedScrapeMetrics(t *testing.T) {
 	err := UpdateMetrics(ctx, logger, jobsCfg, prometheus.NewRegistry(), factory)
 	require.NoError(t, err)
 
-	require.Same(t, deprecatedScrapeMetrics, factory.scrapeMetrics)
-	require.Equal(t, deprecatedScrapeMetrics.Collectors(), Metrics)
+	require.Equal(t, promutil.DeprecatedScrapeMetrics().Collectors(), Metrics) //nolint:staticcheck // verifying deprecated API
 }
 
 func TestMetricsScrape_StaticJob(t *testing.T) {
@@ -254,7 +246,8 @@ func TestMetricsScrape_StaticJob(t *testing.T) {
 	}
 
 	registry := prometheus.NewRegistry()
-	scraper, err := yacemetrics.NewScraper(logger, config.DefaultConfig(), jobsCfg, factory)
+	// Discard scrape metrics so only the resulting AWS metric lands on the test registry.
+	scraper, err := yacemetrics.NewScraper(logger, config.DefaultConfig(), jobsCfg, factory, promutil.Discard)
 	require.NoError(t, err)
 	metrics, err := scraper.Scrape(ctx)
 	require.NoError(t, err)
