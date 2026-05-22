@@ -1591,4 +1591,16 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 			require.ElementsMatch(t, tc.output, actual)
 		})
 	}
+
+	t.Run("nil scrapeMetrics does not panic", func(t *testing.T) {
+		metrics := []*PrometheusMetric{
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 1.0},
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 2.0},
+		}
+		observed := map[string]model.LabelSet{"metric1": {"label1": {}}}
+
+		require.NotPanics(t, func() {
+			EnsureLabelConsistencyAndRemoveDuplicates(metrics, observed, nil)
+		})
+	})
 }

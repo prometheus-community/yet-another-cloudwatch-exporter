@@ -330,6 +330,11 @@ func recordLabelsForMetric(metricName string, promLabels map[string]string, obse
 // in observedMetricLabels and that there are no duplicate metrics.
 // Prometheus requires that all metrics with the same name have the same set of labels and that no duplicates are registered
 func EnsureLabelConsistencyAndRemoveDuplicates(metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet, scrapeMetrics *ScrapeMetrics) []*PrometheusMetric {
+	if scrapeMetrics == nil {
+		// Local instance only; not registered, so counters here cannot be collected.
+		// TODO: This is a temporary fix to avoid panicking. We should find a better way to handle this.
+		scrapeMetrics = NewScrapeMetrics()
+	}
 	metricKeys := make(map[string]struct{}, len(metrics))
 	output := make([]*PrometheusMetric, 0, len(metrics))
 
