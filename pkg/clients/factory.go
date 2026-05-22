@@ -73,6 +73,7 @@ type awsRegion = string
 
 type CachingFactory struct {
 	logger              *slog.Logger
+	scrapeMetrics       *promutil.ScrapeMetrics
 	stsOptions          func(*sts.Options)
 	clients             map[model.Role]map[awsRegion]*cachedClients
 	mu                  sync.Mutex
@@ -80,7 +81,6 @@ type CachingFactory struct {
 	cleared             *atomic.Bool
 	fipsEnabled         bool
 	endpointURLOverride string
-	scrapeMetrics       *promutil.ScrapeMetrics
 }
 
 type cachingFactoryWithScrapeMetrics struct {
@@ -217,7 +217,7 @@ func (c *CachingFactory) getCloudwatchClient(region string, role model.Role, con
 		defer c.mu.Unlock()
 	}
 
-	client := cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig), scrapeMetrics)
+	client := cloudwatch_client.NewClient(c.logger, scrapeMetrics, c.createCloudwatchClient(c.clients[role][region].awsConfig))
 	return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 }
 
@@ -237,6 +237,7 @@ func (c *CachingFactory) getTaggingClient(region string, role model.Role, concur
 	}
 	client := tagging.NewClient(
 		c.logger,
+		scrapeMetrics,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
 		c.createAPIGatewayClient(c.clients[role][region].awsConfig),
@@ -246,7 +247,6 @@ func (c *CachingFactory) getTaggingClient(region string, role model.Role, concur
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
 		c.createStorageGatewayClient(c.clients[role][region].awsConfig),
 		c.createShieldClient(c.clients[role][region].awsConfig),
-		scrapeMetrics,
 	)
 	return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 }

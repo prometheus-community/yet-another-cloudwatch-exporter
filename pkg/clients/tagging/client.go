@@ -43,6 +43,7 @@ var ErrExpectedToFindResources = errors.New("expected to discover resources but 
 
 type client struct {
 	logger            *slog.Logger
+	scrapeMetrics     *promutil.ScrapeMetrics
 	taggingAPI        *resourcegroupstaggingapi.Client
 	autoscalingAPI    *autoscaling.Client
 	apiGatewayAPI     *apigateway.Client
@@ -52,11 +53,11 @@ type client struct {
 	prometheusSvcAPI  *amp.Client
 	storageGatewayAPI *storagegateway.Client
 	shieldAPI         *shield.Client
-	scrapeMetrics     *promutil.ScrapeMetrics
 }
 
 func NewClient(
 	logger *slog.Logger,
+	scrapeMetrics *promutil.ScrapeMetrics,
 	taggingAPI *resourcegroupstaggingapi.Client,
 	autoscalingAPI *autoscaling.Client,
 	apiGatewayAPI *apigateway.Client,
@@ -66,7 +67,6 @@ func NewClient(
 	prometheusClient *amp.Client,
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
-	scrapeMetrics *promutil.ScrapeMetrics,
 ) Client {
 	if scrapeMetrics == nil {
 		// Local instance only; not registered, so counters here cannot be collected.
@@ -75,6 +75,7 @@ func NewClient(
 	}
 	return &client{
 		logger:            logger,
+		scrapeMetrics:     scrapeMetrics,
 		taggingAPI:        taggingAPI,
 		autoscalingAPI:    autoscalingAPI,
 		apiGatewayAPI:     apiGatewayAPI,
@@ -84,7 +85,6 @@ func NewClient(
 		prometheusSvcAPI:  prometheusClient,
 		storageGatewayAPI: storageGatewayAPI,
 		shieldAPI:         shieldAPI,
-		scrapeMetrics:     scrapeMetrics,
 	}
 }
 

@@ -52,11 +52,11 @@ type DataPoint struct {
 
 type client struct {
 	logger        *slog.Logger
-	cloudwatchAPI *aws_cloudwatch.Client
 	scrapeMetrics *promutil.ScrapeMetrics
+	cloudwatchAPI *aws_cloudwatch.Client
 }
 
-func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client, scrapeMetrics *promutil.ScrapeMetrics) Client {
+func NewClient(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, cloudwatchAPI *aws_cloudwatch.Client) Client {
 	if scrapeMetrics == nil {
 		// Local instance only; not registered, so counters here cannot be collected.
 		// TODO: This is a temporary fix to avoid panicking. We should find a better way to handle this.
@@ -64,8 +64,8 @@ func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client, scrape
 	}
 	return &client{
 		logger:        logger,
-		cloudwatchAPI: cloudwatchAPI,
 		scrapeMetrics: scrapeMetrics,
+		cloudwatchAPI: cloudwatchAPI,
 	}
 }
 
