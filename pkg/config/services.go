@@ -429,6 +429,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/ECS/ManagedScaling",
+		Alias:     "ecs-managedscaling",
+		ResourceFilters: []*string{
+			aws.String("ecs:cluster"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":cluster/(?P<ClusterName>[^/]+)$"),
+		},
+	},
+	{
 		Namespace: "ContainerInsights",
 		Alias:     "containerinsights",
 		ResourceFilters: []*string{
