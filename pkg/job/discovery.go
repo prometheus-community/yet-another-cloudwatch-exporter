@@ -64,7 +64,7 @@ func runDiscoveryJob(
 	resources, err := clientTag.GetResources(ctx, job, region)
 	if err != nil {
 		if errors.Is(err, tagging.ErrExpectedToFindResources) {
-			logger.Error("No tagged resources made it through filtering", "err", err)
+			logger.Warn("No tagged resources made it through filtering", "err", err)
 		} else {
 			logger.Error("Couldn't describe resources", "err", err)
 		}
