@@ -22,25 +22,27 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
+// awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
 	ListFunctions(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }
 
 // AWSLambdaClient wraps the AWS Lambda client
 type AWSLambdaClient struct {
-	client awsClient
+	listFunctionsFunc func(ctx context.Context, params *lambda.ListFunctionsInput, optFns ...func(*lambda.Options)) (*lambda.ListFunctionsOutput, error)
 }
 
 // NewLambdaClientWithConfig creates a new Lambda client with custom AWS configuration
 func NewLambdaClientWithConfig(cfg aws.Config) Client {
+	c := lambda.NewFromConfig(cfg)
 	return &AWSLambdaClient{
-		client: lambda.NewFromConfig(cfg),
+		listFunctionsFunc: c.ListFunctions,
 	}
 }
 
 // listFunctions retrieves a list of Lambda regionalData
 func (c *AWSLambdaClient) listFunctions(ctx context.Context, input *lambda.ListFunctionsInput) (*lambda.ListFunctionsOutput, error) {
-	result, err := c.client.ListFunctions(ctx, input)
+	result, err := c.listFunctionsFunc(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Lambda regionalData: %w", err)
 	}

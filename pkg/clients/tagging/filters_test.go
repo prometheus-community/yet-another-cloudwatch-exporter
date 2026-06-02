@@ -174,8 +174,8 @@ func TestApiGatewayFilterFunc(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
-				apiGatewayAPI:   tc.apiGatewayAPI,
-				apiGatewayV2API: tc.apiGatewayV2API,
+				apiGatewayAPI:   newAPIGatewayClientAdapter(tc.apiGatewayAPI),
+				apiGatewayV2API: newAPIGatewayV2ClientAdapter(tc.apiGatewayV2API),
 			}
 
 			filter := ServiceFilters["AWS/ApiGateway"]
@@ -299,7 +299,7 @@ func TestDMSFilterFunc(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
-				dmsAPI: tc.dmsAPI,
+				dmsAPI: newDMSClientAdapter(tc.dmsAPI),
 			}
 
 			filter := ServiceFilters["AWS/DMS"]

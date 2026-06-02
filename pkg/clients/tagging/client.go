@@ -35,6 +35,21 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
+// Compile-time checks that the adapters satisfy the interfaces the AWS SDK
+// paginators expect, catching any signature drift early.
+var (
+	_ resourcegroupstaggingapi.GetResourcesAPIClient                 = taggingClientAdapter{}
+	_ autoscaling.DescribeAutoScalingGroupsAPIClient                 = autoscalingClientAdapter{}
+	_ apigateway.GetRestApisAPIClient                                = apiGatewayClientAdapter{}
+	_ ec2.DescribeSpotFleetRequestsAPIClient                         = ec2ClientAdapter{}
+	_ ec2.DescribeTransitGatewayAttachmentsAPIClient                 = ec2ClientAdapter{}
+	_ databasemigrationservice.DescribeReplicationInstancesAPIClient = dmsClientAdapter{}
+	_ databasemigrationservice.DescribeReplicationTasksAPIClient     = dmsClientAdapter{}
+	_ amp.ListWorkspacesAPIClient                                    = prometheusClientAdapter{}
+	_ storagegateway.ListGatewaysAPIClient                           = storageGatewayClientAdapter{}
+	_ shield.ListProtectionsAPIClient                                = shieldClientAdapter{}
+)
+
 type Client interface {
 	GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error)
 }
@@ -43,15 +58,15 @@ var ErrExpectedToFindResources = errors.New("expected to discover resources but 
 
 type client struct {
 	logger            *slog.Logger
-	taggingAPI        *resourcegroupstaggingapi.Client
-	autoscalingAPI    *autoscaling.Client
-	apiGatewayAPI     *apigateway.Client
-	apiGatewayV2API   *apigatewayv2.Client
-	ec2API            *ec2.Client
-	dmsAPI            *databasemigrationservice.Client
-	prometheusSvcAPI  *amp.Client
-	storageGatewayAPI *storagegateway.Client
-	shieldAPI         *shield.Client
+	taggingAPI        taggingClientAdapter
+	autoscalingAPI    autoscalingClientAdapter
+	apiGatewayAPI     apiGatewayClientAdapter
+	apiGatewayV2API   apiGatewayV2ClientAdapter
+	ec2API            ec2ClientAdapter
+	dmsAPI            dmsClientAdapter
+	prometheusSvcAPI  prometheusClientAdapter
+	storageGatewayAPI storageGatewayClientAdapter
+	shieldAPI         shieldClientAdapter
 }
 
 func NewClient(
@@ -68,15 +83,15 @@ func NewClient(
 ) Client {
 	return &client{
 		logger:            logger,
-		taggingAPI:        taggingAPI,
-		autoscalingAPI:    autoscalingAPI,
-		apiGatewayAPI:     apiGatewayAPI,
-		apiGatewayV2API:   apiGatewayV2API,
-		ec2API:            ec2API,
-		dmsAPI:            dmsClient,
-		prometheusSvcAPI:  prometheusClient,
-		storageGatewayAPI: storageGatewayAPI,
-		shieldAPI:         shieldAPI,
+		taggingAPI:        newTaggingClientAdapter(taggingAPI),
+		autoscalingAPI:    newAutoscalingClientAdapter(autoscalingAPI),
+		apiGatewayAPI:     newAPIGatewayClientAdapter(apiGatewayAPI),
+		apiGatewayV2API:   newAPIGatewayV2ClientAdapter(apiGatewayV2API),
+		ec2API:            newEC2ClientAdapter(ec2API),
+		dmsAPI:            newDMSClientAdapter(dmsClient),
+		prometheusSvcAPI:  newPrometheusClientAdapter(prometheusClient),
+		storageGatewayAPI: newStorageGatewayClientAdapter(storageGatewayAPI),
+		shieldAPI:         newShieldClientAdapter(shieldAPI),
 	}
 }
 
