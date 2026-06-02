@@ -22,26 +22,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+// awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
 	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
 }
 
 // AWSDynamoDBClient wraps the AWS DynamoDB client
 type AWSDynamoDBClient struct {
-	client awsClient
+	describeTableFunc func(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
 }
 
 // NewDynamoDBClientWithConfig creates a new DynamoDB client with custom AWS configuration
 func NewDynamoDBClientWithConfig(cfg aws.Config) Client {
+	c := dynamodb.NewFromConfig(cfg)
 	return &AWSDynamoDBClient{
-		client: dynamodb.NewFromConfig(cfg),
+		describeTableFunc: c.DescribeTable,
 	}
 }
 
 // describeTable retrieves detailed information about a DynamoDB table
 func (c *AWSDynamoDBClient) describeTable(ctx context.Context, tableARN string) (*types.TableDescription, error) {
-	result, err := c.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-		// TableName can be either the table name or ARN
+	result, err := c.describeTableFunc(ctx, &dynamodb.DescribeTableInput{
+		// TableName can be either the table name or ARN.
 		TableName: aws.String(tableARN),
 	})
 	if err != nil {

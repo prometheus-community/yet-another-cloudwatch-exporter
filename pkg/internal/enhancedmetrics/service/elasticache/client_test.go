@@ -92,7 +92,7 @@ func TestAWSElastiCacheClient_DescribeAllCacheClusters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &AWSElastiCacheClient{
-				client: tt.client,
+				describeCacheClustersFunc: tt.client.DescribeCacheClusters,
 			}
 			got, err := c.DescribeAllCacheClusters(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {

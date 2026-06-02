@@ -30,21 +30,21 @@ type Client interface {
 }
 
 type client struct {
-	logger    *slog.Logger
-	stsClient *sts.Client
-	iamClient *iam.Client
+	logger             *slog.Logger
+	getCallerIdentity  func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
+	listAccountAliases func(ctx context.Context, params *iam.ListAccountAliasesInput, optFns ...func(*iam.Options)) (*iam.ListAccountAliasesOutput, error)
 }
 
 func NewClient(logger *slog.Logger, stsClient *sts.Client, iamClient *iam.Client) Client {
 	return &client{
-		logger:    logger,
-		stsClient: stsClient,
-		iamClient: iamClient,
+		logger:             logger,
+		getCallerIdentity:  stsClient.GetCallerIdentity,
+		listAccountAliases: iamClient.ListAccountAliases,
 	}
 }
 
 func (c client) GetAccount(ctx context.Context) (string, error) {
-	result, err := c.stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	result, err := c.getCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func (c client) GetAccount(ctx context.Context) (string, error) {
 }
 
 func (c client) GetAccountAlias(ctx context.Context) (string, error) {
-	acctAliasOut, err := c.iamClient.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
+	acctAliasOut, err := c.listAccountAliases(ctx, &iam.ListAccountAliasesInput{})
 	if err != nil {
 		return "", err
 	}

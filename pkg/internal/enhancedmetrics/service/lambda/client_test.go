@@ -92,7 +92,7 @@ func TestAWSLambdaClient_ListAllFunctions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &AWSLambdaClient{
-				client: tt.client,
+				listFunctionsFunc: tt.client.ListFunctions,
 			}
 			got, err := c.ListAllFunctions(context.Background(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr {
