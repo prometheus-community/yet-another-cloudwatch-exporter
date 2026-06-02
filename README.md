@@ -78,6 +78,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/DynamoDB` - NoSQL Key-Value Database
   * `AWS/EBS` - Elastic Block Storage
   * `AWS/EC2` - Elastic Compute Cloud
+  * `AWS/EC2CapacityReservations` - EC2 Capacity Reservations
   * `AWS/EC2Spot` - Elastic Compute Cloud for Spot Instances
   * `AWS/ECR` - Elastic Container Registry
   * `AWS/ECS` - Elastic Container Service (Service Metrics)
