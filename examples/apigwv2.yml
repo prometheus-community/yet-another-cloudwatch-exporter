@@ -1,0 +1,18 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/ApiGateway
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: Latency
+          statistics: [Average, Maximum, p95, p99]
+        - name: Count
+          statistics: [SampleCount, Sum]
+        - name: 4XXError
+          statistics: [Sum]
+        - name: 5XXError
+          statistics: [Sum]
+
