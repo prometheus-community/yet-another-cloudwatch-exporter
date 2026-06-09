@@ -1,5 +1,14 @@
 ## main / (unreleased)
 
+**Important news and breaking changes**
+
+- BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil`, found [here](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/promutil/prometheus.go#L25-L88) have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics()`. Go library users importing those metrics must create a `promutil.ScrapeMetrics` value and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` and `exporter.UpdateMetrics` do not need immediate changes, but those APIs are now deprecated.
+
+- BREAKING CHANGE: [`cloudwatch.NewClient`](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/clients/cloudwatch/client.go#L58-L63) and [`tagging.NewClient`](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/clients/tagging/client.go#L57-L81) now require a `*promutil.ScrapeMetrics` argument for API request instrumentation. Library users that construct these clients directly must pass a `promutil.ScrapeMetrics` instance (for example from `promutil.NewScrapeMetrics()`). Users building clients via `clients.NewFactory` get a default scrape metrics instance automatically.
+
+* [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
+* [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, instead of the [constants from the exporter package](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/exporter.go#L48-L62). #1857
+
 ## 0.65.0 / 2026-04-21
 
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843

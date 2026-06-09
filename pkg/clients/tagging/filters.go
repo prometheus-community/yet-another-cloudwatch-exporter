@@ -51,18 +51,21 @@ var ServiceFilters = map[string]ServiceFilter{
 		// in v1 REST APIs we change the ARN to replace the ApiId with ApiName, while for v2 APIs
 		// we leave the ARN as-is.
 		FilterFunc: func(ctx context.Context, client client, inputResources []*model.TaggedResource) ([]*model.TaggedResource, error) {
-			var limit int32 = 500 // max number of results per page. default=25, max=500
-			const maxPages = 10
-			input := apigateway.GetRestApisInput{Limit: &limit}
-			output := apigateway.GetRestApisOutput{}
-			var pageNum int
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
 
+			const maxPages = 10
+			const maxResultsPerPage = 500 // increased to reduce throttling occurrences.
+			pageNum := 0
+
+			input := apigateway.GetRestApisInput{Limit: aws.Int32(maxResultsPerPage)}
+			output := apigateway.GetRestApisOutput{}
 			paginator := apigateway.NewGetRestApisPaginator(client.apiGatewayAPI, &input, func(options *apigateway.GetRestApisPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
+
 			for paginator.HasMorePages() && pageNum <= maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.APIGatewayAPICounter.Inc()
+				scrapeMetrics.APIGatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling apiGatewayAPI.GetRestApis, %w", err)
 				}
@@ -100,14 +103,19 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/AutoScaling": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 10
 			pageNum := 0
+
 			var resources []*model.TaggedResource
 			paginator := autoscaling.NewDescribeAutoScalingGroupsPaginator(client.autoscalingAPI, &autoscaling.DescribeAutoScalingGroupsInput{}, func(options *autoscaling.DescribeAutoScalingGroupsPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for paginator.HasMorePages() && pageNum < 100 {
+
+			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.AutoScalingAPICounter.Inc()
+				scrapeMetrics.AutoScalingAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling autoscalingAPI.DescribeAutoScalingGroups, %w", err)
 				}
@@ -140,15 +148,20 @@ var ServiceFilters = map[string]ServiceFilter{
 				return inputResources, nil
 			}
 
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxInstancesPages = 100
+			pageNum := 0
+
 			replicationInstanceIdentifiers := make(map[string]string)
 
-			pageNum := 0
 			instancesPaginator := databasemigrationservice.NewDescribeReplicationInstancesPaginator(client.dmsAPI, &databasemigrationservice.DescribeReplicationInstancesInput{}, func(options *databasemigrationservice.DescribeReplicationInstancesPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for instancesPaginator.HasMorePages() && pageNum < 100 {
+
+			for instancesPaginator.HasMorePages() && pageNum < maxInstancesPages {
 				page, err := instancesPaginator.NextPage(ctx)
-				promutil.DmsAPICounter.Inc()
+				scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationInstances, %w", err)
 				}
@@ -159,13 +172,16 @@ var ServiceFilters = map[string]ServiceFilter{
 				}
 			}
 
+			const maxTasksPages = 100
 			pageNum = 0
+
 			tasksPaginator := databasemigrationservice.NewDescribeReplicationTasksPaginator(client.dmsAPI, &databasemigrationservice.DescribeReplicationTasksInput{}, func(options *databasemigrationservice.DescribeReplicationTasksPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for tasksPaginator.HasMorePages() && pageNum < 100 {
+
+			for tasksPaginator.HasMorePages() && pageNum < maxTasksPages {
 				page, err := tasksPaginator.NextPage(ctx)
-				promutil.DmsAPICounter.Inc()
+				scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationTasks, %w", err)
 				}
@@ -193,14 +209,19 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/EC2Spot": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 100
 			pageNum := 0
+
 			var resources []*model.TaggedResource
 			paginator := ec2.NewDescribeSpotFleetRequestsPaginator(client.ec2API, &ec2.DescribeSpotFleetRequestsInput{}, func(options *ec2.DescribeSpotFleetRequestsPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for paginator.HasMorePages() && pageNum < 100 {
+
+			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.Ec2APICounter.Inc()
+				scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling describing ec2API.DescribeSpotFleetRequests, %w", err)
 				}
@@ -228,14 +249,19 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/Prometheus": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 100
 			pageNum := 0
+
 			var resources []*model.TaggedResource
 			paginator := amp.NewListWorkspacesPaginator(client.prometheusSvcAPI, &amp.ListWorkspacesInput{}, func(options *amp.ListWorkspacesPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for paginator.HasMorePages() && pageNum < 100 {
+
+			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.ManagedPrometheusAPICounter.Inc()
+				scrapeMetrics.ManagedPrometheusAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error while calling prometheusSvcAPI.ListWorkspaces, %w", err)
 				}
@@ -263,14 +289,19 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/StorageGateway": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 100
 			pageNum := 0
+
 			var resources []*model.TaggedResource
 			paginator := storagegateway.NewListGatewaysPaginator(client.storageGatewayAPI, &storagegateway.ListGatewaysInput{}, func(options *storagegateway.ListGatewaysPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for paginator.HasMorePages() && pageNum < 100 {
+
+			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.StoragegatewayAPICounter.Inc()
+				scrapeMetrics.StoragegatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling storageGatewayAPI.ListGateways, %w", err)
 				}
@@ -287,7 +318,7 @@ var ServiceFilters = map[string]ServiceFilter{
 						ResourceARN: gwa.GatewayARN,
 					}
 					tagsResponse, _ := client.storageGatewayAPI.ListTagsForResource(ctx, tagsRequest)
-					promutil.StoragegatewayAPICounter.Inc()
+					promutil.ScrapeMetricsFromContext(ctx).StoragegatewayAPICounter.Inc()
 
 					for _, t := range tagsResponse.Tags {
 						resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
@@ -304,14 +335,19 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/TransitGateway": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 100
 			pageNum := 0
+
 			var resources []*model.TaggedResource
 			paginator := ec2.NewDescribeTransitGatewayAttachmentsPaginator(client.ec2API, &ec2.DescribeTransitGatewayAttachmentsInput{}, func(options *ec2.DescribeTransitGatewayAttachmentsPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
-			for paginator.HasMorePages() && pageNum < 100 {
+
+			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				promutil.Ec2APICounter.Inc()
+				scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling ec2API.DescribeTransitGatewayAttachments, %w", err)
 				}
@@ -342,15 +378,19 @@ var ServiceFilters = map[string]ServiceFilter{
 		// Outside us-east-1 no resources are going to be found. We use the shield.ListProtections API to get the protections +
 		// protected resources to add to the tagged resources. This data is eventually usable for joining with metrics.
 		ResourceFunc: func(ctx context.Context, c client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
+
+			const maxPages = 100
+			const maxResultsPerPage int32 = 100 // increased to reduce throttling occurrences.
+			request := &shield.ListProtectionsInput{MaxResults: aws.Int32(maxResultsPerPage)}
+
 			var output []*model.TaggedResource
-			// Default page size is only 20 which can easily lead to throttling
-			request := &shield.ListProtectionsInput{MaxResults: aws.Int32(1000)}
 			paginator := shield.NewListProtectionsPaginator(c.shieldAPI, request, func(options *shield.ListProtectionsPaginatorOptions) {
 				options.StopOnDuplicateToken = true
 			})
 			pageNum := 0
-			for paginator.HasMorePages() && pageNum < 100 {
-				promutil.ShieldAPICounter.Inc()
+			for paginator.HasMorePages() && pageNum < maxPages {
+				scrapeMetrics.ShieldAPICounter.Inc()
 				page, err := paginator.NextPage(ctx)
 				pageNum++
 				if err != nil {

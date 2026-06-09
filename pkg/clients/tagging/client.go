@@ -69,6 +69,8 @@ type client struct {
 	shieldAPI         shieldClientAdapter
 }
 
+// NewClient builds a tagging client. Scrape instrumentation is read from
+// context per call via promutil.ScrapeMetricsFromContext.
 func NewClient(
 	logger *slog.Logger,
 	taggingAPI *resourcegroupstaggingapi.Client,
@@ -96,6 +98,8 @@ func NewClient(
 }
 
 func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+	sm := promutil.ScrapeMetricsFromContext(ctx)
+
 	svc := config.SupportedServices.GetService(job.Namespace)
 	var resources []*model.TaggedResource
 	shouldHaveDiscoveredResources := false
@@ -131,7 +135,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			options.StopOnDuplicateToken = true
 		})
 		for paginator.HasMorePages() {
-			promutil.ResourceGroupTaggingAPICounter.Inc()
+			sm.ResourceGroupTaggingAPICounter.Inc()
 			page, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, err

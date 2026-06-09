@@ -100,6 +100,8 @@ func NewClient(logger *slog.Logger, cloudwatchAPI *aws_cloudwatch.Client) Client
 }
 
 func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+	sm := promutil.ScrapeMetricsFromContext(ctx)
+
 	filter := &aws_cloudwatch.ListMetricsInput{
 		MetricName: aws.String(metric.Name),
 		Namespace:  aws.String(namespace),
@@ -115,10 +117,10 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 	})
 
 	for paginator.HasMorePages() {
-		promutil.CloudwatchAPICounter.WithLabelValues("ListMetrics").Inc()
+		sm.CloudwatchAPICounter.Inc("ListMetrics")
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			promutil.CloudwatchAPIErrorCounter.WithLabelValues("ListMetrics").Inc()
+			sm.CloudwatchAPIErrorCounter.Inc("ListMetrics")
 			c.logger.Error("ListMetrics error", "err", err)
 			return err
 		}
@@ -158,6 +160,7 @@ func toModelDimensions(dimensions []types.Dimension) []model.Dimension {
 }
 
 func (c client) GetMetricData(ctx context.Context, getMetricData []*model.CloudwatchData, namespace string, startTime time.Time, endTime time.Time) []MetricDataResult {
+	sm := promutil.ScrapeMetricsFromContext(ctx)
 	metricDataQueries := make([]types.MetricDataQuery, 0, len(getMetricData))
 	exportAllDataPoints := false
 	for _, data := range getMetricData {
@@ -185,19 +188,19 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		ScanBy:            "TimestampDescending",
 	}
 	var resp aws_cloudwatch.GetMetricDataOutput
-	promutil.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
+	sm.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
 	c.logger.Debug("GetMetricData", "input", input)
 
 	paginator := aws_cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *aws_cloudwatch.GetMetricDataPaginatorOptions) {
 		options.StopOnDuplicateToken = true
 	})
 	for paginator.HasMorePages() {
-		promutil.CloudwatchAPICounter.WithLabelValues("GetMetricData").Inc()
-		promutil.CloudwatchGetMetricDataAPICounter.Inc()
+		sm.CloudwatchAPICounter.Inc("GetMetricData")
+		sm.CloudwatchGetMetricDataAPICounter.Inc()
 
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricData").Inc()
+			sm.CloudwatchAPIErrorCounter.Inc("GetMetricData")
 			c.logger.Error("GetMetricData error", "err", err)
 			return nil
 		}
@@ -232,6 +235,7 @@ func toMetricDataResult(resp aws_cloudwatch.GetMetricDataOutput, exportAllDataPo
 }
 
 func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, dimensions []model.Dimension, namespace string, metric *model.MetricConfig) []*model.MetricStatisticsResult {
+	sm := promutil.ScrapeMetricsFromContext(ctx)
 	filter := createGetMetricStatisticsInput(logger, dimensions, &namespace, metric)
 	c.logger.Debug("GetMetricStatistics", "input", filter)
 
@@ -239,11 +243,11 @@ func (c client) GetMetricStatistics(ctx context.Context, logger *slog.Logger, di
 
 	c.logger.Debug("GetMetricStatistics", "output", resp)
 
-	promutil.CloudwatchAPICounter.WithLabelValues("GetMetricStatistics").Inc()
-	promutil.CloudwatchGetMetricStatisticsAPICounter.Inc()
+	sm.CloudwatchAPICounter.Inc("GetMetricStatistics")
+	sm.CloudwatchGetMetricStatisticsAPICounter.Inc()
 
 	if err != nil {
-		promutil.CloudwatchAPIErrorCounter.WithLabelValues("GetMetricStatistics").Inc()
+		sm.CloudwatchAPIErrorCounter.Inc("GetMetricStatistics")
 		c.logger.Error("Failed to get metric statistics", "err", err)
 		return nil
 	}

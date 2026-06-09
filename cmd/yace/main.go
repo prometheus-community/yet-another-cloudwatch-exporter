@@ -28,9 +28,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/semaphore"
 
-	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
@@ -61,7 +59,7 @@ var (
 	logLevel              string
 	logFormat             string
 	fips                  bool
-	cloudwatchConcurrency cloudwatch.ConcurrencyConfig
+	cloudwatchConcurrency config.CloudWatchConcurrencyConfig
 	tagConcurrency        int
 	scrapingInterval      int
 	metricsPerQuery       int
@@ -106,7 +104,7 @@ func NewYACEApp() *cli.App {
 		},
 		&cli.StringFlag{
 			Name:        "config.file",
-			Value:       "config.yml",
+			Value:       config.DefaultScrapeConfigFile,
 			Usage:       "Path to configuration file",
 			Destination: &configFile,
 			EnvVars:     []string{"config.file"},
@@ -143,37 +141,37 @@ func NewYACEApp() *cli.App {
 		},
 		&cli.IntFlag{
 			Name:        "cloudwatch-concurrency",
-			Value:       exporter.DefaultCloudwatchConcurrency.SingleLimit,
+			Value:       config.DefaultCloudwatchConcurrency.SingleLimit,
 			Usage:       "Maximum number of concurrent requests to CloudWatch API.",
 			Destination: &cloudwatchConcurrency.SingleLimit,
 		},
 		&cli.BoolFlag{
 			Name:        "cloudwatch-concurrency.per-api-limit-enabled",
-			Value:       exporter.DefaultCloudwatchConcurrency.PerAPILimitEnabled,
+			Value:       config.DefaultCloudwatchConcurrency.PerAPILimitEnabled,
 			Usage:       "Whether to enable the per API CloudWatch concurrency limiter. When enabled, the concurrency `-cloudwatch-concurrency` flag will be ignored.",
 			Destination: &cloudwatchConcurrency.PerAPILimitEnabled,
 		},
 		&cli.IntFlag{
 			Name:        "cloudwatch-concurrency.list-metrics-limit",
-			Value:       exporter.DefaultCloudwatchConcurrency.ListMetrics,
+			Value:       config.DefaultCloudwatchConcurrency.ListMetrics,
 			Usage:       "Maximum number of concurrent requests to ListMetrics CloudWatch API. Used if the -cloudwatch-concurrency.per-api-limit-enabled concurrency limiter is enabled.",
 			Destination: &cloudwatchConcurrency.ListMetrics,
 		},
 		&cli.IntFlag{
 			Name:        "cloudwatch-concurrency.get-metric-data-limit",
-			Value:       exporter.DefaultCloudwatchConcurrency.GetMetricData,
+			Value:       config.DefaultCloudwatchConcurrency.GetMetricData,
 			Usage:       "Maximum number of concurrent requests to GetMetricData CloudWatch API. Used if the -cloudwatch-concurrency.per-api-limit-enabled concurrency limiter is enabled.",
 			Destination: &cloudwatchConcurrency.GetMetricData,
 		},
 		&cli.IntFlag{
 			Name:        "cloudwatch-concurrency.get-metric-statistics-limit",
-			Value:       exporter.DefaultCloudwatchConcurrency.GetMetricStatistics,
+			Value:       config.DefaultCloudwatchConcurrency.GetMetricStatistics,
 			Usage:       "Maximum number of concurrent requests to GetMetricStatistics CloudWatch API. Used if the -cloudwatch-concurrency.per-api-limit-enabled concurrency limiter is enabled.",
 			Destination: &cloudwatchConcurrency.GetMetricStatistics,
 		},
 		&cli.IntFlag{
 			Name:        "tag-concurrency",
-			Value:       exporter.DefaultTaggingAPIConcurrency,
+			Value:       config.DefaultTaggingAPIConcurrency,
 			Usage:       "Maximum number of concurrent requests to Resource Tagging API.",
 			Destination: &tagConcurrency,
 		},
@@ -186,14 +184,14 @@ func NewYACEApp() *cli.App {
 		},
 		&cli.IntFlag{
 			Name:        "metrics-per-query",
-			Value:       exporter.DefaultMetricsPerQuery,
+			Value:       config.DefaultMetricsPerQuery,
 			Usage:       "Number of metrics made in a single GetMetricsData request",
 			Destination: &metricsPerQuery,
 			EnvVars:     []string{"metrics-per-query"},
 		},
 		&cli.BoolFlag{
 			Name:        "labels-snake-case",
-			Value:       exporter.DefaultLabelsSnakeCase,
+			Value:       config.DefaultLabelsSnakeCase,
 			Usage:       "Whether labels should be output in snake case instead of camel case",
 			Destination: &labelsSnakeCase,
 		},
@@ -215,7 +213,7 @@ func NewYACEApp() *cli.App {
 			Aliases: []string{"vc"},
 			Usage:   "Loads and attempts to parse config file, then exits. Useful for CI/CD validation",
 			Flags: []cli.Flag{
-				&cli.StringFlag{Name: "config.file", Value: "config.yml", Usage: "Path to configuration file.", Destination: &configFile},
+				&cli.StringFlag{Name: "config.file", Value: config.DefaultScrapeConfigFile, Usage: "Path to configuration file.", Destination: &configFile},
 			},
 			Action: func(_ *cli.Context) error {
 				logger = newLogger(logFormat, logLevel).With("version", version.Version)
@@ -257,16 +255,27 @@ func startScraper(c *cli.Context) error {
 
 	logger.Info("Parsing config")
 
-	cfg := config.ScrapeConf{}
-	jobsCfg, err := cfg.Load(configFile, logger)
-	if err != nil {
-		return fmt.Errorf("couldn't read %s: %w", configFile, err)
+	cfg := config.DefaultConfig()
+	cfg.ScrapeConfigFile = configFile
+	cfg.MetricsPerQuery = metricsPerQuery
+	cfg.LabelsSnakeCase = labelsSnakeCase
+	cfg.TaggingAPIConcurrency = tagConcurrency
+	cfg.FeatureFlags = c.StringSlice(enableFeatureFlag)
+	cfg.FIPSEnabled = fips
+	cfg.CloudwatchConcurrency = cloudwatchConcurrency
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid runtime scrape configuration: %w", err)
 	}
 
-	featureFlags := c.StringSlice(enableFeatureFlag)
-	s := NewScraper(featureFlags)
+	scrapeCfg := config.ScrapeConf{}
+	jobsCfg, err := scrapeCfg.Load(cfg.ScrapeConfigFile, logger)
+	if err != nil {
+		return fmt.Errorf("couldn't read %s: %w", cfg.ScrapeConfigFile, err)
+	}
 
-	cachingFactory, err := clients.NewFactory(logger, jobsCfg, fips)
+	s := NewScraper(cfg)
+
+	cachingFactory, err := clients.NewFactory(logger, jobsCfg, cfg.FIPSEnabled)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
@@ -308,16 +317,16 @@ func startScraper(c *cli.Context) error {
 
 		logger.Info("Parsing config")
 		newCfg := config.ScrapeConf{}
-		newJobsCfg, err := newCfg.Load(configFile, logger)
+		newJobsCfg, err := newCfg.Load(cfg.ScrapeConfigFile, logger)
 		if err != nil {
-			logger.Error("Couldn't read config file", "err", err, "path", configFile)
+			logger.Error("Couldn't read config file", "err", err, "path", cfg.ScrapeConfigFile)
 			return
 		}
 
 		logger.Info("Reset clients cache")
-		cache, err := clients.NewFactory(logger, newJobsCfg, fips)
+		cache, err := clients.NewFactory(logger, newJobsCfg, cfg.FIPSEnabled)
 		if err != nil {
-			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", configFile)
+			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", cfg.ScrapeConfigFile)
 			return
 		}
 
@@ -326,7 +335,7 @@ func startScraper(c *cli.Context) error {
 		go s.decoupled(ctx, logger, newJobsCfg, cache)
 	})
 
-	logger.Info("Yace startup completed", "build_info", version.Info(), "build_context", version.BuildContext(), "feature_flags", strings.Join(featureFlags, ","))
+	logger.Info("Yace startup completed", "build_info", version.Info(), "build_context", version.BuildContext(), "feature_flags", strings.Join(cfg.FeatureFlags, ","))
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()

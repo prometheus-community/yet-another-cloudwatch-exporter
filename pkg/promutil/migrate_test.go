@@ -13,6 +13,7 @@
 package promutil
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -1587,7 +1588,7 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := EnsureLabelConsistencyAndRemoveDuplicates(tc.metrics, tc.observedLabels)
+			actual := EnsureLabelConsistencyAndRemoveDuplicates(context.Background(), tc.metrics, tc.observedLabels)
 			require.ElementsMatch(t, tc.output, actual)
 		})
 	}

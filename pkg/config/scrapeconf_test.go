@@ -32,12 +32,14 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "custom_namespace.ok.yml"},
 	}
 	for _, tc := range testCases {
-		config := ScrapeConf{}
-		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
-		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
-			t.Error(err)
-			t.FailNow()
-		}
+		t.Run(tc.configFile, func(t *testing.T) {
+			t.Parallel()
+
+			config := ScrapeConf{}
+			configFile := fmt.Sprintf("testdata/%s", tc.configFile)
+			_, err := config.Load(configFile, promslog.NewNopLogger())
+			require.NoError(t, err)
+		})
 	}
 }
 
@@ -89,17 +91,15 @@ func TestBadConfigs(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		config := ScrapeConf{}
-		configFile := fmt.Sprintf("testdata/%s", tc.configFile)
-		if _, err := config.Load(configFile, promslog.NewNopLogger()); err != nil {
-			if !strings.Contains(err.Error(), tc.errorMsg) {
-				t.Errorf("expecter error for config file %q to contain %q but got: %s", tc.configFile, tc.errorMsg, err)
-				t.FailNow()
-			}
-		} else {
-			t.Log("expected validation error")
-			t.FailNow()
-		}
+		t.Run(tc.configFile, func(t *testing.T) {
+			t.Parallel()
+
+			config := ScrapeConf{}
+			configFile := fmt.Sprintf("testdata/%s", tc.configFile)
+			_, err := config.Load(configFile, promslog.NewNopLogger())
+			require.Error(t, err)
+			require.Contains(t, strings.ToLower(err.Error()), strings.ToLower(tc.errorMsg))
+		})
 	}
 }
 
@@ -145,7 +145,7 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			},
 			errorMsg: "Discovery job [AWS/S3/0]: enhanced metrics are not supported for this namespace: enhanced metrics service for namespace AWS/S3 not found",
 		},
-		"enhanced metric are not supported for the enhanced mertrics service": {
+		"enhanced metric is not supported by the enhanced metrics service": {
 			config: ScrapeConf{
 				Discovery: Discovery{
 					Jobs: []*Job{{
@@ -168,9 +168,10 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := tc.config.Validate(promslog.NewNopLogger())
-			require.Error(t, err, "Expected config validation to fail")
-			require.Equal(t, tc.errorMsg, err.Error())
+			require.EqualError(t, err, tc.errorMsg)
 		})
 	}
 }
