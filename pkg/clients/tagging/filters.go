@@ -29,7 +29,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 type ServiceFilter struct {
@@ -51,8 +50,6 @@ var ServiceFilters = map[string]ServiceFilter{
 		// in v1 REST APIs we change the ARN to replace the ApiId with ApiName, while for v2 APIs
 		// we leave the ARN as-is.
 		FilterFunc: func(ctx context.Context, client client, inputResources []*model.TaggedResource) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 10
 			const maxResultsPerPage = 500 // increased to reduce throttling occurrences.
 			pageNum := 0
@@ -65,7 +62,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum <= maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.APIGatewayAPICounter.Inc()
+				client.scrapeMetrics.APIGatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling apiGatewayAPI.GetRestApis, %w", err)
 				}
@@ -103,8 +100,6 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/AutoScaling": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 10
 			pageNum := 0
 
@@ -115,7 +110,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.AutoScalingAPICounter.Inc()
+				client.scrapeMetrics.AutoScalingAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling autoscalingAPI.DescribeAutoScalingGroups, %w", err)
 				}
@@ -148,8 +143,6 @@ var ServiceFilters = map[string]ServiceFilter{
 				return inputResources, nil
 			}
 
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxInstancesPages = 100
 			pageNum := 0
 
@@ -161,7 +154,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for instancesPaginator.HasMorePages() && pageNum < maxInstancesPages {
 				page, err := instancesPaginator.NextPage(ctx)
-				scrapeMetrics.DmsAPICounter.Inc()
+				client.scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationInstances, %w", err)
 				}
@@ -181,7 +174,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for tasksPaginator.HasMorePages() && pageNum < maxTasksPages {
 				page, err := tasksPaginator.NextPage(ctx)
-				scrapeMetrics.DmsAPICounter.Inc()
+				client.scrapeMetrics.DmsAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling dmsAPI.DescribeReplicationTasks, %w", err)
 				}
@@ -209,8 +202,6 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/EC2Spot": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 100
 			pageNum := 0
 
@@ -221,7 +212,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.Ec2APICounter.Inc()
+				client.scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling describing ec2API.DescribeSpotFleetRequests, %w", err)
 				}
@@ -249,8 +240,6 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/Prometheus": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 100
 			pageNum := 0
 
@@ -261,7 +250,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.ManagedPrometheusAPICounter.Inc()
+				client.scrapeMetrics.ManagedPrometheusAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error while calling prometheusSvcAPI.ListWorkspaces, %w", err)
 				}
@@ -289,8 +278,6 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/StorageGateway": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 100
 			pageNum := 0
 
@@ -301,7 +288,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.StoragegatewayAPICounter.Inc()
+				client.scrapeMetrics.StoragegatewayAPICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling storageGatewayAPI.ListGateways, %w", err)
 				}
@@ -318,7 +305,7 @@ var ServiceFilters = map[string]ServiceFilter{
 						ResourceARN: gwa.GatewayARN,
 					}
 					tagsResponse, _ := client.storageGatewayAPI.ListTagsForResource(ctx, tagsRequest)
-					promutil.ScrapeMetricsFromContext(ctx).StoragegatewayAPICounter.Inc()
+					client.scrapeMetrics.StoragegatewayAPICounter.Inc()
 
 					for _, t := range tagsResponse.Tags {
 						resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
@@ -335,8 +322,6 @@ var ServiceFilters = map[string]ServiceFilter{
 	},
 	"AWS/TransitGateway": {
 		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 100
 			pageNum := 0
 
@@ -347,7 +332,7 @@ var ServiceFilters = map[string]ServiceFilter{
 
 			for paginator.HasMorePages() && pageNum < maxPages {
 				page, err := paginator.NextPage(ctx)
-				scrapeMetrics.Ec2APICounter.Inc()
+				client.scrapeMetrics.Ec2APICounter.Inc()
 				if err != nil {
 					return nil, fmt.Errorf("error calling ec2API.DescribeTransitGatewayAttachments, %w", err)
 				}
@@ -378,8 +363,6 @@ var ServiceFilters = map[string]ServiceFilter{
 		// Outside us-east-1 no resources are going to be found. We use the shield.ListProtections API to get the protections +
 		// protected resources to add to the tagged resources. This data is eventually usable for joining with metrics.
 		ResourceFunc: func(ctx context.Context, c client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-			scrapeMetrics := promutil.ScrapeMetricsFromContext(ctx)
-
 			const maxPages = 100
 			const maxResultsPerPage int32 = 100 // increased to reduce throttling occurrences.
 			request := &shield.ListProtectionsInput{MaxResults: aws.Int32(maxResultsPerPage)}
@@ -390,7 +373,7 @@ var ServiceFilters = map[string]ServiceFilter{
 			})
 			pageNum := 0
 			for paginator.HasMorePages() && pageNum < maxPages {
-				scrapeMetrics.ShieldAPICounter.Inc()
+				c.scrapeMetrics.ShieldAPICounter.Inc()
 				page, err := paginator.NextPage(ctx)
 				pageNum++
 				if err != nil {

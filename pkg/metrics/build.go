@@ -62,7 +62,6 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 	// Use legacy validation as that's the behaviour of former releases.
 	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
 
-	ctx = promutil.ContextWithScrapeMetrics(ctx, s.scrapeMetrics)
 	ctx = config.CtxWithFlags(ctx, featureFlagsMapFromSlice(s.cfg.FeatureFlags))
 
 	tagsData, cloudwatchData := job.ScrapeAwsData(
@@ -80,7 +79,7 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 		return nil, err
 	}
 	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, s.cfg.LabelsSnakeCase, s.logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(ctx, metrics, observedMetricLabels)
+	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(s.scrapeMetrics, metrics, observedMetricLabels)
 
 	return metrics, nil
 }

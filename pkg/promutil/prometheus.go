@@ -13,7 +13,6 @@
 package promutil
 
 import (
-	"context"
 	"strings"
 	"time"
 	"unicode"
@@ -360,17 +359,3 @@ func (c CounterVec) Add(v float64, labels ...string) {
 }
 
 func (c CounterVec) Raw() *prometheus.CounterVec { return c.inner }
-
-// scrapeMetricsCtxKey allows us to store ScrapeMetrics in a context.
-type scrapeMetricsCtxKey struct{}
-
-func ContextWithScrapeMetrics(ctx context.Context, m *ScrapeMetrics) context.Context {
-	return context.WithValue(ctx, scrapeMetricsCtxKey{}, m)
-}
-
-func ScrapeMetricsFromContext(ctx context.Context) *ScrapeMetrics {
-	if m, ok := ctx.Value(scrapeMetricsCtxKey{}).(*ScrapeMetrics); ok && m != nil {
-		return m
-	}
-	return Discard
-}

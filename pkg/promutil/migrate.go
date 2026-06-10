@@ -13,7 +13,6 @@
 package promutil
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -328,10 +327,12 @@ func recordLabelsForMetric(metricName string, promLabels map[string]string, obse
 }
 
 // EnsureLabelConsistencyAndRemoveDuplicates aligns the label set of every
-// metric with the same name and drops duplicates. The duplicate-filtered
-// counter is read from the *ScrapeMetrics carried in ctx, or Discard if none.
-func EnsureLabelConsistencyAndRemoveDuplicates(ctx context.Context, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet) []*PrometheusMetric {
-	scrapeMetrics := ScrapeMetricsFromContext(ctx)
+// metric with the same name and drops duplicates.
+func EnsureLabelConsistencyAndRemoveDuplicates(scrapeMetrics *ScrapeMetrics, metrics []*PrometheusMetric, observedMetricLabels map[string]model.LabelSet) []*PrometheusMetric {
+	if scrapeMetrics == nil {
+		scrapeMetrics = Discard
+	}
+
 	metricKeys := make(map[string]struct{}, len(metrics))
 	output := make([]*PrometheusMetric, 0, len(metrics))
 

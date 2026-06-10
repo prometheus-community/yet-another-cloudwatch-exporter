@@ -43,6 +43,7 @@ var ErrExpectedToFindResources = errors.New("expected to discover resources but 
 
 type client struct {
 	logger            *slog.Logger
+	scrapeMetrics     *promutil.ScrapeMetrics
 	taggingAPI        *resourcegroupstaggingapi.Client
 	autoscalingAPI    *autoscaling.Client
 	apiGatewayAPI     *apigateway.Client
@@ -54,10 +55,9 @@ type client struct {
 	shieldAPI         *shield.Client
 }
 
-// NewClient builds a tagging client. Scrape instrumentation is read from
-// context per call via promutil.ScrapeMetricsFromContext.
 func NewClient(
 	logger *slog.Logger,
+	scrapeMetrics *promutil.ScrapeMetrics,
 	taggingAPI *resourcegroupstaggingapi.Client,
 	autoscalingAPI *autoscaling.Client,
 	apiGatewayAPI *apigateway.Client,
@@ -68,8 +68,12 @@ func NewClient(
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
 ) Client {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.Discard
+	}
 	return &client{
 		logger:            logger,
+		scrapeMetrics:     scrapeMetrics,
 		taggingAPI:        taggingAPI,
 		autoscalingAPI:    autoscalingAPI,
 		apiGatewayAPI:     apiGatewayAPI,
@@ -83,8 +87,6 @@ func NewClient(
 }
 
 func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
-	sm := promutil.ScrapeMetricsFromContext(ctx)
-
 	svc := config.SupportedServices.GetService(job.Namespace)
 	var resources []*model.TaggedResource
 	shouldHaveDiscoveredResources := false
@@ -120,7 +122,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			options.StopOnDuplicateToken = true
 		})
 		for paginator.HasMorePages() {
-			sm.ResourceGroupTaggingAPICounter.Inc()
+			c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
 			page, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, err

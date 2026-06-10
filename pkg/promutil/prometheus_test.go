@@ -13,7 +13,6 @@
 package promutil
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -282,14 +281,6 @@ func TestScrapeMetrics_ZeroValueAndNilReceiver(t *testing.T) {
 		var sm *ScrapeMetrics
 		require.Nil(t, sm.Collectors())
 	})
-}
-
-func TestScrapeMetricsContext(t *testing.T) {
-	sm := NewScrapeMetrics(prometheus.NewRegistry())
-	ctx := ContextWithScrapeMetrics(context.Background(), sm)
-
-	require.Same(t, sm, ScrapeMetricsFromContext(ctx))
-	require.Same(t, Discard, ScrapeMetricsFromContext(context.Background()))
 }
 
 func exerciseCounters(sm *ScrapeMetrics) {

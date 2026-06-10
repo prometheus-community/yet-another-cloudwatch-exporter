@@ -43,6 +43,7 @@ import (
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 // Factory is an interface to abstract away all logic required to produce the different
@@ -57,6 +58,7 @@ type awsRegion = string
 
 type CachingFactory struct {
 	logger              *slog.Logger
+	scrapeMetrics       *promutil.ScrapeMetrics
 	stsOptions          func(*sts.Options)
 	clients             map[model.Role]map[awsRegion]*cachedClients
 	mu                  sync.Mutex
@@ -78,7 +80,10 @@ type cachedClients struct {
 // Ensure the struct properly implements the interface
 var _ Factory = &CachingFactory{}
 
-func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
+func NewFactory(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobsCfg model.JobsConfig, fips bool) (*CachingFactory, error) {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.Discard
+	}
 	var options []func(*aws_config.LoadOptions) error
 	options = append(options, aws_config.WithLogger(aws_logging.LoggerFunc(func(classification aws_logging.Classification, format string, v ...interface{}) {
 		switch classification {
@@ -159,6 +164,7 @@ func NewFactory(logger *slog.Logger, jobsCfg model.JobsConfig, fips bool) (*Cach
 
 	return &CachingFactory{
 		logger:              logger,
+		scrapeMetrics:       scrapeMetrics,
 		clients:             cache,
 		fipsEnabled:         fips,
 		stsOptions:          stsOptions,
@@ -175,7 +181,7 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 		defer c.mu.Unlock()
 	}
 
-	client := cloudwatch_client.NewClient(c.logger, c.createCloudwatchClient(c.clients[role][region].awsConfig))
+	client := cloudwatch_client.NewClient(c.logger, c.scrapeMetrics, c.createCloudwatchClient(c.clients[role][region].awsConfig))
 	return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
 }
 
@@ -187,6 +193,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 	}
 	client := tagging.NewClient(
 		c.logger,
+		c.scrapeMetrics,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
 		c.createAPIGatewayClient(c.clients[role][region].awsConfig),

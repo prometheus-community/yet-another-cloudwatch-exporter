@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 cfg := config.DefaultConfig()
@@ -23,12 +24,17 @@ if err != nil {
 	return err
 }
 
-factory, err := clients.NewFactory(logger, jobsCfg, cfg.FIPSEnabled)
+// Collects scrape instrumentation metrics for the lifecycle of the factory and scraper. 
+// To disable, you can pass in promutil.Discard to the factory and scraper instead.
+registry := prometheus.NewRegistry()
+scrapeMetrics := promutil.NewScrapeMetrics(registry)
+
+factory, err := clients.NewFactory(logger, scrapeMetrics, jobsCfg, cfg.FIPSEnabled)
 if err != nil {
 	return err
 }
 
-scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
+scraper, err := metrics.NewScraper(logger, scrapeMetrics, cfg, jobsCfg, factory)
 if err != nil {
 	return err
 }
@@ -39,32 +45,6 @@ if err != nil {
 }
 
 // Inspect, filter, transform, or forward generatedMetrics.
-```
-
-Callers that want to expose one scrape through a fresh Prometheus registry can register the scraper collectors and generated metrics explicitly.
-
-```go
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
-)
-
-registry := prometheus.NewRegistry()
-scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
-if err != nil {
-	return err
-}
-if err := scraper.RegisterCollectors(registry); err != nil {
-	return err
-}
-
-generatedMetrics, err := scraper.Scrape(ctx)
-if err != nil {
-	return err
-}
-registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
 ```
 
 Applications embedding YACE:

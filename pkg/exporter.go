@@ -39,7 +39,9 @@ const (
 // Deprecated: use config.DefaultCloudwatchConcurrency.
 var DefaultCloudwatchConcurrency = toClientCloudWatchConcurrency(config.DefaultCloudwatchConcurrency)
 
-// Metrics is a slice of prometheus metrics specific to the scraping process such API call counters.
+// Metrics is a slice of prometheus metrics specific to the scraping process such as API call counters.
+//
+// You must build clients with promutil.DeprecatedScrapeMetrics() to have these metrics populated.
 //
 // Deprecated: use metrics.NewScraper with promutil.NewScrapeMetrics(registry).
 var Metrics = promutil.DeprecatedScrapeMetrics().Collectors() //nolint:staticcheck
@@ -180,11 +182,12 @@ func BuildPrometheusMetrics(
 //
 // To include scrape instrumentation metrics, use metrics.NewScraper and register its collectors:
 //
-//	scraper, err := metrics.NewScraper(logger, cfg, jobsCfg, factory)
+//	scrapeMetrics := promutil.NewScrapeMetrics(registry)//	factory, err := clients.NewFactory(logger, scrapeMetrics, jobsCfg, fips)
 //	if err != nil {
 //		return err
 //	}
-//	if err := scraper.RegisterCollectors(registry); err != nil {
+//	scraper, err := metrics.NewScraper(logger, scrapeMetrics, cfg, jobsCfg, factory)
+//	if err != nil {
 //		return err
 //	}
 //	generatedMetrics, err := scraper.Scrape(ctx)
