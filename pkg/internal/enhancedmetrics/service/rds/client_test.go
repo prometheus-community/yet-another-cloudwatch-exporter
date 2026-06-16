@@ -105,7 +105,7 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &AWSRDSClient{
-				client: tt.client,
+				describeDBInstancesFunc: tt.client.DescribeDBInstances,
 			}
 			got, err := c.DescribeDBInstances(context.Background(), slog.New(slog.DiscardHandler), tt.instances)
 			if (err != nil) != tt.wantErr {

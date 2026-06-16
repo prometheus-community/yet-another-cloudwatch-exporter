@@ -22,25 +22,27 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticache/types"
 )
 
+// awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
 	DescribeCacheClusters(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }
 
 // AWSElastiCacheClient wraps the AWS ElastiCache client
 type AWSElastiCacheClient struct {
-	client awsClient
+	describeCacheClustersFunc func(ctx context.Context, params *elasticache.DescribeCacheClustersInput, optFns ...func(*elasticache.Options)) (*elasticache.DescribeCacheClustersOutput, error)
 }
 
 // NewElastiCacheClientWithConfig creates a new ElastiCache client with custom AWS configuration
 func NewElastiCacheClientWithConfig(cfg aws.Config) Client {
+	c := elasticache.NewFromConfig(cfg)
 	return &AWSElastiCacheClient{
-		client: elasticache.NewFromConfig(cfg),
+		describeCacheClustersFunc: c.DescribeCacheClusters,
 	}
 }
 
 // describeCacheClusters retrieves information about cache clusters
 func (c *AWSElastiCacheClient) describeCacheClusters(ctx context.Context, input *elasticache.DescribeCacheClustersInput) (*elasticache.DescribeCacheClustersOutput, error) {
-	result, err := c.client.DescribeCacheClusters(ctx, input)
+	result, err := c.describeCacheClustersFunc(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe cache clusters: %w", err)
 	}

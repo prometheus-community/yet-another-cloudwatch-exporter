@@ -50,6 +50,43 @@ type DataPoint struct {
 	Timestamp time.Time
 }
 
+// cloudwatchClientAdapter captures only the CloudWatch operations used by this
+// package as method-value closures, keeping the concrete *aws_cloudwatch.Client
+// out of any interface-reachable struct field so the linker can drop unused
+// operations.
+type cloudwatchClientAdapter struct {
+	listMetrics         func(ctx context.Context, params *aws_cloudwatch.ListMetricsInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.ListMetricsOutput, error)
+	getMetricData       func(ctx context.Context, params *aws_cloudwatch.GetMetricDataInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.GetMetricDataOutput, error)
+	getMetricStatistics func(ctx context.Context, params *aws_cloudwatch.GetMetricStatisticsInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.GetMetricStatisticsOutput, error)
+}
+
+func newCloudwatchClientAdapter(c *aws_cloudwatch.Client) cloudwatchClientAdapter {
+	return cloudwatchClientAdapter{
+		listMetrics:         c.ListMetrics,
+		getMetricData:       c.GetMetricData,
+		getMetricStatistics: c.GetMetricStatistics,
+	}
+}
+
+func (a cloudwatchClientAdapter) ListMetrics(ctx context.Context, params *aws_cloudwatch.ListMetricsInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.ListMetricsOutput, error) {
+	return a.listMetrics(ctx, params, optFns...)
+}
+
+func (a cloudwatchClientAdapter) GetMetricData(ctx context.Context, params *aws_cloudwatch.GetMetricDataInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.GetMetricDataOutput, error) {
+	return a.getMetricData(ctx, params, optFns...)
+}
+
+func (a cloudwatchClientAdapter) GetMetricStatistics(ctx context.Context, params *aws_cloudwatch.GetMetricStatisticsInput, optFns ...func(*aws_cloudwatch.Options)) (*aws_cloudwatch.GetMetricStatisticsOutput, error) {
+	return a.getMetricStatistics(ctx, params, optFns...)
+}
+
+// Compile-time checks that the adapter satisfies the interfaces the AWS SDK
+// paginators expect.
+var (
+	_ aws_cloudwatch.ListMetricsAPIClient   = cloudwatchClientAdapter{}
+	_ aws_cloudwatch.GetMetricDataAPIClient = cloudwatchClientAdapter{}
+)
+
 type client struct {
 	logger        *slog.Logger
 	scrapeMetrics *promutil.ScrapeMetrics

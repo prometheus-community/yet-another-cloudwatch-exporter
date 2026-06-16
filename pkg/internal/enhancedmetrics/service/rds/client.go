@@ -22,25 +22,27 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 )
 
+// awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
 	DescribeDBInstances(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
 
 // AWSRDSClient wraps the AWS RDS client
 type AWSRDSClient struct {
-	client awsClient
+	describeDBInstancesFunc func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
 
 // NewRDSClientWithConfig creates a new RDS client with custom AWS configuration
 func NewRDSClientWithConfig(cfg aws.Config) Client {
+	c := rds.NewFromConfig(cfg)
 	return &AWSRDSClient{
-		client: rds.NewFromConfig(cfg),
+		describeDBInstancesFunc: c.DescribeDBInstances,
 	}
 }
 
 // describeDBInstances retrieves information about provisioned RDS instances
 func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error) {
-	result, err := c.client.DescribeDBInstances(ctx, input)
+	result, err := c.describeDBInstancesFunc(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe DB instances: %w", err)
 	}

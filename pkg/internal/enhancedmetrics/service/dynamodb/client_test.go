@@ -82,7 +82,7 @@ func TestAWSDynamoDBClient_DescribeAllTables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &AWSDynamoDBClient{
-				client: tt.client,
+				describeTableFunc: tt.client.DescribeTable,
 			}
 			got, err := c.DescribeTables(context.Background(), slog.New(slog.DiscardHandler), tt.tables)
 			if (err != nil) != tt.wantErr {
