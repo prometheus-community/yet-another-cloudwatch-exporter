@@ -247,7 +247,7 @@ func TestMetricsScrape_StaticJob(t *testing.T) {
 
 	registry := prometheus.NewRegistry()
 	// Discard scrape metrics so only the resulting AWS metric lands on the test registry.
-	scraper, err := yacemetrics.NewScraper(logger, config.DefaultConfig(), jobsCfg, factory, promutil.Discard)
+	scraper, err := yacemetrics.NewScraper(logger, promutil.Discard, config.DefaultConfig(), jobsCfg, factory)
 	require.NoError(t, err)
 	metrics, err := scraper.Scrape(ctx)
 	require.NoError(t, err)

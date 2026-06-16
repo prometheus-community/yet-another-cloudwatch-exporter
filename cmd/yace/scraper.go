@@ -68,7 +68,7 @@ func (s *Scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func (s *Scraper) decoupled(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
-	metricsScraper, err := yacemetrics.NewScraper(logger, s.config, jobsCfg, cache, s.scrapeMetrics)
+	metricsScraper, err := yacemetrics.NewScraper(logger, s.scrapeMetrics, s.config, jobsCfg, cache)
 	if err != nil {
 		logger.Error("invalid runtime scrape configuration", "err", err)
 		return

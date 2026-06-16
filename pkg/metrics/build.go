@@ -39,10 +39,10 @@ type Scraper struct {
 // Call 'cfg.Validate()' before calling this function.
 func NewScraper(
 	logger *slog.Logger,
+	scrapeMetrics *promutil.ScrapeMetrics,
 	cfg config.Config,
 	jobsCfg model.JobsConfig,
 	factory clients.Factory,
-	scrapeMetrics *promutil.ScrapeMetrics,
 ) (*Scraper, error) {
 	if scrapeMetrics == nil {
 		scrapeMetrics = promutil.Discard
@@ -50,10 +50,10 @@ func NewScraper(
 	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
 	return &Scraper{
 		logger:        logger,
+		scrapeMetrics: scrapeMetrics,
 		cfg:           cfg,
 		jobsCfg:       jobsCfg,
 		factory:       factory,
-		scrapeMetrics: scrapeMetrics,
 	}, nil
 }
 
