@@ -90,7 +90,7 @@ var (
 type client struct {
 	logger        *slog.Logger
 	scrapeMetrics *promutil.ScrapeMetrics
-	cloudwatchAPI *aws_cloudwatch.Client
+	cloudwatchAPI cloudwatchClientAdapter
 }
 
 func NewClient(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, cloudwatchAPI *aws_cloudwatch.Client) Client {
@@ -100,7 +100,7 @@ func NewClient(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, cloud
 	return &client{
 		logger:        logger,
 		scrapeMetrics: scrapeMetrics,
-		cloudwatchAPI: cloudwatchAPI,
+		cloudwatchAPI: newCloudwatchClientAdapter(cloudwatchAPI),
 	}
 }
 

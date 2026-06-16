@@ -176,8 +176,8 @@ func TestApiGatewayFilterFunc(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
 				scrapeMetrics:   promutil.Discard,
-				apiGatewayAPI:   tc.apiGatewayAPI,
-				apiGatewayV2API: tc.apiGatewayV2API,
+				apiGatewayAPI:   newAPIGatewayClientAdapter(tc.apiGatewayAPI),
+				apiGatewayV2API: newAPIGatewayV2ClientAdapter(tc.apiGatewayV2API),
 			}
 
 			filter := ServiceFilters["AWS/ApiGateway"]
@@ -302,7 +302,7 @@ func TestDMSFilterFunc(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
 				scrapeMetrics: promutil.Discard,
-				dmsAPI:        tc.dmsAPI,
+				dmsAPI:        newDMSClientAdapter(tc.dmsAPI),
 			}
 
 			filter := ServiceFilters["AWS/DMS"]

@@ -59,15 +59,15 @@ var ErrExpectedToFindResources = errors.New("expected to discover resources but 
 type client struct {
 	logger            *slog.Logger
 	scrapeMetrics     *promutil.ScrapeMetrics
-	taggingAPI        *resourcegroupstaggingapi.Client
-	autoscalingAPI    *autoscaling.Client
-	apiGatewayAPI     *apigateway.Client
-	apiGatewayV2API   *apigatewayv2.Client
-	ec2API            *ec2.Client
-	dmsAPI            *databasemigrationservice.Client
-	prometheusSvcAPI  *amp.Client
-	storageGatewayAPI *storagegateway.Client
-	shieldAPI         *shield.Client
+	taggingAPI        taggingClientAdapter
+	autoscalingAPI    autoscalingClientAdapter
+	apiGatewayAPI     apiGatewayClientAdapter
+	apiGatewayV2API   apiGatewayV2ClientAdapter
+	ec2API            ec2ClientAdapter
+	dmsAPI            dmsClientAdapter
+	prometheusSvcAPI  prometheusClientAdapter
+	storageGatewayAPI storageGatewayClientAdapter
+	shieldAPI         shieldClientAdapter
 }
 
 func NewClient(
@@ -89,15 +89,15 @@ func NewClient(
 	return &client{
 		logger:            logger,
 		scrapeMetrics:     scrapeMetrics,
-		taggingAPI:        taggingAPI,
-		autoscalingAPI:    autoscalingAPI,
-		apiGatewayAPI:     apiGatewayAPI,
-		apiGatewayV2API:   apiGatewayV2API,
-		ec2API:            ec2API,
-		dmsAPI:            dmsClient,
-		prometheusSvcAPI:  prometheusClient,
-		storageGatewayAPI: storageGatewayAPI,
-		shieldAPI:         shieldAPI,
+		taggingAPI:        newTaggingClientAdapter(taggingAPI),
+		autoscalingAPI:    newAutoscalingClientAdapter(autoscalingAPI),
+		apiGatewayAPI:     newAPIGatewayClientAdapter(apiGatewayAPI),
+		apiGatewayV2API:   newAPIGatewayV2ClientAdapter(apiGatewayV2API),
+		ec2API:            newEC2ClientAdapter(ec2API),
+		dmsAPI:            newDMSClientAdapter(dmsClient),
+		prometheusSvcAPI:  newPrometheusClientAdapter(prometheusClient),
+		storageGatewayAPI: newStorageGatewayClientAdapter(storageGatewayAPI),
+		shieldAPI:         newShieldClientAdapter(shieldAPI),
 	}
 }
 
