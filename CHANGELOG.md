@@ -1,5 +1,14 @@
 ## main / (unreleased)
 
+**Important news and breaking changes**
+
+- BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil` have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Go library users importing those metrics must create a `promutil.ScrapeMetrics` value (which registers its counters on the `prometheus.Registerer` you supply) and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` will need to build clients with `promutil.DeprecatedScrapeMetrics()` to continue using them, or otherwise switch to `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Both `exporter.UpdateMetrics` and `exporter.Metrics` APIs are now deprecated and will be removed in a future release.
+
+- BREAKING CHANGE: `cloudwatch.NewClient`, `tagging.NewClient`, and `clients.NewFactory` now require a `*promutil.ScrapeMetrics` argument for AWS API request instrumentation. Build one with `promutil.NewScrapeMetrics(registry)`, or pass `promutil.Discard` to disable scrape telemetry.
+
+* [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
+* [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, instead of the [constants from the exporter package](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/exporter.go#L48-L62). #1857
+
 ## 0.65.0 / 2026-04-21
 
 * [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843

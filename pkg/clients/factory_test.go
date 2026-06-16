@@ -38,6 +38,7 @@ import (
 
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 var jobsCfgWithDefaultRoleAndRegion1 = model.JobsConfig{
@@ -123,7 +124,7 @@ func TestNewFactory_initializes_clients(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			output, err := NewFactory(promslog.NewNopLogger(), test.jobsCfg, false)
+			output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), test.jobsCfg, false)
 			require.NoError(t, err)
 
 			assert.False(t, output.refreshed.Load())
@@ -165,7 +166,7 @@ func TestNewFactory_respects_stsregion(t *testing.T) {
 		}},
 	}
 
-	output, err := NewFactory(promslog.NewNopLogger(), cfg, false)
+	output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), cfg, false)
 	require.NoError(t, err)
 	require.Len(t, output.clients, 1)
 	stsOptions := sts.Options{}
@@ -179,10 +180,8 @@ func TestCachingFactory_Clear(t *testing.T) {
 		clients: map[model.Role]map[awsRegion]*cachedClients{
 			defaultRole: {
 				"region1": &cachedClients{
-					awsConfig:  nil,
-					cloudwatch: testClient{},
-					tagging:    testClient{},
-					account:    testClient{},
+					awsConfig: nil,
+					account:   testClient{},
 				},
 			},
 		},
@@ -196,14 +195,12 @@ func TestCachingFactory_Clear(t *testing.T) {
 
 	clients := cache.clients[defaultRole]["region1"]
 	require.NotNil(t, clients)
-	assert.Nil(t, clients.cloudwatch)
 	assert.Nil(t, clients.account)
-	assert.Nil(t, clients.tagging)
 }
 
 func TestCachingFactory_Refresh(t *testing.T) {
 	t.Run("creates all clients when config contains only discovery jobs", func(t *testing.T) {
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, false)
 		require.NoError(t, err)
 
 		output.Refresh()
@@ -212,12 +209,10 @@ func TestCachingFactory_Refresh(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		assert.NotNil(t, clients.cloudwatch)
 		assert.NotNil(t, clients.account)
-		assert.NotNil(t, clients.tagging)
 	})
 
-	t.Run("creates only cloudwatch when config is only static jobs", func(t *testing.T) {
+	t.Run("does not create account when config is only static jobs", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			StaticJobs: []model.StaticJob{{
 				Regions: []string{"region1"},
@@ -229,7 +224,7 @@ func TestCachingFactory_Refresh(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		output.Refresh()
@@ -238,9 +233,7 @@ func TestCachingFactory_Refresh(t *testing.T) {
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		assert.NotNil(t, clients.cloudwatch)
 		assert.Nil(t, clients.account)
-		assert.Nil(t, clients.tagging)
 	})
 }
 
@@ -253,7 +246,7 @@ func TestCachingFactory_GetAccountClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		output.Refresh()
@@ -263,7 +256,7 @@ func TestCachingFactory_GetAccountClient(t *testing.T) {
 		assert.Equal(t, clients.account, output.GetAccountClient("region1", defaultRole))
 	})
 
-	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
+	t.Run("unrefreshed cache returns a client", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			DiscoveryJobs: []model.DiscoveryJob{{
 				Roles:   []model.Role{{}},
@@ -271,7 +264,7 @@ func TestCachingFactory_GetAccountClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		clients := output.clients[defaultRole]["region1"]
@@ -292,7 +285,7 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		output.Refresh()
@@ -311,15 +304,13 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		require.Nil(t, clients.cloudwatch)
 
-		output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1})
-		assert.NotNil(t, clients.cloudwatch)
+		assert.NotNil(t, output.GetCloudwatchClient("region1", defaultRole, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}))
 	})
 }
 
@@ -332,7 +323,7 @@ func TestCachingFactory_GetTaggingClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		output.Refresh()
@@ -343,7 +334,7 @@ func TestCachingFactory_GetTaggingClient(t *testing.T) {
 		assert.NotNil(t, output.GetTaggingClient("region1", defaultRole, 1))
 	})
 
-	t.Run("unrefreshed cache creates a new client", func(t *testing.T) {
+	t.Run("unrefreshed cache returns a client", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{
 			DiscoveryJobs: []model.DiscoveryJob{{
 				Roles:   []model.Role{{}},
@@ -351,20 +342,18 @@ func TestCachingFactory_GetTaggingClient(t *testing.T) {
 			}},
 		}
 
-		output, err := NewFactory(promslog.NewNopLogger(), jobsCfg, false)
+		output, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
 		require.NoError(t, err)
 
 		clients := output.clients[defaultRole]["region1"]
 		require.NotNil(t, clients)
-		require.Nil(t, clients.tagging)
 
-		output.GetTaggingClient("region1", defaultRole, 1)
-		assert.NotNil(t, clients.tagging)
+		assert.NotNil(t, output.GetTaggingClient("region1", defaultRole, 1))
 	})
 }
 
 func TestCachingFactory_createTaggingClient_DoesNotEnableFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createTaggingClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -377,7 +366,7 @@ func TestCachingFactory_createTaggingClient_DoesNotEnableFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createAPIGatewayClient_EnablesFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createAPIGatewayClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -390,7 +379,7 @@ func TestCachingFactory_createAPIGatewayClient_EnablesFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createAPIGatewayV2Client_EnablesFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createAPIGatewayV2Client(factory.clients[defaultRole]["region1"].awsConfig)
@@ -403,7 +392,7 @@ func TestCachingFactory_createAPIGatewayV2Client_EnablesFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createAutoScalingClient_DoesNotEnableFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createAutoScalingClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -416,7 +405,7 @@ func TestCachingFactory_createAutoScalingClient_DoesNotEnableFIPS(t *testing.T) 
 }
 
 func TestCachingFactory_createEC2Client_EnablesFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createEC2Client(factory.clients[defaultRole]["region1"].awsConfig)
@@ -429,7 +418,7 @@ func TestCachingFactory_createEC2Client_EnablesFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createDMSClient_EnablesFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createDMSClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -442,7 +431,7 @@ func TestCachingFactory_createDMSClient_EnablesFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createStorageGatewayClient_EnablesFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createStorageGatewayClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -455,7 +444,7 @@ func TestCachingFactory_createStorageGatewayClient_EnablesFIPS(t *testing.T) {
 }
 
 func TestCachingFactory_createPrometheusClient_DoesNotEnableFIPS(t *testing.T) {
-	factory, err := NewFactory(promslog.NewNopLogger(), jobsCfgWithDefaultRoleAndRegion1, true)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfgWithDefaultRoleAndRegion1, true)
 	require.NoError(t, err)
 
 	client := factory.createPrometheusClient(factory.clients[defaultRole]["region1"].awsConfig)
@@ -469,7 +458,7 @@ func TestCachingFactory_createPrometheusClient_DoesNotEnableFIPS(t *testing.T) {
 
 func TestRaceConditionRefreshClear(t *testing.T) {
 	// Create a factory with the test config
-	factory, err := NewFactory(promslog.NewNopLogger(), model.JobsConfig{}, false)
+	factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), model.JobsConfig{}, false)
 	require.NoError(t, err)
 
 	// Number of concurrent operations to perform
