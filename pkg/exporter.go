@@ -163,7 +163,7 @@ func BuildPrometheusMetrics(
 		}
 	}
 
-	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory, promutil.DeprecatedScrapeMetrics())
+	scraper, err := metrics.NewScraper(logger, promutil.DeprecatedScrapeMetrics(), configFromOptions(options), jobsCfg, factory)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func UpdateMetrics(
 		}
 	}
 
-	scraper, err := metrics.NewScraper(logger, configFromOptions(options), jobsCfg, factory, promutil.DeprecatedScrapeMetrics())
+	scraper, err := metrics.NewScraper(logger, promutil.DeprecatedScrapeMetrics(), configFromOptions(options), jobsCfg, factory)
 	if err != nil {
 		return err
 	}
