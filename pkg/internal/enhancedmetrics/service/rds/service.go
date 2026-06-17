@@ -117,8 +117,8 @@ func (s *RDS) loadMetricsMetadata(
 	}
 
 	regionalData := make(map[string]*types.DBInstance, len(instances))
-	for _, instance := range instances {
-		regionalData[*instance.DBInstanceArn] = &instance
+	for i := range instances {
+		regionalData[*instances[i].DBInstanceArn] = &instances[i]
 	}
 
 	return regionalData, nil
