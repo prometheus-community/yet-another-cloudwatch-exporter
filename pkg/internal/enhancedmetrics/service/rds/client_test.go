@@ -92,7 +92,8 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "error - API failure",
+			name:      "error - API failure",
+			instances: []string{"db-1"},
 			client: &mockRDSClient{
 				describeDBInstancesFunc: func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
 					return nil, fmt.Errorf("API error")
@@ -100,6 +101,17 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: true,
+		},
+		{
+			name:      "empty input - no API call",
+			instances: nil,
+			client: &mockRDSClient{
+				describeDBInstancesFunc: func(_ context.Context, _ *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					return nil, fmt.Errorf("DescribeDBInstances should not be called for empty input")
+				},
+			},
+			want:    nil,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
