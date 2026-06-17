@@ -184,12 +184,87 @@ func TestRDS_GetMetrics(t *testing.T) {
 	}
 }
 
+func TestDBInstanceIdentifierFromARN(t *testing.T) {
+	tests := []struct {
+		name   string
+		arn    string
+		wantID string
+		wantOK bool
+	}{
+		{"db instance", "arn:aws:rds:eu-west-1:123456789012:db:my-db", "my-db", true},
+		{"db cluster", "arn:aws:rds:eu-west-1:123456789012:cluster:my-aurora", "", false},
+		{"unknown resource type", "arn:aws:rds:eu-west-1:123456789012:og:my-option-group", "", false},
+		{"not an arn", "not-an-arn", "", false},
+		{"arn without resource id", "arn:aws:rds:eu-west-1:123456789012:db", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, ok := dbInstanceIdentifierFromARN(tt.arn)
+			require.Equal(t, tt.wantOK, ok)
+			require.Equal(t, tt.wantID, id)
+		})
+	}
+}
+
+// TestRDS_GetMetrics_MixedResources reproduces error 400: a discovery result mixing a
+// DB instance, an Aurora cluster. It asserts that only the DB instance identifier
+// (never an ARN) reaches the filter, the cluster/proxy are skipped, and only the instance metric
+// is produced.
+func TestRDS_GetMetrics_MixedResources(t *testing.T) {
+	const (
+		instanceARN = "arn:aws:rds:eu-west-1:123456789012:db:my-db"
+		clusterARN  = "arn:aws:rds:eu-west-1:123456789012:cluster:my-aurora"
+	)
+
+	mock := &mockServiceRDSClient{
+		instances: []types.DBInstance{{
+			DBInstanceArn:        aws.String(instanceARN),
+			DBInstanceIdentifier: aws.String("my-db"),
+			DBInstanceClass:      aws.String("db.t3.micro"),
+			Engine:               aws.String("postgres"),
+			AllocatedStorage:     aws.Int32(100),
+		}},
+	}
+
+	service := NewRDSService(func(_ aws.Config) Client { return mock })
+
+	resources := []*model.TaggedResource{
+		{ARN: instanceARN, Namespace: awsRdsNamespace},
+		{ARN: clusterARN, Namespace: awsRdsNamespace},
+	}
+
+	result, err := service.GetMetrics(
+		context.Background(),
+		slog.New(slog.DiscardHandler),
+		resources,
+		[]*model.EnhancedMetricConfig{{Name: "AllocatedStorage"}},
+		nil,
+		"eu-west-1",
+		model.Role{},
+		&mockConfigProvider{c: &aws.Config{Region: "eu-west-1"}},
+	)
+	require.NoError(t, err)
+
+	// The filter receives the bare identifier only — never an ARN, and never the cluster/proxy.
+	require.Equal(t, []string{"my-db"}, mock.instanceIDs)
+
+	// Only the DB instance produces a metric; cluster and proxy are skipped.
+	require.Len(t, result, 1)
+	require.Equal(t, awsRdsNamespace, result[0].Namespace)
+	require.Len(t, result[0].GetMetricDataResult.DataPoints, 1)
+	require.Equal(t, 107374182400.0, *result[0].GetMetricDataResult.DataPoints[0].Value) // 100 GiB
+}
+
 type mockServiceRDSClient struct {
 	instances   []types.DBInstance
 	describeErr bool
+
+	// instanceIDs captures the filter input, for assertions.
+	instanceIDs []string
 }
 
-func (m *mockServiceRDSClient) DescribeDBInstances(context.Context, *slog.Logger, []string) ([]types.DBInstance, error) {
+func (m *mockServiceRDSClient) DescribeDBInstances(_ context.Context, _ *slog.Logger, ids []string) ([]types.DBInstance, error) {
+	m.instanceIDs = ids
 	if m.describeErr {
 		return nil, fmt.Errorf("mock describe error")
 	}

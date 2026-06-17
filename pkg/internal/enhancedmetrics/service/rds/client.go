@@ -49,7 +49,7 @@ func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.Descr
 	return result, nil
 }
 
-// DescribeAllDBInstances retrieves all DB instances by handling pagination
+// DescribeDBInstances retrieves all DB instances by handling pagination
 func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
 	logger.Debug("Describing all RDS DB instances")
 	var allInstances []types.DBInstance
