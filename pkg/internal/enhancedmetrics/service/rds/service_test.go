@@ -194,6 +194,7 @@ func TestDBInstanceIdentifierFromARN(t *testing.T) {
 		{"db instance", "arn:aws:rds:eu-west-1:123456789012:db:my-db", "my-db", true},
 		{"db cluster", "arn:aws:rds:eu-west-1:123456789012:cluster:my-aurora", "", false},
 		{"unknown resource type", "arn:aws:rds:eu-west-1:123456789012:og:my-option-group", "", false},
+		{"non-rds service with db segment", "arn:aws:redshift:eu-west-1:123456789012:db:my-db", "", false},
 		{"not an arn", "not-an-arn", "", false},
 		{"arn without resource id", "arn:aws:rds:eu-west-1:123456789012:db", "", false},
 		{"empty identifier", "arn:aws:rds:eu-west-1:123456789012:db:", "", false},
