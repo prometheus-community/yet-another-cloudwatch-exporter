@@ -35,13 +35,14 @@ type Client interface {
 }
 
 // dbInstanceIdentifierFromARN extracts the DB instance identifier from an RDS DB instance ARN,
-// whose resource segment has the form "db:<identifier>", e.g.
+// whose resource segment has exactly the form "db:<identifier>", e.g.
 //
 //	arn:aws:rds:eu-west-1:123456789012:db:my-db -> ("my-db", true)
 //
-// It returns ok=false for any other RDS ARN (clusters, etc.): those identifiers are
-// not valid values for the DescribeDBInstances "db-instance-id" filter, which would otherwise
-// reject the whole request. The identifier (not the ARN) is what the filter accepts.
+// It returns ok=false for any other RDS ARN (clusters, etc.) and for malformed ARNs — a missing
+// or empty identifier ("...:db", "...:db:") or extra segments ("...:db:foo:bar"). Those are not
+// valid values for the DescribeDBInstances "db-instance-id" filter, which would otherwise reject
+// the whole request. The identifier (not the ARN) is what the filter accepts.
 func dbInstanceIdentifierFromARN(resourceARN string) (string, bool) {
 	parsed, err := arn.Parse(resourceARN)
 	if err != nil {
@@ -49,7 +50,7 @@ func dbInstanceIdentifierFromARN(resourceARN string) (string, bool) {
 	}
 
 	resourceType, id, found := strings.Cut(parsed.Resource, ":")
-	if !found || resourceType != "db" {
+	if !found || resourceType != "db" || id == "" || strings.Contains(id, ":") {
 		return "", false
 	}
 

@@ -196,6 +196,8 @@ func TestDBInstanceIdentifierFromARN(t *testing.T) {
 		{"unknown resource type", "arn:aws:rds:eu-west-1:123456789012:og:my-option-group", "", false},
 		{"not an arn", "not-an-arn", "", false},
 		{"arn without resource id", "arn:aws:rds:eu-west-1:123456789012:db", "", false},
+		{"empty identifier", "arn:aws:rds:eu-west-1:123456789012:db:", "", false},
+		{"extra segments", "arn:aws:rds:eu-west-1:123456789012:db:foo:bar", "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
