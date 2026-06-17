@@ -43,7 +43,7 @@ var DefaultCloudwatchConcurrency = toClientCloudWatchConcurrency(config.DefaultC
 //
 // You must build clients with promutil.DeprecatedScrapeMetrics() to have these metrics populated.
 //
-// Deprecated: use metrics.NewScraper with promutil.NewScrapeMetrics(registry).
+// Deprecated: use promutil.NewScrapeMetrics(registry) and migrate to the metrics.Scraper API.
 var Metrics = promutil.DeprecatedScrapeMetrics().Collectors() //nolint:staticcheck
 
 // featureFlagsMap is a map that contains the enabled feature flags. If a key is not present, it means the feature flag
@@ -180,9 +180,10 @@ func BuildPrometheusMetrics(
 // - `factory`: any implementation of the `clients.Factory` interface
 // - `optFuncs`: (optional) any number of options funcs
 //
-// To include scrape instrumentation metrics, use metrics.NewScraper and register its collectors:
+// Deprecated: use metrics.NewScraper and (*metrics.Scraper).Scrape:
 //
-//	scrapeMetrics := promutil.NewScrapeMetrics(registry)//	factory, err := clients.NewFactory(logger, scrapeMetrics, jobsCfg, fips)
+//	scrapeMetrics := promutil.NewScrapeMetrics(registry)
+//	factory, err := clients.NewFactory(logger, scrapeMetrics, jobsCfg, fips)
 //	if err != nil {
 //		return err
 //	}
@@ -195,8 +196,6 @@ func BuildPrometheusMetrics(
 //		return err
 //	}
 //	registry.MustRegister(promutil.NewPrometheusCollector(generatedMetrics))
-//
-// Deprecated: use metrics.NewScraper and (*metrics.Scraper).Scrape.
 func UpdateMetrics(
 	ctx context.Context,
 	logger *slog.Logger,
