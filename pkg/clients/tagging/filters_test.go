@@ -29,6 +29,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
 func TestValidServiceFilterNames(t *testing.T) {
@@ -174,6 +175,7 @@ func TestApiGatewayFilterFunc(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
+				scrapeMetrics:   promutil.Discard,
 				apiGatewayAPI:   newAPIGatewayClientAdapter(tc.apiGatewayAPI),
 				apiGatewayV2API: newAPIGatewayV2ClientAdapter(tc.apiGatewayV2API),
 			}
@@ -299,7 +301,8 @@ func TestDMSFilterFunc(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := client{
-				dmsAPI: newDMSClientAdapter(tc.dmsAPI),
+				scrapeMetrics: promutil.Discard,
+				dmsAPI:        newDMSClientAdapter(tc.dmsAPI),
 			}
 
 			filter := ServiceFilters["AWS/DMS"]

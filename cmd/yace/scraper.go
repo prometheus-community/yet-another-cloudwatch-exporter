@@ -22,14 +22,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	exporter "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	yacemetrics "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
 
+// Scraper holds two registries served together via prometheus.Gatherers:
+//   - stableReg: scrape instrumentation counters that accumulate across scrapes.
+//   - resultReg: latest-scrape result collector, swapped atomically each scrape.
 type Scraper struct {
-	registry     atomic.Pointer[prometheus.Registry]
-	featureFlags []string
+	stableReg     *prometheus.Registry
+	resultReg     atomic.Pointer[prometheus.Registry]
+	scrapeMetrics *promutil.ScrapeMetrics
+	config        config.Config
 }
 
 type cachingFactory interface {
@@ -38,18 +45,22 @@ type cachingFactory interface {
 	Clear()
 }
 
-func NewScraper(featureFlags []string) *Scraper {
+func NewScraper(cfg config.Config) *Scraper {
+	cfg.FeatureFlags = append([]string(nil), cfg.FeatureFlags...)
+	stableReg := prometheus.NewRegistry()
 	s := &Scraper{
-		registry:     atomic.Pointer[prometheus.Registry]{},
-		featureFlags: featureFlags,
+		stableReg:     stableReg,
+		scrapeMetrics: promutil.NewScrapeMetrics(stableReg),
+		config:        cfg,
 	}
-	s.registry.Store(prometheus.NewRegistry())
+	s.resultReg.Store(prometheus.NewRegistry())
 	return s
 }
 
 func (s *Scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler := promhttp.HandlerFor(s.registry.Load(), promhttp.HandlerOpts{
+		gatherers := prometheus.Gatherers{s.stableReg, s.resultReg.Load()}
+		handler := promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
 			DisableCompression: false,
 		})
 		handler.ServeHTTP(w, r)
@@ -57,8 +68,14 @@ func (s *Scraper) makeHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func (s *Scraper) decoupled(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
+	metricsScraper, err := yacemetrics.NewScraper(logger, s.scrapeMetrics, s.config, jobsCfg, cache)
+	if err != nil {
+		logger.Error("invalid runtime scrape configuration", "err", err)
+		return
+	}
+
 	logger.Debug("Starting scraping async")
-	s.scrape(ctx, logger, jobsCfg, cache)
+	s.scrape(ctx, logger, metricsScraper, cache)
 
 	scrapingDuration := time.Duration(scrapingInterval) * time.Second
 	ticker := time.NewTicker(scrapingDuration)
@@ -70,12 +87,12 @@ func (s *Scraper) decoupled(ctx context.Context, logger *slog.Logger, jobsCfg mo
 			return
 		case <-ticker.C:
 			logger.Debug("Starting scraping async")
-			go s.scrape(ctx, logger, jobsCfg, cache)
+			go s.scrape(ctx, logger, metricsScraper, cache)
 		}
 	}
 }
 
-func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model.JobsConfig, cache cachingFactory) {
+func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, scraper *yacemetrics.Scraper, cache cachingFactory) {
 	if !sem.TryAcquire(1) {
 		// This shouldn't happen under normal use, users should adjust their configuration when this occurs.
 		// Let them know by logging a warning.
@@ -85,44 +102,20 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, jobsCfg model
 	}
 	defer sem.Release(1)
 
-	newRegistry := prometheus.NewRegistry()
-	for _, metric := range exporter.Metrics {
-		if err := newRegistry.Register(metric); err != nil {
-			logger.Warn("Could not register cloudwatch api metric")
-		}
-	}
-
 	// since we have called refresh, we have loaded all the credentials
 	// into the clients and it is now safe to call concurrently. Defer the
 	// clearing, so we always clear credentials before the next scrape
 	cache.Refresh()
 	defer cache.Clear()
 
-	options := []exporter.OptionsFunc{
-		exporter.MetricsPerQuery(metricsPerQuery),
-		exporter.LabelsSnakeCase(labelsSnakeCase),
-		exporter.EnableFeatureFlag(s.featureFlags...),
-		exporter.TaggingAPIConcurrency(tagConcurrency),
-	}
-
-	if cloudwatchConcurrency.PerAPILimitEnabled {
-		options = append(options, exporter.CloudWatchPerAPILimitConcurrency(cloudwatchConcurrency.ListMetrics, cloudwatchConcurrency.GetMetricData, cloudwatchConcurrency.GetMetricStatistics))
-	} else {
-		options = append(options, exporter.CloudWatchAPIConcurrency(cloudwatchConcurrency.SingleLimit))
-	}
-
-	err := exporter.UpdateMetrics(
-		ctx,
-		logger,
-		jobsCfg,
-		newRegistry,
-		cache,
-		options...,
-	)
+	metrics, err := scraper.Scrape(ctx)
 	if err != nil {
 		logger.Error("error updating metrics", "err", err)
+		return
 	}
 
-	s.registry.Store(newRegistry)
+	newResultReg := prometheus.NewRegistry()
+	newResultReg.MustRegister(promutil.NewPrometheusCollector(metrics))
+	s.resultReg.Store(newResultReg)
 	logger.Debug("Metrics scraped")
 }

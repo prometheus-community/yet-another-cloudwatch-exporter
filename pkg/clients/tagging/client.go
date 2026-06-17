@@ -58,6 +58,7 @@ var ErrExpectedToFindResources = errors.New("expected to discover resources but 
 
 type client struct {
 	logger            *slog.Logger
+	scrapeMetrics     *promutil.ScrapeMetrics
 	taggingAPI        taggingClientAdapter
 	autoscalingAPI    autoscalingClientAdapter
 	apiGatewayAPI     apiGatewayClientAdapter
@@ -71,6 +72,7 @@ type client struct {
 
 func NewClient(
 	logger *slog.Logger,
+	scrapeMetrics *promutil.ScrapeMetrics,
 	taggingAPI *resourcegroupstaggingapi.Client,
 	autoscalingAPI *autoscaling.Client,
 	apiGatewayAPI *apigateway.Client,
@@ -81,8 +83,12 @@ func NewClient(
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
 ) Client {
+	if scrapeMetrics == nil {
+		scrapeMetrics = promutil.Discard
+	}
 	return &client{
 		logger:            logger,
+		scrapeMetrics:     scrapeMetrics,
 		taggingAPI:        newTaggingClientAdapter(taggingAPI),
 		autoscalingAPI:    newAutoscalingClientAdapter(autoscalingAPI),
 		apiGatewayAPI:     newAPIGatewayClientAdapter(apiGatewayAPI),
@@ -131,7 +137,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			options.StopOnDuplicateToken = true
 		})
 		for paginator.HasMorePages() {
-			promutil.ResourceGroupTaggingAPICounter.Inc()
+			c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
 			page, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, err
