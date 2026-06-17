@@ -156,6 +156,12 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		instanceResources = append(instanceResources, resource)
 	}
 
+	// Nothing supported to describe: avoid calling DescribeDBInstances with an empty
+	// "db-instance-id" filter, which can error or trigger an unintended broad query.
+	if len(dbInstances) == 0 {
+		return nil, nil
+	}
+
 	data, err := s.loadMetricsMetadata(
 		ctx,
 		logger,
