@@ -49,9 +49,15 @@ func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.Descr
 	return result, nil
 }
 
-// DescribeAllDBInstances retrieves all DB instances by handling pagination
+// DescribeDBInstances retrieves the DB instances identified by dbInstances (passed as the
+// "db-instance-id" filter), handling pagination. It returns nil when dbInstances is empty to
+// avoid sending an empty filter to the AWS API.
 func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
-	logger.Debug("Describing all RDS DB instances")
+	if len(dbInstances) == 0 {
+		return nil, nil
+	}
+
+	logger.Debug("Describing RDS DB instances", slog.Int("requestedInstances", len(dbInstances)))
 	var allInstances []types.DBInstance
 	var marker *string
 	maxRecords := aws.Int32(100)

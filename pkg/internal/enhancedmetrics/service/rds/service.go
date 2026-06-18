@@ -16,9 +16,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
@@ -30,6 +32,33 @@ const awsRdsNamespace = "AWS/RDS"
 
 type Client interface {
 	DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error)
+}
+
+// dbInstanceIdentifierFromARN extracts the DB instance identifier from an RDS DB instance ARN,
+// whose resource segment has exactly the form "db:<identifier>", e.g.
+//
+//	arn:aws:rds:eu-west-1:123456789012:db:my-db -> ("my-db", true)
+//
+// It returns ok=false for non-RDS ARNs, other RDS ARNs (clusters, etc.), and malformed ARNs —
+// a missing or empty identifier ("...:db", "...:db:") or extra segments ("...:db:foo:bar").
+// Those are not valid values for the DescribeDBInstances "db-instance-id" filter, which would
+// otherwise reject the whole request. The identifier (not the ARN) is what the filter accepts.
+func dbInstanceIdentifierFromARN(resourceARN string) (string, bool) {
+	parsed, err := arn.Parse(resourceARN)
+	if err != nil {
+		return "", false
+	}
+
+	if parsed.Service != "rds" {
+		return "", false
+	}
+
+	resourceType, id, found := strings.Cut(parsed.Resource, ":")
+	if !found || resourceType != "db" || id == "" || strings.Contains(id, ":") {
+		return "", false
+	}
+
+	return id, true
 }
 
 type buildCloudwatchData func(*model.TaggedResource, *types.DBInstance, []string) (*model.CloudwatchData, error)
@@ -76,7 +105,7 @@ func (s *RDS) GetNamespace() string {
 	return awsRdsNamespace
 }
 
-// loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role
+// loadMetricsMetadata loads any metadata needed for RDS enhanced metrics for the given region and role.
 func (s *RDS) loadMetricsMetadata(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -93,9 +122,8 @@ func (s *RDS) loadMetricsMetadata(
 	}
 
 	regionalData := make(map[string]*types.DBInstance, len(instances))
-
-	for _, instance := range instances {
-		regionalData[*instance.DBInstanceArn] = &instance
+	for i := range instances {
+		regionalData[*instances[i].DBInstanceArn] = &instances[i]
 	}
 
 	return regionalData, nil
@@ -111,9 +139,32 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		return nil, nil
 	}
 
+	// Only DB instance identifiers (not ARNs) are accepted by the DescribeDBInstances
+	// "db-instance-id" filter. Filter out everything that isn't a supported DB instance up
+	// front (non-instance RDS resources such as clusters and db-proxies, and resources from
+	// another namespace) so their ARNs never reach the API, which would reject the request.
 	dbInstances := make([]string, 0, len(resources))
+	instanceResources := make([]*model.TaggedResource, 0, len(resources))
 	for _, resource := range resources {
-		dbInstances = append(dbInstances, resource.ARN)
+		if resource.Namespace != s.GetNamespace() {
+			logger.Warn("RDS enhanced metrics service cannot process resource with different namespace", "namespace", resource.Namespace, "arn", resource.ARN)
+			continue
+		}
+
+		id, ok := dbInstanceIdentifierFromARN(resource.ARN)
+		if !ok {
+			logger.Warn("Skipping RDS resource: only DB instances are supported", "arn", resource.ARN)
+			continue
+		}
+
+		dbInstances = append(dbInstances, id)
+		instanceResources = append(instanceResources, resource)
+	}
+
+	// Nothing supported to describe: avoid calling DescribeDBInstances with an empty
+	// "db-instance-id" filter, which can error or trigger an unintended broad query.
+	if len(dbInstances) == 0 {
+		return nil, nil
 	}
 
 	data, err := s.loadMetricsMetadata(
@@ -130,12 +181,7 @@ func (s *RDS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 
 	var result []*model.CloudwatchData
 
-	for _, resource := range resources {
-		if resource.Namespace != s.GetNamespace() {
-			logger.Warn("RDS enhanced metrics service cannot process resource with different namespace", "namespace", resource.Namespace, "arn", resource.ARN)
-			continue
-		}
-
+	for _, resource := range instanceResources {
 		dbInstance, exists := data[resource.ARN]
 		if !exists {
 			logger.Warn("RDS DB instance not found in metadata", "arn", resource.ARN)
