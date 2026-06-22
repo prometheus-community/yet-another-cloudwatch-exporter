@@ -8,9 +8,10 @@ Nothing here yet.
 
 - BREAKING CHANGE: `cloudwatch.NewClient`, `tagging.NewClient`, and `clients.NewFactory` now require a `*promutil.ScrapeMetrics` argument for AWS API request instrumentation. Build one with `promutil.NewScrapeMetrics(registry)`, or pass `promutil.Discard` to disable scrape telemetry.
 
-* [ENHANCEMENT] pkg/clients: use method-value closures to avoid defeating dead-code elimination by @roidelapluie. #1867
 * [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
 * [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, instead of the [constants from the exporter package](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/exporter.go#L48-L62). #1857
+* [ENHANCEMENT] pkg/clients: use method-value closures to avoid defeating dead-code elimination by @roidelapluie. #1867
+* [ENHANCEMENT] enhance RDS metrics handling by filtering valid DB instance identifiers from ARNs by @andriikushch. #1877
 
 **Dependency updates**
 
