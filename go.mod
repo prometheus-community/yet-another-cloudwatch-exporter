@@ -22,7 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/shield v1.35.3
 	github.com/aws/aws-sdk-go-v2/service/storagegateway v1.44.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.3
-	github.com/aws/smithy-go v1.27.1
+	github.com/aws/smithy-go v1.27.2
 	github.com/grafana/regexp v0.0.0-20240607082908-2cb410fa05da
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
