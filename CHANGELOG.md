@@ -1,6 +1,8 @@
 ## main / (unreleased)
 
-**Important news and breaking changes**
+Nothing here yet.
+
+## 0.66.0 / 2026-06-22
 
 - BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil` have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Go library users importing those metrics must create a `promutil.ScrapeMetrics` value (which registers its counters on the `prometheus.Registerer` you supply) and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` will need to build clients with `promutil.DeprecatedScrapeMetrics()` to continue using them, or otherwise switch to `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Both `exporter.UpdateMetrics` and `exporter.Metrics` APIs are now deprecated and will be removed in a future release.
 
@@ -8,6 +10,16 @@
 
 * [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
 * [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, instead of the [constants from the exporter package](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/exporter.go#L48-L62). #1857
+* [ENHANCEMENT] pkg/clients: use method-value closures to avoid defeating dead-code elimination by @roidelapluie. #1867
+* [ENHANCEMENT] enhance RDS metrics handling by filtering valid DB instance identifiers from ARNs by @andriikushch. #1877
+
+**Dependency updates**
+
+* Bump the aws-sdk-v2 group with 19 updates. #1855
+* Bump actions/checkout from 6.0.2 to 6.0.3. #1870
+* Bump golangci/golangci-lint-action from 9.2.0 to 9.2.1. #1871
+* Bump github.com/prometheus/common from 0.67.5 to 0.68.0. #1872
+* Bump github.com/aws/smithy-go from 1.25.0 to 1.27.0. #1873
 
 ## 0.65.0 / 2026-04-21
 
