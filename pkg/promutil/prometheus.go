@@ -300,7 +300,10 @@ func PromStringTag(text string, labelsSnakeCase bool) (bool, string) {
 	} else {
 		s = sanitize(text)
 	}
-	return model.LabelName(s).IsValid(), s //nolint:staticcheck
+	// Validate against the legacy scheme explicitly instead of reading the
+	// process-global model.NameValidationScheme, which library callers must not
+	// be forced to set or have mutated on their behalf.
+	return model.LegacyValidation.IsValidLabelName(s), s
 }
 
 // sanitize replaces some invalid chars with an underscore
