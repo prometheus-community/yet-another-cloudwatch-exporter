@@ -193,6 +193,30 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 2, // 1 for table + 1 for GSI
 		},
 		{
+			name: "successfully received multiple metrics with global secondary indexes",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi", Namespace: awsDynamoDBNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}, {Name: "TableSizeBytes"}},
+			tables: []types.TableDescription{
+				{
+					TableArn:       aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"),
+					TableName:      aws.String("test-table-with-gsi"),
+					ItemCount:      aws.Int64(1000),
+					TableSizeBytes: aws.Int64(4096),
+					GlobalSecondaryIndexes: []types.GlobalSecondaryIndexDescription{
+						{
+							IndexName:      aws.String("test-gsi-1"),
+							ItemCount:      aws.Int64(500),
+							IndexSizeBytes: aws.Int64(1024),
+						},
+					},
+				},
+			},
+			wantErr:         false,
+			wantResultCount: 4, // ItemCount: table + GSI; TableSizeBytes: table + GSI
+		},
+		{
 			name: "resource not found in metadata",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},

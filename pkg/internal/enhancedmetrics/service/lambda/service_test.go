@@ -160,6 +160,22 @@ func TestLambda_GetMetrics(t *testing.T) {
 			},
 			wantCount: 1,
 		},
+		{
+			name: "successfully received multiple metrics for a single function",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-multi", Namespace: awsLambdaNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}, {Name: "MemorySize"}},
+			functions: []types.FunctionConfiguration{
+				{
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-multi"),
+					FunctionName: aws.String("test-multi"),
+					Timeout:      aws.Int32(300),
+					MemorySize:   aws.Int32(256),
+				},
+			},
+			wantCount: 2, // 1 for Timeout + 1 for MemorySize
+		},
 	}
 
 	for _, tt := range tests {
