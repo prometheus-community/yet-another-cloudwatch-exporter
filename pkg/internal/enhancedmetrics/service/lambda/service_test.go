@@ -145,6 +145,21 @@ func TestLambda_GetMetrics(t *testing.T) {
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("func1", 300), makeFunctionConfiguration("func2", 600)},
 			wantCount:       2,
 		},
+		{
+			name: "successfully received memory size metric",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-mem", Namespace: awsLambdaNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "MemorySize"}},
+			functions: []types.FunctionConfiguration{
+				{
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-mem"),
+					FunctionName: aws.String("test-mem"),
+					MemorySize:   aws.Int32(256),
+				},
+			},
+			wantCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -165,8 +180,11 @@ func TestLambda_GetMetrics(t *testing.T) {
 
 			for _, metric := range result {
 				require.Equal(t, awsLambdaNamespace, metric.Namespace)
+				require.NotEmpty(t, metric.MetricName)
 				require.NotEmpty(t, metric.Dimensions)
 				require.NotNil(t, metric.GetMetricDataResult)
+				require.Len(t, metric.GetMetricDataResult.DataPoints, 1)
+				require.NotNil(t, metric.GetMetricDataResult.DataPoints[0].Value)
 			}
 		})
 	}

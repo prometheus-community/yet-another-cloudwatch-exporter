@@ -223,11 +223,12 @@ func buildItemCountMetric(resource *model.TaggedResource, table *types.TableDesc
 
 	if len(table.GlobalSecondaryIndexes) > 0 {
 		result = append(result,
-			buildGlobalSecondaryIndexesMetricForItemCount(
+			buildGlobalSecondaryIndexesMetric(
 				resource,
 				table,
 				exportedTags,
 				metricName,
+				func(gsi types.GlobalSecondaryIndexDescription) *int64 { return gsi.ItemCount },
 			)...,
 		)
 	}
@@ -259,10 +260,12 @@ func buildTableSizeBytesMetric(resource *model.TaggedResource, table *types.Tabl
 
 	if len(table.GlobalSecondaryIndexes) > 0 {
 		result = append(result,
-			buildGlobalSecondaryIndexesMetricForSizeBytes(
+			buildGlobalSecondaryIndexesMetric(
 				resource,
 				table,
 				exportedTags,
+				"IndexSizeBytes",
+				func(gsi types.GlobalSecondaryIndexDescription) *int64 { return gsi.IndexSizeBytes },
 			)...,
 		)
 	}
@@ -270,86 +273,34 @@ func buildTableSizeBytesMetric(resource *model.TaggedResource, table *types.Tabl
 	return result, nil
 }
 
-func buildGlobalSecondaryIndexesMetricForItemCount(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string, metricName string) []*model.CloudwatchData {
+// buildGlobalSecondaryIndexesMetric emits one datapoint per global secondary index for the given
+// metric. getValue selects the source field on the index (e.g. ItemCount or IndexSizeBytes);
+// indexes whose value or name is nil are skipped.
+func buildGlobalSecondaryIndexesMetric(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string, metricName string, getValue func(types.GlobalSecondaryIndexDescription) *int64) []*model.CloudwatchData {
 	var result []*model.CloudwatchData
 
 	for _, globalSecondaryIndex := range table.GlobalSecondaryIndexes {
-		if globalSecondaryIndex.ItemCount == nil || globalSecondaryIndex.IndexName == nil {
+		rawValue := getValue(globalSecondaryIndex)
+		if rawValue == nil || globalSecondaryIndex.IndexName == nil {
 			continue
 		}
 
-		var secondaryIndexesDimensions []model.Dimension
-		globalSecondaryIndexesItemsCount := float64(*globalSecondaryIndex.ItemCount)
-
-		if table.TableName != nil {
-			secondaryIndexesDimensions = append(secondaryIndexesDimensions, model.Dimension{
-				Name:  "TableName",
-				Value: *table.TableName,
-			})
-		}
-
-		if globalSecondaryIndex.IndexName != nil {
-			secondaryIndexesDimensions = append(secondaryIndexesDimensions, model.Dimension{
-				Name:  "GlobalSecondaryIndexName",
-				Value: *globalSecondaryIndex.IndexName,
-			})
-		}
+		value := float64(*rawValue)
+		dimensions := append(getTableDimensions(table), model.Dimension{
+			Name:  "GlobalSecondaryIndexName",
+			Value: *globalSecondaryIndex.IndexName,
+		})
 
 		result = append(result, &model.CloudwatchData{
 			MetricName:   metricName,
 			ResourceName: resource.ARN,
 			Namespace:    "AWS/DynamoDB",
-			Dimensions:   secondaryIndexesDimensions,
+			Dimensions:   dimensions,
 			Tags:         resource.MetricTags(exportedTags),
 			GetMetricDataResult: &model.GetMetricDataResult{
 				DataPoints: []model.DataPoint{
 					{
-						Value:     &globalSecondaryIndexesItemsCount,
-						Timestamp: time.Now(),
-					},
-				},
-			},
-		})
-	}
-
-	return result
-}
-
-func buildGlobalSecondaryIndexesMetricForSizeBytes(resource *model.TaggedResource, table *types.TableDescription, exportedTags []string) []*model.CloudwatchData {
-	var result []*model.CloudwatchData
-
-	for _, globalSecondaryIndex := range table.GlobalSecondaryIndexes {
-		if globalSecondaryIndex.IndexSizeBytes == nil || globalSecondaryIndex.IndexName == nil {
-			continue
-		}
-
-		var secondaryIndexesDimensions []model.Dimension
-		globalSecondaryIndexesIndexSizeBytes := float64(*globalSecondaryIndex.IndexSizeBytes)
-
-		if table.TableName != nil {
-			secondaryIndexesDimensions = append(secondaryIndexesDimensions, model.Dimension{
-				Name:  "TableName",
-				Value: *table.TableName,
-			})
-		}
-
-		if globalSecondaryIndex.IndexName != nil {
-			secondaryIndexesDimensions = append(secondaryIndexesDimensions, model.Dimension{
-				Name:  "GlobalSecondaryIndexName",
-				Value: *globalSecondaryIndex.IndexName,
-			})
-		}
-
-		result = append(result, &model.CloudwatchData{
-			MetricName:   "IndexSizeBytes",
-			ResourceName: resource.ARN,
-			Namespace:    "AWS/DynamoDB",
-			Dimensions:   secondaryIndexesDimensions,
-			Tags:         resource.MetricTags(exportedTags),
-			GetMetricDataResult: &model.GetMetricDataResult{
-				DataPoints: []model.DataPoint{
-					{
-						Value:     &globalSecondaryIndexesIndexSizeBytes,
+						Value:     &value,
 						Timestamp: time.Now(),
 					},
 				},

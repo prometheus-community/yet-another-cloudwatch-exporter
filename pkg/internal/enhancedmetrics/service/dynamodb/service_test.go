@@ -171,6 +171,28 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantResultCount: 3, // 1 for table + 2 for GSIs
 		},
 		{
+			name: "successfully received table size bytes metric with global secondary indexes",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi", Namespace: awsDynamoDBNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "TableSizeBytes"}},
+			tables: []types.TableDescription{
+				{
+					TableArn:       aws.String("arn:aws:dynamodb:us-east-1:123456789012:table/test-table-with-gsi"),
+					TableName:      aws.String("test-table-with-gsi"),
+					TableSizeBytes: aws.Int64(4096),
+					GlobalSecondaryIndexes: []types.GlobalSecondaryIndexDescription{
+						{
+							IndexName:      aws.String("test-gsi-1"),
+							IndexSizeBytes: aws.Int64(1024),
+						},
+					},
+				},
+			},
+			wantErr:         false,
+			wantResultCount: 2, // 1 for table + 1 for GSI
+		},
+		{
 			name: "resource not found in metadata",
 			resources: []*model.TaggedResource{
 				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/non-existent"},
@@ -247,8 +269,11 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 				for _, metric := range result {
 					require.NotNil(t, metric)
 					require.Equal(t, awsDynamoDBNamespace, metric.Namespace)
+					require.NotEmpty(t, metric.MetricName)
 					require.NotEmpty(t, metric.Dimensions)
 					require.NotNil(t, metric.GetMetricDataResult)
+					require.Len(t, metric.GetMetricDataResult.DataPoints, 1)
+					require.NotNil(t, metric.GetMetricDataResult.DataPoints[0].Value)
 					require.Nil(t, metric.GetMetricStatisticsResult)
 				}
 			}
