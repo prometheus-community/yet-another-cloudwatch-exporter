@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -186,6 +187,8 @@ func (s *DynamoDB) ListSupportedEnhancedMetrics() []string {
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)
 	}
+
+	sort.Strings(metrics)
 	return metrics
 }
 

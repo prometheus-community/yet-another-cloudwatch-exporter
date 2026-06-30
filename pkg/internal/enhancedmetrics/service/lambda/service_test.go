@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -75,7 +74,6 @@ func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 		"Timeout",
 	}
 	supportedMetrics := service.ListSupportedEnhancedMetrics()
-	sort.Strings(supportedMetrics)
 	require.Equal(t, expectedMetrics, supportedMetrics)
 }
 
