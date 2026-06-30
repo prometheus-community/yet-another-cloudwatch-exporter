@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,8 +46,9 @@ func TestNewDynamoDBService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewDynamoDBService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.Len(t, got.supportedMetrics, 1)
+			require.Len(t, got.supportedMetrics, 2)
 			require.NotNil(t, got.supportedMetrics["ItemCount"])
+			require.NotNil(t, got.supportedMetrics["TableSizeBytes"])
 		})
 	}
 }
@@ -63,6 +65,9 @@ func TestDynamoDB_ListRequiredPermissions(t *testing.T) {
 		"ItemCount": {
 			"dynamodb:DescribeTable",
 		},
+		"TableSizeBytes": {
+			"dynamodb:DescribeTable",
+		},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
@@ -71,8 +76,11 @@ func TestDynamoDB_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewDynamoDBService(nil)
 	expectedMetrics := []string{
 		"ItemCount",
+		"TableSizeBytes",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
+	supportedMetrics := service.ListSupportedEnhancedMetrics()
+	sort.Strings(supportedMetrics)
+	require.Equal(t, expectedMetrics, supportedMetrics)
 }
 
 func TestDynamoDB_GetMetrics(t *testing.T) {

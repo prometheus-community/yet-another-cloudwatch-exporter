@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,8 +46,9 @@ func TestNewLambdaService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewLambdaService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.Len(t, got.supportedMetrics, 1)
+			require.Len(t, got.supportedMetrics, 2)
 			require.NotNil(t, got.supportedMetrics["Timeout"])
+			require.NotNil(t, got.supportedMetrics["MemorySize"])
 		})
 	}
 }
@@ -60,7 +62,8 @@ func TestLambda_GetNamespace(t *testing.T) {
 func TestLambda_ListRequiredPermissions(t *testing.T) {
 	service := NewLambdaService(nil)
 	expectedPermissions := map[string][]string{
-		"Timeout": {"lambda:ListFunctions"},
+		"Timeout":    {"lambda:ListFunctions"},
+		"MemorySize": {"lambda:ListFunctions"},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
@@ -68,9 +71,12 @@ func TestLambda_ListRequiredPermissions(t *testing.T) {
 func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewLambdaService(nil)
 	expectedMetrics := []string{
+		"MemorySize",
 		"Timeout",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
+	supportedMetrics := service.ListSupportedEnhancedMetrics()
+	sort.Strings(supportedMetrics)
+	require.Equal(t, expectedMetrics, supportedMetrics)
 }
 
 func TestLambda_GetMetrics(t *testing.T) {
