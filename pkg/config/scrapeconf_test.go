@@ -14,6 +14,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -32,12 +33,29 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "custom_namespace.ok.yml"},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.configFile, func(t *testing.T) {
+		t.Run("file loading "+tc.configFile, func(t *testing.T) {
 			t.Parallel()
 
 			config := ScrapeConf{}
 			configFile := fmt.Sprintf("testdata/%s", tc.configFile)
 			_, err := config.Load(configFile, promslog.NewNopLogger())
+			require.NoError(t, err)
+		})
+	}
+
+	i := 0
+	for _, tc := range testCases {
+		i += 1
+		envConfigName := fmt.Sprintf("VERIFY_CONFIG_FILE_%d", i)
+		t.Run("env loading "+tc.configFile, func(t *testing.T) {
+			t.Parallel()
+
+			config := ScrapeConf{}
+			content, err := os.ReadFile(fmt.Sprintf("testdata/%s", tc.configFile))
+			require.NoError(t, err)
+
+			os.Setenv(envConfigName, string(content))
+			_, err = config.Load(fmt.Sprintf("env:%s", envConfigName), promslog.NewNopLogger())
 			require.NoError(t, err)
 		})
 	}

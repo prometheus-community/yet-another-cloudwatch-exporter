@@ -105,7 +105,7 @@ func NewYACEApp() *cli.App {
 		&cli.StringFlag{
 			Name:        "config.file",
 			Value:       config.DefaultScrapeConfigFile,
-			Usage:       "Path to configuration file",
+			Usage:       "Path to configuration file, may be specified as `env:<env_var>` to read the config from an environment variable",
 			Destination: &configFile,
 			EnvVars:     []string{"config.file"},
 		},
@@ -213,7 +213,7 @@ func NewYACEApp() *cli.App {
 			Aliases: []string{"vc"},
 			Usage:   "Loads and attempts to parse config file, then exits. Useful for CI/CD validation",
 			Flags: []cli.Flag{
-				&cli.StringFlag{Name: "config.file", Value: config.DefaultScrapeConfigFile, Usage: "Path to configuration file.", Destination: &configFile},
+				&cli.StringFlag{Name: "config.file", Value: config.DefaultScrapeConfigFile, Usage: "Path to configuration file. May be specified as `env:<env_var>` to read the config from an environment variable.", Destination: &configFile},
 			},
 			Action: func(_ *cli.Context) error {
 				logger = newLogger(logFormat, logLevel).With("version", version.Version)

@@ -128,7 +128,15 @@ func (r *Role) ValidateRole(roleIdx int, parent string) error {
 	return nil
 }
 
+var envConfigCheck = regexp.MustCompile(`^env:([^\s]+)$`)
+
 func (c *ScrapeConf) Load(file string, logger *slog.Logger) (model.JobsConfig, error) {
+	if env := envConfigCheck.FindStringSubmatch(file); len(env) == 2 {
+		if configEnv, ok := os.LookupEnv(env[1]); ok {
+			return c.Parse([]byte(configEnv), logger)
+		}
+	}
+
 	yamlFile, err := os.ReadFile(file)
 	if err != nil {
 		return model.JobsConfig{}, err
