@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -64,8 +65,15 @@ func NewLambdaService(buildClientFunc func(cfg aws.Config) Client) *Lambda {
 		requiredPermissions:     []string{"lambda:ListFunctions"},
 	}
 
+	memorySizeMetric := supportedMetric{
+		name:                    "MemorySize",
+		buildCloudwatchDataFunc: buildMemorySizeMetric,
+		requiredPermissions:     []string{"lambda:ListFunctions"},
+	}
+
 	svc.supportedMetrics = map[string]supportedMetric{
-		timeoutMetric.name: timeoutMetric,
+		timeoutMetric.name:    timeoutMetric,
+		memorySizeMetric.name: memorySizeMetric,
 	}
 
 	return svc
@@ -160,6 +168,8 @@ func (s *Lambda) ListSupportedEnhancedMetrics() []string {
 	for metric := range s.supportedMetrics {
 		metrics = append(metrics, metric)
 	}
+
+	sort.Strings(metrics)
 	return metrics
 }
 
@@ -176,20 +186,12 @@ func buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfig
 		return nil, fmt.Errorf("timeout is nil for Lambda function %s", resource.ARN)
 	}
 
-	var dimensions []model.Dimension
-
-	if fn.FunctionName != nil {
-		dimensions = []model.Dimension{
-			{Name: "FunctionName", Value: *fn.FunctionName},
-		}
-	}
-
 	value := float64(*fn.Timeout)
 	return &model.CloudwatchData{
 		MetricName:   "Timeout",
 		ResourceName: resource.ARN,
 		Namespace:    "AWS/Lambda",
-		Dimensions:   dimensions,
+		Dimensions:   getFunctionConfigurationDimensions(fn),
 		Tags:         resource.MetricTags(exportedTags),
 		GetMetricDataResult: &model.GetMetricDataResult{
 			DataPoints: []model.DataPoint{
@@ -200,4 +202,39 @@ func buildTimeoutMetric(resource *model.TaggedResource, fn *types.FunctionConfig
 			},
 		},
 	}, nil
+}
+
+func buildMemorySizeMetric(resource *model.TaggedResource, fn *types.FunctionConfiguration, exportedTags []string) (*model.CloudwatchData, error) {
+	if fn.MemorySize == nil {
+		return nil, fmt.Errorf("memorySize is nil for Lambda function %s", resource.ARN)
+	}
+
+	// convert to bytes
+	value := float64(*fn.MemorySize) * 1024 * 1024
+	return &model.CloudwatchData{
+		MetricName:   "MemorySize",
+		ResourceName: resource.ARN,
+		Namespace:    "AWS/Lambda",
+		Dimensions:   getFunctionConfigurationDimensions(fn),
+		Tags:         resource.MetricTags(exportedTags),
+		GetMetricDataResult: &model.GetMetricDataResult{
+			DataPoints: []model.DataPoint{
+				{
+					Value:     &value,
+					Timestamp: time.Now(),
+				},
+			},
+		},
+	}, nil
+}
+
+func getFunctionConfigurationDimensions(fn *types.FunctionConfiguration) []model.Dimension {
+	var dimensions []model.Dimension
+
+	if fn.FunctionName != nil {
+		dimensions = []model.Dimension{
+			{Name: "FunctionName", Value: *fn.FunctionName},
+		}
+	}
+	return dimensions
 }

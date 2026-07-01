@@ -427,7 +427,9 @@ The `enhanced_metrics_config` block allows enabling enhanced metrics for specifi
 Currently supported enhanced metrics are:
 
 - AWS/Lambda (Timeout) - The maximum execution duration permitted for the function before termination.
+- AWS/Lambda (MemorySize) - The amount of memory configured for the function, reported in bytes.
 - AWS/DynamoDB (ItemCount) - The count of items in the table, updated approximately every six hours; may not reflect recent changes.
+- AWS/DynamoDB (TableSizeBytes) - The total size of the table in bytes, updated approximately every six hours; may not reflect recent changes. Per-index sizes are emitted as the `IndexSizeBytes` metric, distinguished by the `GlobalSecondaryIndexName` dimension.
 - AWS/RDS (AllocatedStorage) - The storage capacity in bytes allocated for the DB instance.
 - AWS/ElastiCache (NumCacheNodes) - The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
 

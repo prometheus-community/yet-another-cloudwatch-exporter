@@ -45,8 +45,9 @@ func TestNewLambdaService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewLambdaService(tt.buildClientFunc)
 			require.NotNil(t, got)
-			require.Len(t, got.supportedMetrics, 1)
+			require.Len(t, got.supportedMetrics, 2)
 			require.NotNil(t, got.supportedMetrics["Timeout"])
+			require.NotNil(t, got.supportedMetrics["MemorySize"])
 		})
 	}
 }
@@ -60,7 +61,8 @@ func TestLambda_GetNamespace(t *testing.T) {
 func TestLambda_ListRequiredPermissions(t *testing.T) {
 	service := NewLambdaService(nil)
 	expectedPermissions := map[string][]string{
-		"Timeout": {"lambda:ListFunctions"},
+		"Timeout":    {"lambda:ListFunctions"},
+		"MemorySize": {"lambda:ListFunctions"},
 	}
 	require.Equal(t, expectedPermissions, service.ListRequiredPermissions())
 }
@@ -68,9 +70,11 @@ func TestLambda_ListRequiredPermissions(t *testing.T) {
 func TestLambda_ListSupportedEnhancedMetrics(t *testing.T) {
 	service := NewLambdaService(nil)
 	expectedMetrics := []string{
+		"MemorySize",
 		"Timeout",
 	}
-	require.Equal(t, expectedMetrics, service.ListSupportedEnhancedMetrics())
+	supportedMetrics := service.ListSupportedEnhancedMetrics()
+	require.Equal(t, expectedMetrics, supportedMetrics)
 }
 
 func TestLambda_GetMetrics(t *testing.T) {
@@ -139,6 +143,37 @@ func TestLambda_GetMetrics(t *testing.T) {
 			functions:       []types.FunctionConfiguration{makeFunctionConfiguration("func1", 300), makeFunctionConfiguration("func2", 600)},
 			wantCount:       2,
 		},
+		{
+			name: "successfully received memory size metric",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-mem", Namespace: awsLambdaNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "MemorySize"}},
+			functions: []types.FunctionConfiguration{
+				{
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-mem"),
+					FunctionName: aws.String("test-mem"),
+					MemorySize:   aws.Int32(256),
+				},
+			},
+			wantCount: 1,
+		},
+		{
+			name: "successfully received multiple metrics for a single function",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:lambda:us-east-1:123456789012:function:test-multi", Namespace: awsLambdaNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "Timeout"}, {Name: "MemorySize"}},
+			functions: []types.FunctionConfiguration{
+				{
+					FunctionArn:  aws.String("arn:aws:lambda:us-east-1:123456789012:function:test-multi"),
+					FunctionName: aws.String("test-multi"),
+					Timeout:      aws.Int32(300),
+					MemorySize:   aws.Int32(256),
+				},
+			},
+			wantCount: 2, // 1 for Timeout + 1 for MemorySize
+		},
 	}
 
 	for _, tt := range tests {
@@ -159,8 +194,11 @@ func TestLambda_GetMetrics(t *testing.T) {
 
 			for _, metric := range result {
 				require.Equal(t, awsLambdaNamespace, metric.Namespace)
+				require.NotEmpty(t, metric.MetricName)
 				require.NotEmpty(t, metric.Dimensions)
 				require.NotNil(t, metric.GetMetricDataResult)
+				require.Len(t, metric.GetMetricDataResult.DataPoints, 1)
+				require.NotNil(t, metric.GetMetricDataResult.DataPoints[0].Value)
 			}
 		})
 	}
