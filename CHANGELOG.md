@@ -2,6 +2,13 @@
 
 Nothing here yet.
 
+## 0.67.0 / 2026-07-03
+
+* [CHANGE] Synchronize common files from prometheus/prometheus. #1886
+* [CHANGE] update dependencies for AWS SDK and related packages by @andriikushch. #1890
+* [CHANGE] stop mutating global model.NameValidationScheme during scrape by @kgeckhart. #1887
+* [ENHANCEMENT] extend supported enhanced metrics for DynamoDB and Lambda with TableSizeBytes and MemorySize by @andriikushch. #1888
+
 ## 0.66.0 / 2026-06-22
 
 - BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil` have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Go library users importing those metrics must create a `promutil.ScrapeMetrics` value (which registers its counters on the `prometheus.Registerer` you supply) and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` will need to build clients with `promutil.DeprecatedScrapeMetrics()` to continue using them, or otherwise switch to `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Both `exporter.UpdateMetrics` and `exporter.Metrics` APIs are now deprecated and will be removed in a future release.
