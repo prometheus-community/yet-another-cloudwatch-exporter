@@ -16,8 +16,6 @@ import (
 	"context"
 	"log/slog"
 
-	prom "github.com/prometheus/common/model"
-
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
@@ -59,9 +57,6 @@ func NewScraper(
 
 // Scrape performs one CloudWatch scrape and converts the result into Prometheus metrics.
 func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, error) {
-	// Use legacy validation as that's the behaviour of former releases.
-	prom.NameValidationScheme = prom.LegacyValidation //nolint:staticcheck
-
 	ctx = config.CtxWithFlags(ctx, featureFlagsMapFromSlice(s.cfg.FeatureFlags))
 
 	tagsData, cloudwatchData := job.ScrapeAwsData(

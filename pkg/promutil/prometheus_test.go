@@ -116,6 +116,29 @@ func TestPromStringTag(t *testing.T) {
 	}
 }
 
+// TestPromStringTag_IgnoresGlobalValidationScheme guards against regressing to
+// reading the process-global model.NameValidationScheme. PromStringTag must
+// apply legacy label-name rules unconditionally, even when the global is set to
+// UTF8Validation (the prometheus/common default), so that embedding YACE never
+// depends on, nor needs to mutate, that global.
+func TestPromStringTag_IgnoresGlobalValidationScheme(t *testing.T) {
+	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
+	model.NameValidationScheme = model.UTF8Validation      //nolint:staticcheck
+	defer func() {
+		model.NameValidationScheme = originalValidationScheme //nolint:staticcheck
+	}()
+
+	// "1stLabel" is a valid UTF-8 label name but invalid under legacy rules
+	// (leading digit). It must be rejected regardless of the global scheme.
+	ok, _ := PromStringTag("1stLabel", false)
+	assert.False(t, ok, "leading-digit label must be rejected under legacy rules even when the global scheme is UTF8")
+
+	// A legacy-valid label is still accepted.
+	ok, out := PromStringTag("labelName", false)
+	assert.True(t, ok)
+	assert.Equal(t, "labelName", out)
+}
+
 func TestNewPrometheusCollector_CanReportMetricsAndErrors(t *testing.T) {
 	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
 	model.NameValidationScheme = model.LegacyValidation    //nolint:staticcheck
