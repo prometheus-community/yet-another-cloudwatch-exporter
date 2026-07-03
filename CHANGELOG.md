@@ -7,7 +7,7 @@ Nothing here yet.
 * [CHANGE] Synchronize common files from prometheus/prometheus. #1886
 * [CHANGE] update dependencies for AWS SDK and related packages by @andriikushch. #1890
 * [CHANGE] stop mutating global model.NameValidationScheme during scrape by @kgeckhart. #1887
-* [ENHANCEMENT] extend supported metrics for DynamoDB and Lambda with TableSizeBytes and MemorySize by @andriikushch. #1888
+* [ENHANCEMENT] extend supported enhanced metrics for DynamoDB and Lambda with TableSizeBytes and MemorySize by @andriikushch. #1888
 
 ## 0.66.0 / 2026-06-22
 
