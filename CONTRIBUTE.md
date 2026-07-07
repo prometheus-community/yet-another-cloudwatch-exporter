@@ -13,4 +13,4 @@
   * add tests relevant to the fixed bug or new feature
 
 ## How to release
-* `git tag v0.13.1-alpha && git push --tags`
+* See [RELEASE.md](RELEASE.md) for the full release process.
