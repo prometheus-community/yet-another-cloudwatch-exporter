@@ -58,6 +58,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/ApplicationELB` - Application Load Balancer
   * `AWS/AppRunner` - Managed Container Apps Service
   * `AWS/AppStream` - AppStream
+  * `AWS/AppFlow` - AppFlow
   * `AWS/AppSync` - AppSync
   * `AWS/Athena` - Athena
   * `AWS/AutoScaling` - Auto Scaling Group
