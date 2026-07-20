@@ -4,25 +4,25 @@ go 1.25.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.42.1
-	github.com/aws/aws-sdk-go-v2/config v1.32.27
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.26
-	github.com/aws/aws-sdk-go-v2/service/amp v1.44.2
-	github.com/aws/aws-sdk-go-v2/service/apigateway v1.40.8
-	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.35.8
-	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.68.1
-	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.61.1
-	github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.64.6
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.59.2
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.311.0
-	github.com/aws/aws-sdk-go-v2/service/elasticache v1.54.5
-	github.com/aws/aws-sdk-go-v2/service/iam v1.54.7
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.94.1
-	github.com/aws/aws-sdk-go-v2/service/rds v1.119.5
-	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.33.5
-	github.com/aws/aws-sdk-go-v2/service/shield v1.35.5
-	github.com/aws/aws-sdk-go-v2/service/storagegateway v1.44.5
-	github.com/aws/aws-sdk-go-v2/service/sts v1.43.5
-	github.com/aws/smithy-go v1.27.3
+	github.com/aws/aws-sdk-go-v2/config v1.32.30
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.29
+	github.com/aws/aws-sdk-go-v2/service/amp v1.45.2
+	github.com/aws/aws-sdk-go-v2/service/apigateway v1.41.1
+	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.36.1
+	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.69.1
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.63.1
+	github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.65.1
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.60.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.316.1
+	github.com/aws/aws-sdk-go-v2/service/elasticache v1.55.1
+	github.com/aws/aws-sdk-go-v2/service/iam v1.55.1
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.99.0
+	github.com/aws/aws-sdk-go-v2/service/rds v1.122.0
+	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.34.1
+	github.com/aws/aws-sdk-go-v2/service/shield v1.36.1
+	github.com/aws/aws-sdk-go-v2/service/storagegateway v1.45.2
+	github.com/aws/aws-sdk-go-v2/service/sts v1.44.1
+	github.com/aws/smithy-go v1.27.4
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
@@ -47,9 +47,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.12.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.30 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.31.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.36.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.32.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.37.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
