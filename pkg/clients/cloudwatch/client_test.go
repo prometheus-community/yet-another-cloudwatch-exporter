@@ -21,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func Test_toMetricDataResult(t *testing.T) {
@@ -131,6 +133,84 @@ func Test_toMetricDataResult(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			metricDataResults := toMetricDataResult(tc.getMetricDataOutput, tc.exportAllDataPoints)
 			require.Equal(t, tc.expectedMetricDataResults, metricDataResults)
+		})
+	}
+}
+
+func Test_billedGetMetricDataMetricsCount(t *testing.T) {
+	dataWithStat := func(metricName string, dimensions []model.Dimension, statistic string) *model.CloudwatchData {
+		return &model.CloudwatchData{
+			MetricName: metricName,
+			Dimensions: dimensions,
+			GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
+				Statistic: statistic,
+			},
+		}
+	}
+
+	volumeDimensions := []model.Dimension{{Name: "VolumeId", Value: "vol-1"}}
+
+	testCases := []struct {
+		name          string
+		getMetricData []*model.CloudwatchData
+		expected      float64
+	}{
+		{
+			name:          "no data",
+			getMetricData: []*model.CloudwatchData{},
+			expected:      0,
+		},
+		{
+			name: "single metric single statistic bills as one metric",
+			getMetricData: []*model.CloudwatchData{
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Average"),
+			},
+			expected: 1,
+		},
+		{
+			name: "single metric with up to 5 statistics bills as one metric",
+			getMetricData: []*model.CloudwatchData{
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Minimum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Maximum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Average"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Sum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "SampleCount"),
+			},
+			expected: 1,
+		},
+		{
+			name: "single metric with 6 statistics bills as two metrics",
+			getMetricData: []*model.CloudwatchData{
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Minimum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Maximum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Average"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Sum"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "SampleCount"),
+				dataWithStat("VolumeReadBytes", volumeDimensions, "p99"),
+			},
+			expected: 2,
+		},
+		{
+			name: "distinct metrics with the same dimensions bill separately",
+			getMetricData: []*model.CloudwatchData{
+				dataWithStat("VolumeReadBytes", volumeDimensions, "Average"),
+				dataWithStat("VolumeWriteBytes", volumeDimensions, "Average"),
+			},
+			expected: 2,
+		},
+		{
+			name: "same metric name on different resources bills separately",
+			getMetricData: []*model.CloudwatchData{
+				dataWithStat("VolumeReadBytes", []model.Dimension{{Name: "VolumeId", Value: "vol-1"}}, "Average"),
+				dataWithStat("VolumeReadBytes", []model.Dimension{{Name: "VolumeId", Value: "vol-2"}}, "Average"),
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, billedGetMetricDataMetricsCount("AWS/EBS", tc.getMetricData))
 		})
 	}
 }

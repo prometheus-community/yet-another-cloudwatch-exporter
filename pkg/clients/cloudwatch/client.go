@@ -15,6 +15,9 @@ package cloudwatch
 import (
 	"context"
 	"log/slog"
+	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -24,6 +27,11 @@ import (
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
 )
+
+// maxStatisticsPerBilledMetric is the number of statistics AWS lets you
+// request for a single metric before billing it as an additional metric
+// requested. See https://aws.amazon.com/cloudwatch/pricing/.
+const maxStatisticsPerBilledMetric = 5
 
 type Client interface {
 	// ListMetrics returns the list of metrics and dimensions for a given namespace
@@ -190,7 +198,7 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		ScanBy:            "TimestampDescending",
 	}
 	var resp aws_cloudwatch.GetMetricDataOutput
-	c.scrapeMetrics.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)))
+	c.scrapeMetrics.CloudwatchGetMetricDataAPIMetricsCounter.Add(billedGetMetricDataMetricsCount(namespace, getMetricData))
 	c.logger.Debug("GetMetricData", "input", input)
 
 	paginator := aws_cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *aws_cloudwatch.GetMetricDataPaginatorOptions) {
@@ -212,6 +220,46 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 	c.logger.Debug("GetMetricData", "output", resp)
 
 	return toMetricDataResult(resp, exportAllDataPoints)
+}
+
+// billedGetMetricDataMetricsCount returns the number of metrics this GetMetricData call is
+// billed for. AWS bills GetMetricData per metric (namespace + name + dimensions) requested,
+// and lets up to maxStatisticsPerBilledMetric statistics of the same metric be requested for
+// the price of one. YACE requests each statistic of a metric as its own MetricDataQuery, so
+// counting queries directly overcounts whenever a metric has more than one statistic.
+// See https://aws.amazon.com/cloudwatch/pricing/.
+func billedGetMetricDataMetricsCount(namespace string, getMetricData []*model.CloudwatchData) float64 {
+	queriesByMetric := make(map[metricIdentity]int, len(getMetricData))
+	for _, data := range getMetricData {
+		queriesByMetric[metricIdentityOf(namespace, data)]++
+	}
+
+	var billed float64
+	for _, queries := range queriesByMetric {
+		billed += math.Ceil(float64(queries) / maxStatisticsPerBilledMetric)
+	}
+	return billed
+}
+
+// metricIdentity uniquely identifies the CloudWatch metric (namespace + name + dimensions) that
+// data was requested for, regardless of which statistic was requested.
+type metricIdentity struct {
+	namespace  string
+	metricName string
+	dimensions string
+}
+
+func metricIdentityOf(namespace string, data *model.CloudwatchData) metricIdentity {
+	dimensions := make([]string, 0, len(data.Dimensions))
+	for _, dim := range data.Dimensions {
+		dimensions = append(dimensions, dim.Name+"="+dim.Value)
+	}
+	sort.Strings(dimensions)
+	return metricIdentity{
+		namespace:  namespace,
+		metricName: data.MetricName,
+		dimensions: strings.Join(dimensions, ","),
+	}
 }
 
 func toMetricDataResult(resp aws_cloudwatch.GetMetricDataOutput, exportAllDataPoints bool) []MetricDataResult {
