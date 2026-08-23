@@ -1,11 +1,68 @@
 ## main / (unreleased)
 
+Nothing here yet.
+
+## 0.67.0 / 2026-07-03
+
+* [CHANGE] Synchronize common files from prometheus/prometheus. #1886
+* [CHANGE] update dependencies for AWS SDK and related packages by @andriikushch. #1890
+* [CHANGE] stop mutating global model.NameValidationScheme during scrape by @kgeckhart. #1887
+* [ENHANCEMENT] extend supported enhanced metrics for DynamoDB and Lambda with TableSizeBytes and MemorySize by @andriikushch. #1888
+
+## 0.66.0 / 2026-06-22
+
+- BREAKING CHANGE: The package-level scrape instrumentation collectors in `pkg/promutil` have been replaced by `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Go library users importing those metrics must create a `promutil.ScrapeMetrics` value (which registers its counters on the `prometheus.Registerer` you supply) and use its fields or `Collectors()` method instead. Users of `exporter.Metrics` will need to build clients with `promutil.DeprecatedScrapeMetrics()` to continue using them, or otherwise switch to `promutil.ScrapeMetrics` and `promutil.NewScrapeMetrics(registry)`. Both `exporter.UpdateMetrics` and `exporter.Metrics` APIs are now deprecated and will be removed in a future release.
+
+- BREAKING CHANGE: `cloudwatch.NewClient`, `tagging.NewClient`, and `clients.NewFactory` now require a `*promutil.ScrapeMetrics` argument for AWS API request instrumentation. Build one with `promutil.NewScrapeMetrics(registry)`, or pass `promutil.Discard` to disable scrape telemetry.
+
+* [CHANGE] Add `pkg/config.Config` and `pkg/metrics.Scraper` so Go applications can embed YACE with isolated scrape configuration, scrape instrumentation collectors, and one-shot CloudWatch scraping by @ArthurSens. #1857
+* [CHANGE] Deprecate the legacy `pkg/exporter` entrypoints and defaults by @ArthurSens. Use `config.DefaultConfig()`, `config.DefaultMetricsPerQuery`, `config.DefaultLabelsSnakeCase`, `config.DefaultTaggingAPIConcurrency`, `config.DefaultCloudwatchConcurrency`, instead of the [constants from the exporter package](https://github.com/prometheus-community/yet-another-cloudwatch-exporter/blob/c93a4b7fcb8d16d03c6b5cd336f627b08690a6fe/pkg/exporter.go#L48-L62). #1857
+* [ENHANCEMENT] pkg/clients: use method-value closures to avoid defeating dead-code elimination by @roidelapluie. #1867
+* [ENHANCEMENT] enhance RDS metrics handling by filtering valid DB instance identifiers from ARNs by @andriikushch. #1877
+
+**Dependency updates**
+
+* Bump the aws-sdk-v2 group with 19 updates. #1855
+* Bump actions/checkout from 6.0.2 to 6.0.3. #1870
+* Bump golangci/golangci-lint-action from 9.2.0 to 9.2.1. #1871
+* Bump github.com/prometheus/common from 0.67.5 to 0.68.0. #1872
+* Bump github.com/aws/smithy-go from 1.25.0 to 1.27.0. #1873
+
+## 0.65.0 / 2026-04-21
+
+* [ENHANCEMENT] Add DimensionRegexps for AWS/CertificateManager by @vicky-sh-d. #1843
+* [CHANGE] Remove copyright years from file headers per PROM-50 by @ShivamPanchbhai. #1841
+* [CHANGE] Synchronize common files from prometheus/prometheus.
+
+**Dependency updates**
+
+* Bump the aws-sdk-v2 group with 19 updates. #1835
+* Bump github.com/aws/aws-sdk-go-v2/service/lambda from 1.87.1 to 1.88.5. #1839
+* Bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.7.4 to 1.7.8. #1840
+* Bump golang.org/x/sync from 0.19.0 to 0.20.0. #1836
+* Bump prometheus/promci from 0.6.0 to 0.6.1. #1833
+
+## 0.64.0 / 2026-03-27
+
 **Important news and breaking changes**
 
-* [CHANGE] ...
-* [FEATURE] ...
-* [ENHANCEMENT] ...
-* [BUGFIX] ...
+- BREAKING CHANGE: AWS SDK v1 support has been removed. The `aws-sdk-v1` feature flag is now a no-op and will be silently ignored. AWS SDK v1 reached end-of-support on July 31, 2025. SDK v2 has been the default since v0.63.0 (September 2025). Users who were passing `--enable-feature aws-sdk-v1` should remove the flag, as it no longer has any effect. If you use YACE as a library, the `v1` and `v2` sub-packages under `pkg/clients/` have been removed. All client implementations now live directly in their parent packages (e.g. `pkg/clients/cloudwatch`, `pkg/clients/tagging`, `pkg/clients/account`). Import paths like `pkg/clients/v1`, `pkg/clients/cloudwatch/v2`, etc. must be updated accordingly.
+
+* [CHANGE] Remove AWS SDK v1 support and deprecate `aws-sdk-v1` feature flag by @tristanburgess. #1825
+* [CHANGE] Add Andrii Kushch and Tristan Burgess as maintainers by @cristiangreco. #1788
+* [FEATURE] Implement Enhanced Metrics framework and initial set of metrics by @andriikushch. #1795
+* [FEATURE] Add support for `AWS/EKS` namespace by @LS80. #1760
+* [FEATURE] Split out Bedrock metrics into all needed namespaces by @tristanburgess. #1766
+* [FEATURE] Separate aliases for Bedrock namespaces by @tristanburgess. #1767
+* [ENHANCEMENT] Update Go build to 1.26, replace `gopkg.in/yaml.v2` with supported fork, sync upstream Prometheus files and migrate PromCI tooling by @SuperQ. #1831
+* [ENHANCEMENT] Add AWS/Bedrock GuardrailArn dimension-based resource tagging by @tristanburgess. #1761
+* [ENHANCEMENT] Add DimensionRegexps support for AWS Backup service by @amitshl. #1775
+* [ENHANCEMENT] Add DimensionRegexps for AWS/Cassandra by @bdeore. #1693
+* [ENHANCEMENT] Add DimensionRegexp to ElasticBeanstalk by @benbridts. #1690
+* [ENHANCEMENT] Test exporter with mocked clients by @jeschkies. #1791
+* [ENHANCEMENT] Add privatelink examples to docs by @cuscal-brad. #1765
+* [BUGFIX] Fix AWS SageMaker dimension name handling for case sensitivity by @andriikushch. #1793
+* [BUGFIX] Fix Docker configuration paths for AWS credentials by @andriikushch. #1804
 
 ## 0.63.0 / 2025-09-25
 

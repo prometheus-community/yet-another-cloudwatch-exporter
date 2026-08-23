@@ -1,0 +1,90 @@
+// Copyright The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package rds
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/rds"
+	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+)
+
+// awsClient is kept for test mocking; production code uses method-value closures.
+type awsClient interface {
+	DescribeDBInstances(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
+}
+
+// AWSRDSClient wraps the AWS RDS client
+type AWSRDSClient struct {
+	describeDBInstancesFunc func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
+}
+
+// NewRDSClientWithConfig creates a new RDS client with custom AWS configuration
+func NewRDSClientWithConfig(cfg aws.Config) Client {
+	c := rds.NewFromConfig(cfg)
+	return &AWSRDSClient{
+		describeDBInstancesFunc: c.DescribeDBInstances,
+	}
+}
+
+// describeDBInstances retrieves information about provisioned RDS instances
+func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error) {
+	result, err := c.describeDBInstancesFunc(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe DB instances: %w", err)
+	}
+	return result, nil
+}
+
+// DescribeDBInstances retrieves the DB instances identified by dbInstances (passed as the
+// "db-instance-id" filter), handling pagination. It returns nil when dbInstances is empty to
+// avoid sending an empty filter to the AWS API.
+func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
+	if len(dbInstances) == 0 {
+		return nil, nil
+	}
+
+	logger.Debug("Describing RDS DB instances", slog.Int("requestedInstances", len(dbInstances)))
+	var allInstances []types.DBInstance
+	var marker *string
+	maxRecords := aws.Int32(100)
+
+	for {
+		output, err := c.describeDBInstances(ctx, &rds.DescribeDBInstancesInput{
+			Marker:     marker,
+			MaxRecords: maxRecords,
+			Filters: []types.Filter{
+				{
+					Name:   aws.String("db-instance-id"),
+					Values: dbInstances,
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		allInstances = append(allInstances, output.DBInstances...)
+
+		if output.Marker == nil {
+			break
+		}
+		marker = output.Marker
+	}
+
+	logger.Debug("Completed describing RDS DB instances", slog.Int("totalInstances", len(allInstances)))
+	return allInstances, nil
+}

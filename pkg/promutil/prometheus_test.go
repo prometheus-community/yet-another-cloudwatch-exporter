@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -116,6 +116,29 @@ func TestPromStringTag(t *testing.T) {
 	}
 }
 
+// TestPromStringTag_IgnoresGlobalValidationScheme guards against regressing to
+// reading the process-global model.NameValidationScheme. PromStringTag must
+// apply legacy label-name rules unconditionally, even when the global is set to
+// UTF8Validation (the prometheus/common default), so that embedding YACE never
+// depends on, nor needs to mutate, that global.
+func TestPromStringTag_IgnoresGlobalValidationScheme(t *testing.T) {
+	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
+	model.NameValidationScheme = model.UTF8Validation      //nolint:staticcheck
+	defer func() {
+		model.NameValidationScheme = originalValidationScheme //nolint:staticcheck
+	}()
+
+	// "1stLabel" is a valid UTF-8 label name but invalid under legacy rules
+	// (leading digit). It must be rejected regardless of the global scheme.
+	ok, _ := PromStringTag("1stLabel", false)
+	assert.False(t, ok, "leading-digit label must be rejected under legacy rules even when the global scheme is UTF8")
+
+	// A legacy-valid label is still accepted.
+	ok, out := PromStringTag("labelName", false)
+	assert.True(t, ok)
+	assert.Equal(t, "labelName", out)
+}
+
 func TestNewPrometheusCollector_CanReportMetricsAndErrors(t *testing.T) {
 	originalValidationScheme := model.NameValidationScheme //nolint:staticcheck
 	model.NameValidationScheme = model.LegacyValidation    //nolint:staticcheck
@@ -231,4 +254,69 @@ func TestNewPrometheusCollector_CanReportMetrics(t *testing.T) {
 	tsMetric := metricWithTs.Metric[0]
 	assert.Equal(t, ts.UnixMilli(), *tsMetric.TimestampMs)
 	assert.Equal(t, 1.0, *tsMetric.Gauge.Value)
+}
+
+func TestNewScrapeMetrics_DiscardingRegisterers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		reg  prometheus.Registerer
+	}{
+		{"nil registerer", nil},
+		{"NoopRegisterer", NoopRegisterer},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sm := NewScrapeMetrics(tc.reg)
+			require.NotNil(t, sm)
+			require.NotPanics(t, func() { exerciseCounters(sm) })
+
+			// A fresh registry the caller might construct sees no yace_* families.
+			reg := prometheus.NewRegistry()
+			families, err := reg.Gather()
+			require.NoError(t, err)
+			require.Empty(t, families)
+		})
+	}
+}
+
+func TestNewScrapeMetrics_RealRegisterer(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	sm := NewScrapeMetrics(reg)
+
+	sm.CloudwatchAPICounter.Inc("ListMetrics")
+	sm.CloudwatchAPICounter.Inc("ListMetrics")
+	sm.DuplicateMetricsFilteredCounter.Inc()
+
+	require.Equal(t, float64(2), readCounterValue(t, sm.CloudwatchAPICounter.Raw().WithLabelValues("ListMetrics")))
+	require.Equal(t, float64(1), readCounterValue(t, sm.DuplicateMetricsFilteredCounter.Raw()))
+
+	families, err := reg.Gather()
+	require.NoError(t, err)
+	require.NotEmpty(t, families)
+}
+
+func TestScrapeMetrics_ZeroValueAndNilReceiver(t *testing.T) {
+	t.Run("zero value", func(t *testing.T) {
+		var sm ScrapeMetrics
+		require.NotPanics(t, func() { exerciseCounters(&sm) })
+		require.Empty(t, sm.Collectors())
+	})
+	t.Run("nil receiver", func(t *testing.T) {
+		var sm *ScrapeMetrics
+		require.Nil(t, sm.Collectors())
+	})
+}
+
+func exerciseCounters(sm *ScrapeMetrics) {
+	sm.CloudwatchAPICounter.Inc("ListMetrics")
+	sm.CloudwatchAPICounter.Add(2, "GetMetricData")
+	sm.DuplicateMetricsFilteredCounter.Inc()
+	sm.CloudwatchGetMetricDataAPIMetricsCounter.Add(42)
+}
+
+func readCounterValue(t *testing.T, c prometheus.Counter) float64 {
+	t.Helper()
+	require.NotNil(t, c)
+	var m dto.Metric
+	require.NoError(t, c.(prometheus.Metric).Write(&m))
+	return m.GetCounter().GetValue()
 }

@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/require"
 
@@ -1587,8 +1587,20 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := EnsureLabelConsistencyAndRemoveDuplicates(tc.metrics, tc.observedLabels)
+			actual := EnsureLabelConsistencyAndRemoveDuplicates(NewScrapeMetrics(nil), tc.metrics, tc.observedLabels)
 			require.ElementsMatch(t, tc.output, actual)
 		})
 	}
+
+	t.Run("nil scrapeMetrics does not panic", func(t *testing.T) {
+		metrics := []*PrometheusMetric{
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 1.0},
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 2.0},
+		}
+		observed := map[string]model.LabelSet{"metric1": {"label1": {}}}
+
+		require.NotPanics(t, func() {
+			EnsureLabelConsistencyAndRemoveDuplicates(nil, metrics, observed)
+		})
+	})
 }

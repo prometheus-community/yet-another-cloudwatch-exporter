@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,6 +35,19 @@ type getMetricDataProcessor interface {
 	Run(ctx context.Context, namespace string, requests []*model.CloudwatchData) ([]*model.CloudwatchData, error)
 }
 
+type enhancedMetricsService interface {
+	GetMetrics(
+		ctx context.Context,
+		logger *slog.Logger,
+		namespace string,
+		resources []*model.TaggedResource,
+		metrics []*model.EnhancedMetricConfig,
+		exportedTagOnMetrics []string,
+		region string,
+		role model.Role,
+	) ([]*model.CloudwatchData, error)
+}
+
 func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -43,13 +56,15 @@ func runDiscoveryJob(
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
 	gmdProcessor getMetricDataProcessor,
+	enhancedMetricsService enhancedMetricsService,
+	role model.Role,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	logger.Debug("Get tagged resources")
 
 	resources, err := clientTag.GetResources(ctx, job, region)
 	if err != nil {
 		if errors.Is(err, tagging.ErrExpectedToFindResources) {
-			logger.Error("No tagged resources made it through filtering", "err", err)
+			logger.Warn("No tagged resources made it through filtering", "err", err)
 		} else {
 			logger.Error("Couldn't describe resources", "err", err)
 		}
@@ -61,19 +76,48 @@ func runDiscoveryJob(
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
-	getMetricDatas := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
-	if len(getMetricDatas) == 0 {
-		logger.Info("No metrics data found")
-		return resources, nil
+	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
+
+	if len(metricData) > 0 && svc != nil {
+		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
+		if err != nil {
+			logger.Error("Failed to get metric data", "err", err)
+
+			// ensure we do not return cw metrics on data processing failure
+			metricData = nil
+		}
 	}
 
-	getMetricDatas, err = gmdProcessor.Run(ctx, svc.Namespace, getMetricDatas)
+	if enhancedMetricsService == nil || !job.HasEnhancedMetrics() || svc == nil {
+		if len(metricData) == 0 {
+			logger.Info("No metrics data found")
+		}
+		return resources, metricData
+	}
+
+	logger.Debug("Processing enhanced metrics", "count", len(job.EnhancedMetrics), "namespace", svc.Namespace)
+	enhancedMetricData, err := enhancedMetricsService.GetMetrics(
+		ctx,
+		logger,
+		svc.Namespace,
+		resources,
+		job.EnhancedMetrics,
+		job.ExportedTagsOnMetrics,
+		region,
+		role,
+	)
 	if err != nil {
-		logger.Error("Failed to get metric data", "err", err)
-		return nil, nil
+		logger.Error("Failed to get enhanced metrics", "err", err)
+		return resources, metricData
 	}
 
-	return resources, getMetricDatas
+	metricData = append(metricData, enhancedMetricData...)
+
+	if len(metricData) == 0 {
+		logger.Info("No metrics data found")
+	}
+
+	return resources, metricData
 }
 
 func getMetricDataForQueries(

@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -43,6 +43,17 @@ type DiscoveryJob struct {
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
 	DimensionsRegexps           []DimensionsRegexp
+
+	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
+	EnhancedMetrics []*EnhancedMetricConfig
+}
+
+func (d *DiscoveryJob) HasEnhancedMetrics() bool {
+	return len(d.EnhancedMetrics) > 0
+}
+
+type EnhancedMetricConfig struct {
+	Name string
 }
 
 type StaticJob struct {

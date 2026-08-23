@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,7 +15,7 @@ package config
 import (
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/grafana/regexp"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
@@ -43,8 +43,8 @@ type ServiceConfig struct {
 func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 	dr := []model.DimensionsRegexp{}
 
-	for _, regexp := range sc.DimensionRegexps {
-		names := regexp.SubexpNames()
+	for _, dimensionRegexp := range sc.DimensionRegexps {
+		names := dimensionRegexp.SubexpNames()
 		dimensionNames := make([]string, 0, len(names)-1)
 
 		// skip first name, it's always an empty string
@@ -54,12 +54,24 @@ func (sc ServiceConfig) ToModelDimensionsRegexp() []model.DimensionsRegexp {
 		}
 
 		dr = append(dr, model.DimensionsRegexp{
-			Regexp:          regexp,
+			Regexp:          dimensionRegexp,
 			DimensionsNames: dimensionNames,
 		})
 	}
 
 	return dr
+}
+
+func (sc ServiceConfig) toModelEnhancedMetricsConfig(ems []*EnhancedMetric) []*model.EnhancedMetricConfig {
+	emc := make([]*model.EnhancedMetricConfig, 0, len(ems))
+
+	for _, em := range ems {
+		emc = append(emc, &model.EnhancedMetricConfig{
+			Name: em.Name,
+		})
+	}
+
+	return emc
 }
 
 type serviceConfigs []ServiceConfig
@@ -96,6 +108,9 @@ var SupportedServices = serviceConfigs{
 		Alias:     "acm",
 		ResourceFilters: []*string{
 			aws.String("acm:certificate"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("(?P<CertificateArn>.*)"),
 		},
 	},
 	{

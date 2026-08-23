@@ -1,4 +1,4 @@
-// Copyright 2024 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,12 +14,15 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
+	emconfig "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/getmetricdata"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
@@ -38,7 +41,26 @@ func ScrapeAwsData(
 	awsInfoData := make([]model.TaggedResourceResult, 0)
 	var wg sync.WaitGroup
 
+	var enhancedMetricsService *enhancedmetrics.Service
+	var enhancedMetricsInitFailed bool
+
 	for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+		// initialize enhanced metrics service only if:
+		// - the current discovery job has enhanced metrics configured
+		// - the enhanced metrics service is not already initialized
+		// - a previous initialization attempt has not already failed
+		if discoveryJob.HasEnhancedMetrics() && enhancedMetricsService == nil && !enhancedMetricsInitFailed {
+			if configProvider, ok := factory.(emconfig.RegionalConfigProvider); ok {
+				enhancedMetricsService = enhancedmetrics.NewService(
+					configProvider,
+					enhancedmetrics.DefaultEnhancedMetricServiceRegistry,
+				)
+			} else {
+				enhancedMetricsInitFailed = true
+				logger.Warn("Couldn't initialize enhanced metrics service", "factory_type", fmt.Sprintf("%T", factory), "err", "does not implement GetAWSRegionalConfig")
+			}
+		}
+
 		for _, role := range discoveryJob.Roles {
 			for _, region := range discoveryJob.Regions {
 				wg.Add(1)
@@ -59,7 +81,19 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					resources, metrics := runDiscoveryJob(ctx, jobLogger, discoveryJob, region, factory.GetTaggingClient(region, role, taggingAPIConcurrency), cloudwatchClient, gmdProcessor)
+
+					resources, metrics := runDiscoveryJob(
+						ctx,
+						jobLogger,
+						discoveryJob,
+						region,
+						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
+						cloudwatchClient,
+						gmdProcessor,
+						enhancedMetricsService,
+						role,
+					)
+
 					addDataToOutput := len(metrics) != 0
 					if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.AlwaysReturnInfoMetrics) {
 						addDataToOutput = addDataToOutput || len(resources) != 0

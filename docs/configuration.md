@@ -118,6 +118,10 @@ dimensionNameRequirements:
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
 [ includeContextOnInfoMetrics: <boolean> ]
 
+# (optional) This is an experimental feature that can be used to enable enhanced metrics for specific services within this discovery job. It might be subject to changes in future releases.
+enhancedMetrics:
+    [ - <enhanced_metrics_config> ... ]
+
 # List of statistic types, e.g. "Minimum", "Maximum", etc (General Setting for all metrics in this job)
 statistics:
   [ - <string> ... ]
@@ -414,4 +418,22 @@ This is an example of the `dimensions_config` block:
 dimensions:
   - name: AutoScalingGroupName
     value: MyGroup
+```
+
+### `enhanced_metrics_config`
+
+The `enhanced_metrics_config` block allows enabling enhanced metrics for specific metrics within a discovery job.
+
+Currently supported enhanced metrics are:
+
+- AWS/Lambda (Timeout) - The maximum execution duration permitted for the function before termination.
+- AWS/Lambda (MemorySize) - The amount of memory configured for the function, reported in bytes.
+- AWS/DynamoDB (ItemCount) - The count of items in the table, updated approximately every six hours; may not reflect recent changes.
+- AWS/DynamoDB (TableSizeBytes) - The total size of the table in bytes, updated approximately every six hours; may not reflect recent changes. Per-index sizes are emitted as the `IndexSizeBytes` metric, distinguished by the `GlobalSecondaryIndexName` dimension.
+- AWS/RDS (AllocatedStorage) - The storage capacity in bytes allocated for the DB instance.
+- AWS/ElastiCache (NumCacheNodes) - The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
+
+```yaml
+enhancedMetrics:
+    - name: ItemCount
 ```
