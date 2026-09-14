@@ -1,0 +1,19 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Events
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: Invocations
+          statistics: [Sum]
+        - name: FailedInvocations
+          statistics: [Sum]
+        - name: TriggeredRules
+          statistics: [Sum]
+        - name: MatchedEvents
+          statistics: [Sum]
+        - name: ThrottledRules
+          statistics: [Sum]

@@ -1,0 +1,21 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Scheduler
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: TargetErrorCount
+          statistics: [Sum]
+        - name: TargetErrorThrottledCount
+          statistics: [Sum]
+        - name: InvocationAttemptCount
+          statistics: [Sum]
+        - name: InvocationThrottleCount
+          statistics: [Sum]
+        - name: InvocationDroppedCount
+          statistics: [Sum]
+        - name: InvocationsSentToDeadLetterCount
+          statistics: [Sum]
