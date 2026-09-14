@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/service/apigateway"
 	"github.com/aws/aws-sdk-go/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -47,47 +48,38 @@ var ServiceFilters = map[string]ServiceFilter{
 		// the ApiName (display name). See https://docs.aws.amazon.com/apigateway/latest/developerguide/arn-format-reference.html
 		// However, in metrics, the ApiId dimension uses the ApiName as value.
 		//
-		// Here we use the ApiGateway API to map resource correctly. For backward compatibility,
-		// in v1 REST APIs we change the ARN to replace the ApiId with ApiName, while for v2 APIs
-		// we leave the ARN as-is.
-		FilterFunc: func(ctx context.Context, client client, inputResources []*model.TaggedResource) ([]*model.TaggedResource, error) {
-			var limit int64 = 500 // max number of results per page. default=25, max=500
-			const maxPages = 10
-			input := apigateway.GetRestApisInput{Limit: &limit}
-			output := apigateway.GetRestApisOutput{}
-			var pageNum int
-
-			err := client.apiGatewayAPI.GetRestApisPagesWithContext(ctx, &input, func(page *apigateway.GetRestApisOutput, _ bool) bool {
-				promutil.APIGatewayAPICounter.Inc()
-				pageNum++
-				output.Items = append(output.Items, page.Items...)
-				return pageNum <= maxPages
-			})
+		// ResourceFunc emits every API the account has, Id-keyed like the tagging API does, so
+		// untagged APIs are discovered too. FilterFunc then renames v1 REST ARNs to the ApiName
+		// (v2 ARNs stay as-is) and, because each API matches once, drops the untagged duplicate
+		// of any API the tagging service already returned with its tags.
+		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			restApis, v2Apis, err := listApiGateways(ctx, client)
 			if err != nil {
-				return nil, fmt.Errorf("error calling apiGatewayAPI.GetRestApisPages, %w", err)
+				return nil, err
 			}
-
-			outputV2, err := client.apiGatewayV2API.GetApisWithContext(ctx, &apigatewayv2.GetApisInput{})
-			promutil.APIGatewayAPIV2Counter.Inc()
+			return apiGatewayResources(job, region, restApis, v2Apis), nil
+		},
+		FilterFunc: func(ctx context.Context, client client, inputResources []*model.TaggedResource) ([]*model.TaggedResource, error) {
+			restApis, v2Apis, err := listApiGateways(ctx, client)
 			if err != nil {
-				return nil, fmt.Errorf("error calling apiGatewayAPIv2.GetApis, %w", err)
+				return nil, err
 			}
 
 			var outputResources []*model.TaggedResource
 			for _, resource := range inputResources {
-				for i, gw := range output.Items {
+				for i, gw := range restApis {
 					if strings.HasSuffix(resource.ARN, "/restapis/"+*gw.Id) {
 						r := resource
 						r.ARN = strings.ReplaceAll(resource.ARN, *gw.Id, *gw.Name)
 						outputResources = append(outputResources, r)
-						output.Items = append(output.Items[:i], output.Items[i+1:]...)
+						restApis = append(restApis[:i], restApis[i+1:]...)
 						break
 					}
 				}
-				for i, gw := range outputV2.Items {
+				for i, gw := range v2Apis {
 					if strings.HasSuffix(resource.ARN, "/apis/"+*gw.ApiId) {
 						outputResources = append(outputResources, resource)
-						outputV2.Items = append(outputV2.Items[:i], outputV2.Items[i+1:]...)
+						v2Apis = append(v2Apis[:i], v2Apis[i+1:]...)
 						break
 					}
 				}
@@ -369,4 +361,60 @@ var ServiceFilters = map[string]ServiceFilter{
 			return output, nil
 		},
 	},
+}
+
+// listApiGateways returns every v1 REST API and v2 HTTP/WebSocket API in the region.
+func listApiGateways(ctx context.Context, client client) ([]*apigateway.RestApi, []*apigatewayv2.Api, error) {
+	var limit int64 = 500 // max number of results per page. default=25, max=500
+	const maxPages = 10
+	var restApis []*apigateway.RestApi
+	var pageNum int
+
+	err := client.apiGatewayAPI.GetRestApisPagesWithContext(ctx, &apigateway.GetRestApisInput{Limit: &limit}, func(page *apigateway.GetRestApisOutput, _ bool) bool {
+		promutil.APIGatewayAPICounter.Inc()
+		pageNum++
+		restApis = append(restApis, page.Items...)
+		return pageNum <= maxPages
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("error calling apiGatewayAPI.GetRestApisPages, %w", err)
+	}
+
+	outputV2, err := client.apiGatewayV2API.GetApisWithContext(ctx, &apigatewayv2.GetApisInput{})
+	promutil.APIGatewayAPIV2Counter.Inc()
+	if err != nil {
+		return nil, nil, fmt.Errorf("error calling apiGatewayAPIv2.GetApis, %w", err)
+	}
+
+	return restApis, outputV2.Items, nil
+}
+
+// apiGatewayResources builds Id-keyed, tagless resources for every API, in the same ARN
+// shape the tagging API returns so the ApiGateway FilterFunc treats them uniformly.
+// API Gateway responses carry no ARN, so it is assembled from the region's partition.
+func apiGatewayResources(job model.DiscoveryJob, region string, restApis []*apigateway.RestApi, v2Apis []*apigatewayv2.Api) []*model.TaggedResource {
+	partition := "aws"
+	if p, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region); ok {
+		partition = p.ID()
+	}
+	arnPrefix := fmt.Sprintf("arn:%s:apigateway:%s::", partition, region)
+
+	resources := make([]*model.TaggedResource, 0, len(restApis)+len(v2Apis))
+	add := func(path string) {
+		resource := &model.TaggedResource{ARN: arnPrefix + path, Namespace: job.Namespace, Region: region}
+		if resource.FilterThroughTags(job.SearchTags) {
+			resources = append(resources, resource)
+		}
+	}
+	for _, gw := range restApis {
+		if gw.Id != nil && gw.Name != nil {
+			add("/restapis/" + *gw.Id)
+		}
+	}
+	for _, gw := range v2Apis {
+		if gw.ApiId != nil {
+			add("/apis/" + *gw.ApiId)
+		}
+	}
+	return resources
 }
