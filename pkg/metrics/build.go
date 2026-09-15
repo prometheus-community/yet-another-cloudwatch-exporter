@@ -67,6 +67,7 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 		s.cfg.MetricsPerQuery,
 		toCloudWatchConcurrency(s.cfg.CloudwatchConcurrency),
 		s.cfg.TaggingAPIConcurrency,
+		s.cfg.DisableAccountAliasLookup,
 	)
 
 	metrics, observedMetricLabels, err := promutil.BuildMetrics(cloudwatchData, s.cfg.LabelsSnakeCase, s.logger)

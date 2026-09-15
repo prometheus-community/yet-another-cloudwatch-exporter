@@ -25,9 +25,10 @@ import (
 )
 
 type Scraper struct {
-	jobsCfg       model.JobsConfig
-	logger        *slog.Logger
-	runnerFactory runnerFactory
+	jobsCfg                   model.JobsConfig
+	logger                    *slog.Logger
+	runnerFactory             runnerFactory
+	disableAccountAliasLookup bool
 }
 
 type runnerFactory interface {
@@ -47,11 +48,13 @@ type CloudwatchRunner interface {
 func NewScraper(logger *slog.Logger,
 	jobsCfg model.JobsConfig,
 	runnerFactory runnerFactory,
+	disableAccountAliasLookup bool,
 ) *Scraper {
 	return &Scraper{
-		runnerFactory: runnerFactory,
-		logger:        logger,
-		jobsCfg:       jobsCfg,
+		runnerFactory:             runnerFactory,
+		logger:                    logger,
+		jobsCfg:                   jobsCfg,
+		disableAccountAliasLookup: disableAccountAliasLookup,
 	}
 }
 
@@ -84,11 +87,13 @@ func (s Scraper) Scrape(ctx context.Context) ([]model.TaggedResourceResult, []mo
 			a := Account{
 				ID: accountID,
 			}
-			accountAlias, err := client.GetAccountAlias(ctx)
-			if err != nil {
-				s.logger.Warn("Failed to get optional account alias from account", "err", err, "account_id", accountID)
-			} else {
-				a.Alias = accountAlias
+			if !s.disableAccountAliasLookup {
+				accountAlias, err := client.GetAccountAlias(ctx)
+				if err != nil {
+					s.logger.Warn("Failed to get optional account alias from account", "err", err, "account_id", accountID)
+				} else {
+					a.Alias = accountAlias
+				}
 			}
 			return a, nil
 		})

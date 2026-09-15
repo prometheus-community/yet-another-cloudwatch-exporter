@@ -54,17 +54,18 @@ const (
 )
 
 var (
-	addr                  string
-	configFile            string
-	logLevel              string
-	logFormat             string
-	fips                  bool
-	cloudwatchConcurrency config.CloudWatchConcurrencyConfig
-	tagConcurrency        int
-	scrapingInterval      int
-	metricsPerQuery       int
-	labelsSnakeCase       bool
-	profilingEnabled      bool
+	addr                      string
+	configFile                string
+	logLevel                  string
+	logFormat                  string
+	fips                      bool
+	disableAccountAliasLookup bool
+	cloudwatchConcurrency     config.CloudWatchConcurrencyConfig
+	tagConcurrency            int
+	scrapingInterval          int
+	metricsPerQuery           int
+	labelsSnakeCase           bool
+	profilingEnabled          bool
 
 	logger *slog.Logger
 )
@@ -138,6 +139,12 @@ func NewYACEApp() *cli.App {
 			Value:       false,
 			Usage:       "Use FIPS compliant AWS API endpoints",
 			Destination: &fips,
+		},
+		&cli.BoolFlag{
+			Name:        "disable-account-alias-lookup",
+			Value:       false,
+			Usage:       "Disable the IAM ListAccountAliases call. The account_alias label on metrics will be empty.",
+			Destination: &disableAccountAliasLookup,
 		},
 		&cli.IntFlag{
 			Name:        "cloudwatch-concurrency",
@@ -262,6 +269,7 @@ func startScraper(c *cli.Context) error {
 	cfg.TaggingAPIConcurrency = tagConcurrency
 	cfg.FeatureFlags = c.StringSlice(enableFeatureFlag)
 	cfg.FIPSEnabled = fips
+	cfg.DisableAccountAliasLookup = disableAccountAliasLookup
 	cfg.CloudwatchConcurrency = cloudwatchConcurrency
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid runtime scrape configuration: %w", err)

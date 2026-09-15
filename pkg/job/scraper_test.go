@@ -543,7 +543,7 @@ func TestScrapeRunner_Run(t *testing.T) {
 			}
 			lvl := promslog.NewLevel()
 			_ = lvl.Set("debug")
-			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf)
+			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf, false)
 			resources, metrics, errs := sr.Scrape(context.Background())
 
 			changelog, err := diff.Diff(tc.expectedResources, resources)

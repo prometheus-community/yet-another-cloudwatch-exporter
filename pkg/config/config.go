@@ -47,13 +47,14 @@ type CloudWatchConcurrencyConfig struct {
 // is executed, and are commonly supplied by callers such as the YACE CLI or
 // downstream tools that embed YACE.
 type Config struct {
-	ScrapeConfigFile      string
-	MetricsPerQuery       int
-	LabelsSnakeCase       bool
-	TaggingAPIConcurrency int
-	FeatureFlags          []string
-	FIPSEnabled           bool
-	CloudwatchConcurrency CloudWatchConcurrencyConfig
+	ScrapeConfigFile          string
+	MetricsPerQuery           int
+	LabelsSnakeCase           bool
+	TaggingAPIConcurrency     int
+	FeatureFlags              []string
+	FIPSEnabled               bool
+	DisableAccountAliasLookup bool
+	CloudwatchConcurrency     CloudWatchConcurrencyConfig
 }
 
 func DefaultConfig() Config {

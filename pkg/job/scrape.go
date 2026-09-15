@@ -35,6 +35,7 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
+	disableAccountAliasLookup bool,
 ) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
@@ -74,9 +75,12 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
+					var accountAlias string
+					if !disableAccountAliasLookup {
+						accountAlias, err = factory.GetAccountClient(region, role).GetAccountAlias(ctx)
+						if err != nil {
+							jobLogger.Warn("Couldn't get account alias", "err", err)
+						}
 					}
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
@@ -140,9 +144,12 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
+					var accountAlias string
+					if !disableAccountAliasLookup {
+						accountAlias, err = factory.GetAccountClient(region, role).GetAccountAlias(ctx)
+						if err != nil {
+							jobLogger.Warn("Couldn't get account alias", "err", err)
+						}
 					}
 
 					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, role, cloudwatchConcurrency))
@@ -177,9 +184,12 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
+					var accountAlias string
+					if !disableAccountAliasLookup {
+						accountAlias, err = factory.GetAccountClient(region, role).GetAccountAlias(ctx)
+						if err != nil {
+							jobLogger.Warn("Couldn't get account alias", "err", err)
+						}
 					}
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
