@@ -43,3 +43,18 @@ func TestSupportedServices(t *testing.T) {
 		}
 	}
 }
+
+func TestEC2CapacityReservationsService(t *testing.T) {
+	svc := SupportedServices.GetService("AWS/EC2CapacityReservations")
+	require.NotNil(t, svc)
+	require.Len(t, svc.ResourceFilters, 1)
+	require.Equal(t, "ec2:capacity-reservation", aws.ToString(svc.ResourceFilters[0]))
+
+	dimensionRegexps := svc.ToModelDimensionsRegexp()
+	require.Len(t, dimensionRegexps, 1)
+	require.Equal(t, []string{"CapacityReservationId"}, dimensionRegexps[0].DimensionsNames)
+
+	match := dimensionRegexps[0].Regexp.FindStringSubmatch("arn:aws:ec2:us-east-1:123456789012:capacity-reservation/cr-1234abcd56EXAMPLE")
+	require.Len(t, match, 2)
+	require.Equal(t, "cr-1234abcd56EXAMPLE", match[1])
+}
