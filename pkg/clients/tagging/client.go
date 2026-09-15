@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
@@ -48,6 +49,7 @@ var (
 	_ amp.ListWorkspacesAPIClient                                    = prometheusClientAdapter{}
 	_ storagegateway.ListGatewaysAPIClient                           = storageGatewayClientAdapter{}
 	_ shield.ListProtectionsAPIClient                                = shieldClientAdapter{}
+	_ bedrock.ListInferenceProfilesAPIClient                         = bedrockClientAdapter{}
 )
 
 type Client interface {
@@ -68,6 +70,7 @@ type client struct {
 	prometheusSvcAPI  prometheusClientAdapter
 	storageGatewayAPI storageGatewayClientAdapter
 	shieldAPI         shieldClientAdapter
+	bedrockAPI        bedrockClientAdapter
 }
 
 func NewClient(
@@ -82,6 +85,7 @@ func NewClient(
 	prometheusClient *amp.Client,
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
+	bedrockAPI *bedrock.Client,
 ) Client {
 	if scrapeMetrics == nil {
 		scrapeMetrics = promutil.Discard
@@ -98,6 +102,7 @@ func NewClient(
 		prometheusSvcAPI:  newPrometheusClientAdapter(prometheusClient),
 		storageGatewayAPI: newStorageGatewayClientAdapter(storageGatewayAPI),
 		shieldAPI:         newShieldClientAdapter(shieldAPI),
+		bedrockAPI:        newBedrockClientAdapter(bedrockAPI),
 	}
 }
 
