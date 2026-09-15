@@ -1,6 +1,7 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [CHANGE] resolve `AWS/AppRunner`, `AWS/Prometheus`, `AWS/Scheduler`, `AWS/ECR` and `AWS/Timestream` through the Resource Groups Tagging API, so those discovery jobs now need `tag:GetResources` and label metrics with the real ARN in place of `name="global"`, replacing existing series; `AWS/RUM` gains `ResourceFilters` only and still reports `name="global"` by @jeschkies. #1926
+* [FEATURE] add `inferMissingArnsFromDimensions` to discovery jobs, rebuilding a resource ARN from the metric's own dimensions when the Tagging API doesn't return the resource instead of falling back to `name="global"`; off by default, and the ARN templates are best-effort and unvalidated against live AWS responses, see `docs/configuration.md` by @jeschkies. #1926
 
 ## 0.67.0 / 2026-07-03
 

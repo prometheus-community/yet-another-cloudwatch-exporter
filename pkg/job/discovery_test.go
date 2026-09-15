@@ -17,6 +17,7 @@ import (
 
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/job/maxdimassociator"
@@ -507,6 +508,92 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				assert.Nil(t, got.GetMetricDataResult)
 				assert.Nil(t, got.GetMetricStatisticsResult)
 			}
+		})
+	}
+}
+
+func Test_getFilteredMetricDatas_inferArnFromDimensions(t *testing.T) {
+	metricConfig := &model.MetricConfig{
+		Name:       "CPUUtilization",
+		Statistics: []string{"Average"},
+		Period:     60,
+		Length:     600,
+	}
+
+	tests := []struct {
+		name       string
+		namespace  string
+		infer      bool
+		dimensions []model.Dimension
+		wantARN    string
+	}{
+		{
+			name:       "opted out keeps the global ARN",
+			namespace:  "AWS/EC2",
+			infer:      false,
+			dimensions: []model.Dimension{{Name: "InstanceId", Value: "i-0abc123def456"}},
+			wantARN:    "global",
+		},
+		{
+			name:       "opted in infers the ARN for an untagged resource",
+			namespace:  "AWS/EC2",
+			infer:      true,
+			dimensions: []model.Dimension{{Name: "InstanceId", Value: "i-0abc123def456"}},
+			wantARN:    "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc123def456",
+		},
+		{
+			name:       "opted in falls back to global when no ARN is derivable",
+			namespace:  "AWS/EC2",
+			infer:      true,
+			dimensions: []model.Dimension{{Name: "AutoScalingGroupName", Value: "my-asg"}},
+			wantARN:    "global",
+		},
+		{
+			name:       "opted in handles a dimension name containing a space",
+			namespace:  "AWS/DirectoryService",
+			infer:      true,
+			dimensions: []model.Dimension{{Name: "Directory ID", Value: "d-abc123"}},
+			wantARN:    "arn:aws:ds:us-east-1:123456789012:directory/d-abc123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			discoveryJob := model.DiscoveryJob{Namespace: tt.namespace}
+			if tt.infer {
+				cfg := config.ScrapeConf{
+					APIVersion: "v1alpha1",
+					Discovery: config.Discovery{
+						Jobs: []*config.Job{{
+							Type:                           tt.namespace,
+							Regions:                        []string{"us-east-1"},
+							Roles:                          []config.Role{{}},
+							Metrics:                        []*config.Metric{{Name: metricConfig.Name, Statistics: metricConfig.Statistics, Period: 60, Length: 600}},
+							InferMissingArnsFromDimensions: true,
+						}},
+					},
+				}
+				jobsCfg, err := cfg.Validate(promslog.NewNopLogger())
+				require.NoError(t, err)
+				require.Len(t, jobsCfg.DiscoveryJobs, 1)
+				require.NotNil(t, jobsCfg.DiscoveryJobs[0].InferArnFromDimensions,
+					"namespace %q should support ARN inference", tt.namespace)
+				discoveryJob = jobsCfg.DiscoveryJobs[0]
+			}
+
+			metricsList := []*model.Metric{{
+				MetricName: metricConfig.Name,
+				Namespace:  tt.namespace,
+				Dimensions: tt.dimensions,
+			}}
+
+			// nopAssociator stands in for "the Tagging API returned nothing for this metric", which
+			// is the only branch that consults InferArnFromDimensions.
+			got := getFilteredMetricDatas(promslog.NewNopLogger(), discoveryJob, metricsList, metricConfig, nopAssociator{}, "123456789012", "us-east-1")
+
+			require.Len(t, got, 1)
+			require.Equal(t, tt.wantARN, got[0].ResourceName)
+			require.Equal(t, metricConfig.Name, got[0].MetricName)
 		})
 	}
 }

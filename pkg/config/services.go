@@ -180,15 +180,19 @@ func (sc ServiceConfig) toModelEnhancedMetricsConfig(ems []*EnhancedMetric) []*m
 	return emc
 }
 
-func (sc ServiceConfig) toArnFallback() model.ArnFallbackFunc {
+func (sc ServiceConfig) toInferArnFromDimensionsFunc() model.InferArnFromDimensionsFunc {
 	if sc.ArnFromDimensions == nil {
 		return nil
 	}
 
 	return func(region, accountID string, dimensions []model.Dimension) (string, bool) {
-		dimensionsMap := make(map[string]string)
+		dimensionsMap := make(map[string]string, len(dimensions))
 		for _, d := range dimensions {
-			dimensionsMap[d.Name] = d.Value
+			// ArnFromDimensions is keyed by this file's capture-group names, which use underscores
+			// where the real AWS dimension name has spaces (see ToModelDimensionsRegexp). Names that
+			// genuinely contain an underscore, like AWS/RUM's "application_name", pass through
+			// unchanged.
+			dimensionsMap[strings.ReplaceAll(d.Name, " ", "_")] = d.Value
 		}
 		return sc.ArnFromDimensions(region, accountID, dimensionsMap)
 	}

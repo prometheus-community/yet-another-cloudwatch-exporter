@@ -58,19 +58,19 @@ type JobLevelMetricFields struct {
 }
 
 type Job struct {
-	Regions                     []string          `yaml:"regions"`
-	Type                        string            `yaml:"type"`
-	Roles                       []Role            `yaml:"roles"`
-	SearchTags                  []Tag             `yaml:"searchTags"`
-	CustomTags                  []Tag             `yaml:"customTags"`
-	DimensionNameRequirements   []string          `yaml:"dimensionNameRequirements"`
-	Metrics                     []*Metric         `yaml:"metrics"`
-	RoundingPeriod              *int64            `yaml:"roundingPeriod"`
-	RecentlyActiveOnly          bool              `yaml:"recentlyActiveOnly"`
-	IncludeContextOnInfoMetrics bool              `yaml:"includeContextOnInfoMetrics"`
-	EnhancedMetrics             []*EnhancedMetric `yaml:"enhancedMetrics"`
-	EnableArnFallback           bool              `yaml:"enabled_arn_fallback"`
-	JobLevelMetricFields        `yaml:",inline"`
+	Regions                        []string          `yaml:"regions"`
+	Type                           string            `yaml:"type"`
+	Roles                          []Role            `yaml:"roles"`
+	SearchTags                     []Tag             `yaml:"searchTags"`
+	CustomTags                     []Tag             `yaml:"customTags"`
+	DimensionNameRequirements      []string          `yaml:"dimensionNameRequirements"`
+	Metrics                        []*Metric         `yaml:"metrics"`
+	RoundingPeriod                 *int64            `yaml:"roundingPeriod"`
+	RecentlyActiveOnly             bool              `yaml:"recentlyActiveOnly"`
+	IncludeContextOnInfoMetrics    bool              `yaml:"includeContextOnInfoMetrics"`
+	EnhancedMetrics                []*EnhancedMetric `yaml:"enhancedMetrics"`
+	InferMissingArnsFromDimensions bool              `yaml:"inferMissingArnsFromDimensions"`
+	JobLevelMetricFields           `yaml:",inline"`
 }
 
 type EnhancedMetric struct {
@@ -467,8 +467,8 @@ func (c *ScrapeConf) toModelConfig() model.JobsConfig {
 		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
 		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
 		job.EnhancedMetrics = svc.toModelEnhancedMetricsConfig(discoveryJob.EnhancedMetrics)
-		if discoveryJob.EnableArnFallback {
-			job.ArnFallback = svc.toArnFallback()
+		if discoveryJob.InferMissingArnsFromDimensions {
+			job.InferArnFromDimensions = svc.toInferArnFromDimensionsFunc()
 		}
 
 		job.ExportedTagsOnMetrics = []string{}

@@ -206,9 +206,9 @@ func getFilteredMetricDatas(
 		resource := matchedResource
 		if resource == nil {
 			arn := "global"
-			if discoveryJob.ArnFallback != nil {
-				if fallback, ok := discoveryJob.ArnFallback(region, accountID, cwMetric.Dimensions); ok {
-					arn = fallback
+			if discoveryJob.InferArnFromDimensions != nil {
+				if inferred, ok := discoveryJob.InferArnFromDimensions(region, accountID, cwMetric.Dimensions); ok {
+					arn = inferred
 				}
 			}
 			resource = &model.TaggedResource{

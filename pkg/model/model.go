@@ -30,7 +30,7 @@ type JobsConfig struct {
 	CustomNamespaceJobs []CustomNamespaceJob
 }
 
-type ArnFallbackFunc func(region, accountID string, dimensions []Dimension) (string, bool)
+type InferArnFromDimensionsFunc func(region, accountID string, dimensions []Dimension) (string, bool)
 
 type DiscoveryJob struct {
 	Regions                     []string
@@ -48,7 +48,10 @@ type DiscoveryJob struct {
 
 	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
 	EnhancedMetrics []*EnhancedMetricConfig
-	ArnFallback     ArnFallbackFunc
+
+	// InferArnFromDimensions is nil unless the job opted in via inferMissingArnsFromDimensions and the
+	// namespace has a known ARN shape.
+	InferArnFromDimensions InferArnFromDimensionsFunc
 }
 
 func (d *DiscoveryJob) HasEnhancedMetrics() bool {
