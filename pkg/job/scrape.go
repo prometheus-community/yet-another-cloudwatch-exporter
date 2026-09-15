@@ -86,6 +86,7 @@ func ScrapeAwsData(
 						ctx,
 						jobLogger,
 						discoveryJob,
+						accountID,
 						region,
 						factory.GetTaggingClient(region, role, taggingAPIConcurrency),
 						cloudwatchClient,
