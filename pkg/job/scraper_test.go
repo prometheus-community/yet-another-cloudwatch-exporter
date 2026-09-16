@@ -17,6 +17,7 @@ import (
 	"errors"
 	"log/slog"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,13 +33,15 @@ import (
 )
 
 type testRunnerFactory struct {
-	GetAccountAliasFunc func() (string, error)
-	GetAccountFunc      func() (string, error)
-	MetadataRunFunc     func(ctx context.Context, region string, job model.DiscoveryJob) ([]*model.TaggedResource, error)
-	CloudwatchRunFunc   func(ctx context.Context, job cloudwatchrunner.Job) ([]*model.CloudwatchData, error)
+	GetAccountAliasFunc   func() (string, error)
+	GetAccountFunc        func() (string, error)
+	MetadataRunFunc       func(ctx context.Context, region string, job model.DiscoveryJob) ([]*model.TaggedResource, error)
+	CloudwatchRunFunc     func(ctx context.Context, job cloudwatchrunner.Job) ([]*model.CloudwatchData, error)
+	getAccountAliasCalled atomic.Bool
 }
 
 func (t *testRunnerFactory) GetAccountAlias(context.Context) (string, error) {
+	t.getAccountAliasCalled.Store(true)
 	return t.GetAccountAliasFunc()
 }
 
@@ -81,18 +84,21 @@ func (t testCloudwatchRunner) Run(ctx context.Context) ([]*model.CloudwatchData,
 
 func TestScrapeRunner_Run(t *testing.T) {
 	tests := []struct {
-		name                string
-		jobsCfg             model.JobsConfig
-		getAccountFunc      func() (string, error)
-		getAccountAliasFunc func() (string, error)
-		metadataRunFunc     func(ctx context.Context, region string, job model.DiscoveryJob) ([]*model.TaggedResource, error)
-		cloudwatchRunFunc   func(ctx context.Context, job cloudwatchrunner.Job) ([]*model.CloudwatchData, error)
-		expectedResources   []model.TaggedResourceResult
-		expectedMetrics     []model.CloudwatchMetricResult
-		expectedErrs        []job.Error
+		name                      string
+		jobsCfg                   model.JobsConfig
+		getAccountFunc            func() (string, error)
+		getAccountAliasFunc       func() (string, error)
+		metadataRunFunc           func(ctx context.Context, region string, job model.DiscoveryJob) ([]*model.TaggedResource, error)
+		cloudwatchRunFunc         func(ctx context.Context, job cloudwatchrunner.Job) ([]*model.CloudwatchData, error)
+		expectedResources         []model.TaggedResourceResult
+		expectedMetrics           []model.CloudwatchMetricResult
+		expectedErrs              []job.Error
+		disableAccountAliasLookup bool
+		expectAliasLookupCalled   bool
 	}{
 		{
-			name: "can run a discovery job",
+			name:                    "can run a discovery job",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
@@ -152,7 +158,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			},
 		},
 		{
-			name: "can run a custom namespace job",
+			name:                    "can run a custom namespace job",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				CustomNamespaceJobs: []model.CustomNamespaceJob{
 					{
@@ -198,7 +205,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			},
 		},
 		{
-			name: "can run a discovery and custom namespace job",
+			name:                    "can run a discovery and custom namespace job",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
@@ -322,7 +330,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			},
 		},
 		{
-			name: "ignores errors from GetAccountAlias",
+			name:                    "ignores errors from GetAccountAlias",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
@@ -380,7 +389,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			},
 		},
 		{
-			name: "returns errors from resource discovery without failing scrape",
+			name:                    "returns errors from resource discovery without failing scrape",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
@@ -449,7 +459,8 @@ func TestScrapeRunner_Run(t *testing.T) {
 			},
 		},
 		{
-			name: "returns errors from cloudwatch metrics runner without failing scrape",
+			name:                    "returns errors from cloudwatch metrics runner without failing scrape",
+			expectAliasLookupCalled: true,
 			jobsCfg: model.JobsConfig{
 				DiscoveryJobs: []model.DiscoveryJob{
 					{
@@ -532,6 +543,68 @@ func TestScrapeRunner_Run(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "skips account alias lookup when disabled",
+			jobsCfg: model.JobsConfig{
+				DiscoveryJobs: []model.DiscoveryJob{
+					{
+						Regions:   []string{"us-east-1"},
+						Namespace: "aws-namespace",
+						Roles: []model.Role{
+							{RoleArn: "aws-arn-1", ExternalID: "external-id-1"},
+						},
+					},
+				},
+			},
+			disableAccountAliasLookup: true,
+			expectAliasLookupCalled:   false,
+			getAccountFunc: func() (string, error) {
+				return "aws-account-1", nil
+			},
+			getAccountAliasFunc: func() (string, error) {
+				return "my-aws-account", nil
+			},
+			metadataRunFunc: func(_ context.Context, _ string, _ model.DiscoveryJob) ([]*model.TaggedResource, error) {
+				return []*model.TaggedResource{{
+					ARN: "resource-1", Namespace: "aws-namespace", Region: "us-east-1", Tags: []model.Tag{{Key: "tag1", Value: "value1"}},
+				}}, nil
+			},
+			cloudwatchRunFunc: func(_ context.Context, _ cloudwatchrunner.Job) ([]*model.CloudwatchData, error) {
+				return []*model.CloudwatchData{
+					{
+						MetricName:          "metric-1",
+						ResourceName:        "resource-1",
+						Namespace:           "aws-namespace",
+						Tags:                []model.Tag{{Key: "tag1", Value: "value1"}},
+						Dimensions:          []model.Dimension{{Name: "dimension1", Value: "value1"}},
+						GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Maximum", DataPoints: []model.DataPoint{{Value: aws.Float64(1.0), Timestamp: time.Time{}}}},
+					},
+				}, nil
+			},
+			expectedResources: []model.TaggedResourceResult{
+				{
+					Context: &model.ScrapeContext{Region: "us-east-1", AccountID: "aws-account-1", AccountAlias: ""},
+					Data: []*model.TaggedResource{
+						{ARN: "resource-1", Namespace: "aws-namespace", Region: "us-east-1", Tags: []model.Tag{{Key: "tag1", Value: "value1"}}},
+					},
+				},
+			},
+			expectedMetrics: []model.CloudwatchMetricResult{
+				{
+					Context: &model.ScrapeContext{Region: "us-east-1", AccountID: "aws-account-1", AccountAlias: ""},
+					Data: []*model.CloudwatchData{
+						{
+							MetricName:          "metric-1",
+							ResourceName:        "resource-1",
+							Namespace:           "aws-namespace",
+							Tags:                []model.Tag{{Key: "tag1", Value: "value1"}},
+							Dimensions:          []model.Dimension{{Name: "dimension1", Value: "value1"}},
+							GetMetricDataResult: &model.GetMetricDataResult{Statistic: "Maximum", DataPoints: []model.DataPoint{{Value: aws.Float64(1.0), Timestamp: time.Time{}}}},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -543,8 +616,10 @@ func TestScrapeRunner_Run(t *testing.T) {
 			}
 			lvl := promslog.NewLevel()
 			_ = lvl.Set("debug")
-			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf)
+			sr := job.NewScraper(promslog.New(&promslog.Config{Level: lvl}), tc.jobsCfg, &rf, tc.disableAccountAliasLookup)
 			resources, metrics, errs := sr.Scrape(context.Background())
+
+			assert.Equal(t, tc.expectAliasLookupCalled, rf.getAccountAliasCalled.Load(), "unexpected GetAccountAlias call when disableAccountAliasLookup was true")
 
 			changelog, err := diff.Diff(tc.expectedResources, resources)
 			assert.NoError(t, err, "failed to diff resources")

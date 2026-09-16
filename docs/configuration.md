@@ -20,6 +20,7 @@ All flags may be prefixed with either one hypen or two (i.e., both `-config.file
 | `-log.format` | Output format of log messages. One of: [logfmt, json] | `json` |
 | `-log.level` | Log at selected level. One of: [debug, info, warn, error] | `info` |
 | `-fips` | Use FIPS compliant AWS API | `false` |
+| `-disable-account-alias-lookup` | Disable the IAM `ListAccountAliases` API call. The `account_alias` label will be empty. | `false` |
 | `-cloudwatch-concurrency` | Maximum number of concurrent requests to CloudWatch API | `5` |
 | `-cloudwatch-concurrency.per-api-limit-enabled` | Enables a concurrency limiter, that has a specific limit per CloudWatch API call. | `false` |
 | `-cloudwatch-concurrency.list-metrics-limit` | Maximum number of concurrent requests to CloudWatch `ListMetrics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
