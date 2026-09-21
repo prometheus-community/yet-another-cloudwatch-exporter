@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics"
@@ -35,6 +36,7 @@ func ScrapeAwsData(
 	metricsPerQuery int,
 	cloudwatchConcurrency cloudwatch.ConcurrencyConfig,
 	taggingAPIConcurrency int,
+	disableAccountAliasLookup bool,
 ) ([]model.TaggedResourceResult, []model.CloudwatchMetricResult) {
 	mux := &sync.Mutex{}
 	cwData := make([]model.CloudwatchMetricResult, 0)
@@ -74,10 +76,7 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
-					}
+					accountAlias := account.ResolveAlias(ctx, factory.GetAccountClient(region, role), disableAccountAliasLookup, jobLogger)
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
@@ -140,10 +139,7 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
-					}
+					accountAlias := account.ResolveAlias(ctx, factory.GetAccountClient(region, role), disableAccountAliasLookup, jobLogger)
 
 					metrics := runStaticJob(ctx, jobLogger, staticJob, factory.GetCloudwatchClient(region, role, cloudwatchConcurrency))
 					metricResult := model.CloudwatchMetricResult{
@@ -177,10 +173,7 @@ func ScrapeAwsData(
 					}
 					jobLogger = jobLogger.With("account", accountID)
 
-					accountAlias, err := factory.GetAccountClient(region, role).GetAccountAlias(ctx)
-					if err != nil {
-						jobLogger.Warn("Couldn't get account alias", "err", err)
-					}
+					accountAlias := account.ResolveAlias(ctx, factory.GetAccountClient(region, role), disableAccountAliasLookup, jobLogger)
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)

@@ -71,3 +71,19 @@ func (c client) GetAccountAlias(ctx context.Context) (string, error) {
 
 	return possibleAccountAlias, nil
 }
+
+// ResolveAlias returns the account alias for the given client. The account
+// alias is optional metadata, so a lookup failure is logged as a warning and
+// results in an empty string rather than an error.
+// When disableLookup is true, the IAM ListAccountAliases call is skipped entirely.
+func ResolveAlias(ctx context.Context, c Client, disableLookup bool, logger *slog.Logger) string {
+	if disableLookup {
+		return ""
+	}
+	alias, err := c.GetAccountAlias(ctx)
+	if err != nil {
+		logger.Warn("Couldn't get account alias", "err", err)
+		return ""
+	}
+	return alias
+}

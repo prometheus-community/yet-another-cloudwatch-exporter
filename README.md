@@ -249,6 +249,8 @@ The AWS IAM API supports creating account aliases, which are human-friendly name
 "iam:ListAccountAliases"
 ```
 
+This call can be disabled with `-disable-account-alias-lookup` if the alias is not needed or the IAM endpoint is not reachable.
+
 If running YACE inside an AWS EC2 instance, the exporter will automatically attempt to assume the associated IAM Role. If this is undesirable behavior turn off the use the metadata endpoint by setting the environment variable `AWS_EC2_METADATA_DISABLED=true`.
 
 ## Configuration
