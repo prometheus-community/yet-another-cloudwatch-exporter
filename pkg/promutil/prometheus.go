@@ -60,6 +60,7 @@ type ScrapeMetrics struct {
 	ManagedPrometheusAPICounter              Counter
 	StoragegatewayAPICounter                 Counter
 	DmsAPICounter                            Counter
+	BedrockAPICounter                        Counter
 	DuplicateMetricsFilteredCounter          Counter
 }
 
@@ -128,6 +129,10 @@ func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
 			Name: "yace_cloudwatch_dmsapi_requests_total",
 			Help: "Help is not implemented yet.",
 		})},
+		BedrockAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_bedrockapi_requests_total",
+			Help: "Help is not implemented yet.",
+		})},
 		DuplicateMetricsFilteredCounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_duplicate_metrics_filtered",
 			Help: "Help is not implemented yet.",
@@ -160,6 +165,7 @@ func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
 		m.ManagedPrometheusAPICounter,
 		m.StoragegatewayAPICounter,
 		m.DmsAPICounter,
+		m.BedrockAPICounter,
 		m.DuplicateMetricsFilteredCounter,
 	}
 	out := make([]prometheus.Collector, 0, len(vecs)+len(counters))

@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
@@ -125,6 +126,62 @@ var ServiceFilters = map[string]ServiceFilter{
 
 					for _, t := range asg.Tags {
 						resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
+					}
+
+					if resource.FilterThroughTags(job.SearchTags) {
+						resources = append(resources, &resource)
+					}
+				}
+			}
+
+			return resources, nil
+		},
+	},
+	"AWS/Bedrock": {
+		// Bedrock application inference profiles aren't discoverable via the tagging API in a
+		// way that also surfaces the profile's human-readable name, so ListInferenceProfiles is
+		// used directly here instead. The profile's InferenceProfileId is what CloudWatch's
+		// ModelId dimension is set to for these resources (not the ARN), so the ARN field here
+		// is repurposed - like AWS/StorageGateway does - to carry "<id>/<name>" instead of the
+		// real ARN. This lets the ModelId dimension regex (see pkg/config/services.go) match the
+		// id prefix, while the profile name still ends up in the metric's "name" label.
+		ResourceFunc: func(ctx context.Context, client client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			const maxPages = 100
+			pageNum := 0
+
+			var resources []*model.TaggedResource
+			paginator := bedrock.NewListInferenceProfilesPaginator(client.bedrockAPI, &bedrock.ListInferenceProfilesInput{}, func(options *bedrock.ListInferenceProfilesPaginatorOptions) {
+				options.StopOnDuplicateToken = true
+			})
+
+			for paginator.HasMorePages() && pageNum < maxPages {
+				page, err := paginator.NextPage(ctx)
+				client.scrapeMetrics.BedrockAPICounter.Inc()
+				if err != nil {
+					return nil, fmt.Errorf("error calling bedrockAPI.ListInferenceProfiles, %w", err)
+				}
+				pageNum++
+
+				for _, profile := range page.InferenceProfileSummaries {
+					resource := model.TaggedResource{
+						ARN:       fmt.Sprintf("%s/%s", *profile.InferenceProfileId, *profile.InferenceProfileName),
+						Namespace: job.Namespace,
+						Region:    region,
+					}
+
+					tagsRequest := &bedrock.ListTagsForResourceInput{
+						ResourceARN: profile.InferenceProfileArn,
+					}
+					// System-defined profiles are owned by AWS rather than the caller's account and
+					// don't support tagging, so ListTagsForResource is expected to fail for them.
+					// Treat that as "no tags" instead of aborting discovery for the whole namespace.
+					tagsResponse, err := client.bedrockAPI.ListTagsForResource(ctx, tagsRequest)
+					client.scrapeMetrics.BedrockAPICounter.Inc()
+
+					if err == nil {
+						for _, t := range tagsResponse.Tags {
+							resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
+						}
 					}
 
 					if resource.FilterThroughTags(job.SearchTags) {

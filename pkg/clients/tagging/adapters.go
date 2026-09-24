@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
@@ -139,6 +140,27 @@ func newPrometheusClientAdapter(c *amp.Client) prometheusClientAdapter {
 
 func (a prometheusClientAdapter) ListWorkspaces(ctx context.Context, params *amp.ListWorkspacesInput, optFns ...func(*amp.Options)) (*amp.ListWorkspacesOutput, error) {
 	return a.listWorkspaces(ctx, params, optFns...)
+}
+
+// bedrockClientAdapter wraps *bedrock.Client via closures.
+type bedrockClientAdapter struct {
+	listInferenceProfiles func(ctx context.Context, params *bedrock.ListInferenceProfilesInput, optFns ...func(*bedrock.Options)) (*bedrock.ListInferenceProfilesOutput, error)
+	listTagsForResource   func(ctx context.Context, params *bedrock.ListTagsForResourceInput, optFns ...func(*bedrock.Options)) (*bedrock.ListTagsForResourceOutput, error)
+}
+
+func newBedrockClientAdapter(c *bedrock.Client) bedrockClientAdapter {
+	return bedrockClientAdapter{
+		listInferenceProfiles: c.ListInferenceProfiles,
+		listTagsForResource:   c.ListTagsForResource,
+	}
+}
+
+func (a bedrockClientAdapter) ListInferenceProfiles(ctx context.Context, params *bedrock.ListInferenceProfilesInput, optFns ...func(*bedrock.Options)) (*bedrock.ListInferenceProfilesOutput, error) {
+	return a.listInferenceProfiles(ctx, params, optFns...)
+}
+
+func (a bedrockClientAdapter) ListTagsForResource(ctx context.Context, params *bedrock.ListTagsForResourceInput, optFns ...func(*bedrock.Options)) (*bedrock.ListTagsForResourceOutput, error) {
+	return a.listTagsForResource(ctx, params, optFns...)
 }
 
 // storageGatewayClientAdapter wraps *storagegateway.Client via closures.
