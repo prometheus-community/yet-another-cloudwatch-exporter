@@ -1,0 +1,11 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/ECS/ManagedScaling
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: CapacityProviderReservation
+          statistics: [Average, Minimum, Maximum]
