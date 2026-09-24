@@ -69,6 +69,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/ClientVPN` - Client-based VPN
   * `AWS/CloudFront` - Cloud Front
   * `AWS/Cognito` - Cognito
+  * `AWS/CodeBuild` - Code Build
   * `AWS/DataSync` - DataSync
   * `AWS/DDoSProtection` - Distributed Denial of Service (DDoS) protection service
   * `AWS/DirectoryService` - Directory Services (MicrosoftAD)
