@@ -1,0 +1,21 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/Timestream
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: SystemErrors
+          statistics: [Sum]
+        - name: UserErrors
+          statistics: [Sum]
+        - name: SuccessfulRequestLatency
+          statistics: [Average, Maximum, Minimum]
+        - name: MagneticStoreRejectedRecordCount
+          statistics: [Sum]
+        - name: MagneticStoreRejectedUploadUserFailures
+          statistics: [Sum]
+        - name: MagneticStoreRejectedUploadSystemFailures
+          statistics: [Sum]
