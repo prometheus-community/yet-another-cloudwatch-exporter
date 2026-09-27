@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [ENHANCEMENT] Add support for `AWS/DAX` namespace by @guyelbaz18. #1933
 
 ## 0.67.0 / 2026-07-03
 
