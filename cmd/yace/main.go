@@ -21,6 +21,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/prometheus/common/promslog"
 	promslogflag "github.com/prometheus/common/promslog/flag"
@@ -71,6 +72,7 @@ var (
 	valkeyUsername            string
 	valkeyPassword            string
 	valkeyDB                  int
+	valkeyTTL                 time.Duration
 
 	logger *slog.Logger
 )
@@ -245,6 +247,13 @@ func NewYACEApp() *cli.App {
 			Destination: &valkeyDB,
 			EnvVars:     []string{"VALKEY_DB"},
 		},
+		&cli.DurationFlag{
+			Name:        "valkey.ttl",
+			Value:       tagging.DefaultCacheTTL,
+			Usage:       "How long a cached Resource Tagging API response stays valid",
+			Destination: &valkeyTTL,
+			EnvVars:     []string{"VALKEY_TTL"},
+		},
 	}
 
 	yace.Commands = []*cli.Command{
@@ -306,6 +315,9 @@ func startScraper(c *cli.Context) error {
 	cfg.CloudwatchConcurrency = cloudwatchConcurrency
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid runtime scrape configuration: %w", err)
+	}
+	if valkeyAddress != "" && valkeyTTL <= 0 {
+		return fmt.Errorf("invalid valkey.ttl %s: must be positive", valkeyTTL)
 	}
 
 	scrapeCfg := config.ScrapeConf{}
@@ -402,6 +414,7 @@ func createValkeyCache(ctx context.Context, logger *slog.Logger) tagging.Cache {
 		Username: valkeyUsername,
 		Password: valkeyPassword,
 		DB:       valkeyDB,
+		TTL:      valkeyTTL,
 	})
 	if err != nil {
 		logger.Warn("Failed to create valkey cache, continuing without caching", "err", err)

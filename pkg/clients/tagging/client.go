@@ -146,10 +146,8 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 		for _, filter := range svc.ResourceFilters {
 			filters = append(filters, *filter)
 		}
-
-		// Build tag filter keys for cache key and AWS API
-		var tagFilterKeys []string
 		var tagFilters []types.TagFilter
+		var tagFilterKeys []string
 		if len(job.SearchTags) > 0 {
 			for i := range job.SearchTags {
 				// Because everything with the AWS APIs is pointers we need a pointer to the `Key` field from the SearchTag.
@@ -284,7 +282,7 @@ func (c client) setToCache(ctx context.Context, key string, mappings []ResourceT
 	if c.cache == nil {
 		return
 	}
-	if err := c.cache.Set(ctx, key, mappings, CacheTTL); err != nil {
+	if err := c.cache.Set(ctx, key, mappings); err != nil {
 		c.logger.Warn("Failed to cache tagging data", "err", err, "key", key)
 	}
 }

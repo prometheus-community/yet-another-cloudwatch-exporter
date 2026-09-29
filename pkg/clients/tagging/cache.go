@@ -25,8 +25,8 @@ import (
 	"github.com/valkey-io/valkey-go"
 )
 
-// CacheTTL is the default TTL for cached tagging API responses
-const CacheTTL = 10 * time.Minute
+// DefaultCacheTTL is the default TTL for cached tagging API responses
+const DefaultCacheTTL = 10 * time.Minute
 
 // ResourceTagMappingCache represents the cached response from AWS GetResources API
 type ResourceTagMappingCache struct {
@@ -47,8 +47,8 @@ type Cache interface {
 	// found reports whether the key exists, so that an empty cached result
 	// (no resources carry the searched tags) is still a cache hit.
 	Get(ctx context.Context, key string) (mappings []ResourceTagMappingCache, found bool, err error)
-	// Set stores resource tag mappings with the given cache key and TTL
-	Set(ctx context.Context, key string, mappings []ResourceTagMappingCache, ttl time.Duration) error
+	// Set stores resource tag mappings with the given cache key
+	Set(ctx context.Context, key string, mappings []ResourceTagMappingCache) error
 	// Close closes the cache connection
 	Close()
 }
@@ -81,6 +81,7 @@ func (a *valkeyBackendAdapter) Close() {
 type ValkeyCache struct {
 	backend valkeyBackend
 	logger  *slog.Logger
+	ttl     time.Duration
 }
 
 // ValkeyConfig holds configuration for connecting to Valkey
@@ -93,10 +94,16 @@ type ValkeyConfig struct {
 	Password string
 	// DB is the database number to use (default 0)
 	DB int
+	// TTL is how long a cached GetResources response stays valid
+	TTL time.Duration
 }
 
 // NewValkeyCache creates a new ValkeyCache instance
 func NewValkeyCache(ctx context.Context, logger *slog.Logger, cfg ValkeyConfig) (*ValkeyCache, error) {
+	if cfg.TTL <= 0 {
+		return nil, fmt.Errorf("valkey cache TTL must be positive, got %s", cfg.TTL)
+	}
+
 	opts := valkey.ClientOption{
 		InitAddress:  []string{cfg.Address},
 		Username:     cfg.Username,
@@ -104,14 +111,6 @@ func NewValkeyCache(ctx context.Context, logger *slog.Logger, cfg ValkeyConfig) 
 		SelectDB:     cfg.DB,
 		DisableCache: true,
 		TLSConfig: &tls.Config{
-			// If you use a public CA or system trust store:
-			// RootCAs: nil,
-			//
-			// For self-signed / custom CA, load it into RootCAs here.
-			//
-			// If Valkey requires client certs (mTLS), set Certificates:
-			// Certificates: []tls.Certificate{clientCert},
-			//
 			MinVersion: tls.VersionTLS12,
 		},
 	}
@@ -127,11 +126,12 @@ func NewValkeyCache(ctx context.Context, logger *slog.Logger, cfg ValkeyConfig) 
 		return nil, fmt.Errorf("failed to connect to valkey: %w", err)
 	}
 
-	logger.Info("Connected to Valkey cache", "address", cfg.Address)
+	logger.Info("Connected to Valkey cache", "address", cfg.Address, "ttl", cfg.TTL)
 
 	return &ValkeyCache{
 		backend: &valkeyBackendAdapter{client: client},
 		logger:  logger,
+		ttl:     cfg.TTL,
 	}, nil
 }
 
@@ -155,8 +155,8 @@ func (c *ValkeyCache) Get(ctx context.Context, key string) ([]ResourceTagMapping
 	return mappings, true, nil
 }
 
-// Set stores resource tag mappings with the given cache key and TTL
-func (c *ValkeyCache) Set(ctx context.Context, key string, mappings []ResourceTagMappingCache, ttl time.Duration) error {
+// Set stores resource tag mappings with the given cache key
+func (c *ValkeyCache) Set(ctx context.Context, key string, mappings []ResourceTagMappingCache) error {
 	if mappings == nil {
 		// Store an empty result as "[]" rather than "null"
 		mappings = []ResourceTagMappingCache{}
@@ -166,12 +166,11 @@ func (c *ValkeyCache) Set(ctx context.Context, key string, mappings []ResourceTa
 		return fmt.Errorf("failed to marshal data for cache: %w", err)
 	}
 
-	err = c.backend.SetEX(ctx, key, string(data), ttl)
-	if err != nil {
+	if err := c.backend.SetEX(ctx, key, string(data), c.ttl); err != nil {
 		return fmt.Errorf("failed to set cache: %w", err)
 	}
 
-	c.logger.Debug("Cache set", "key", key, "count", len(mappings), "ttl", ttl)
+	c.logger.Debug("Cache set", "key", key, "count", len(mappings), "ttl", c.ttl)
 	return nil
 }
 
