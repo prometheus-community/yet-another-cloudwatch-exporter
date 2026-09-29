@@ -79,8 +79,8 @@ func TestValkeyCache_SetThenGetRoundTrip(t *testing.T) {
 
 	key := "somekey"
 	original := []ResourceTagMappingCache{
-		{ResourceARN: "arn:aws:ec2:us-east-1:123456789012:instance/i-123", Tags: map[string]string{"env": "prod"}},
-		{ResourceARN: "arn:aws:s3:::bucket", Tags: map[string]string{"team": "core"}},
+		{ResourceARN: "arn:aws:ec2:us-east-1:123456789012:instance/i-123", Tags: []CachedTag{{Key: "env", Value: "prod"}}},
+		{ResourceARN: "arn:aws:s3:::bucket", Tags: []CachedTag{{Key: "team", Value: "core"}, {Key: "app", Value: "yace"}}},
 	}
 
 	require.NoError(t, cache.Set(context.Background(), key, original, 2*time.Minute))
@@ -111,7 +111,7 @@ func TestValkeyCache_SetStoresJSON(t *testing.T) {
 		logger: slog.New(slog.DiscardHandler),
 	}
 
-	original := []ResourceTagMappingCache{{ResourceARN: "arn:aws:s3:::bucket", Tags: map[string]string{"team": "core"}}}
+	original := []ResourceTagMappingCache{{ResourceARN: "arn:aws:s3:::bucket", Tags: []CachedTag{{Key: "team", Value: "core"}}}}
 	require.NoError(t, cache.Set(context.Background(), "k", original, time.Minute))
 
 	var decoded []ResourceTagMappingCache

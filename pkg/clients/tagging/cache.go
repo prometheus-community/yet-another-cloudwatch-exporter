@@ -30,8 +30,15 @@ const CacheTTL = 10 * time.Minute
 
 // ResourceTagMappingCache represents the cached response from AWS GetResources API
 type ResourceTagMappingCache struct {
-	ResourceARN string            `json:"resource_arn"`
-	Tags        map[string]string `json:"tags"`
+	ResourceARN string      `json:"resource_arn"`
+	Tags        []CachedTag `json:"tags"`
+}
+
+// CachedTag is a single resource tag. Tags are kept as a list to preserve the
+// order returned by AWS, so cached and uncached discovery behave identically.
+type CachedTag struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // Cache defines the interface for caching tagging API responses

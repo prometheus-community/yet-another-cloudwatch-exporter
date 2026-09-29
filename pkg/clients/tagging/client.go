@@ -184,8 +184,8 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 					Region:    region,
 					Tags:      make([]model.Tag, 0, len(mapping.Tags)),
 				}
-				for k, v := range mapping.Tags {
-					resource.Tags = append(resource.Tags, model.Tag{Key: k, Value: v})
+				for _, t := range mapping.Tags {
+					resource.Tags = append(resource.Tags, model.Tag{Key: t.Key, Value: t.Value})
 				}
 				if resource.FilterThroughTags(job.SearchTags) {
 					resources = append(resources, &resource)
@@ -217,10 +217,10 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 					// Build the cache mapping
 					cacheMapping := ResourceTagMappingCache{
 						ResourceARN: *resourceTagMapping.ResourceARN,
-						Tags:        make(map[string]string, len(resourceTagMapping.Tags)),
+						Tags:        make([]CachedTag, 0, len(resourceTagMapping.Tags)),
 					}
 					for _, t := range resourceTagMapping.Tags {
-						cacheMapping.Tags[*t.Key] = *t.Value
+						cacheMapping.Tags = append(cacheMapping.Tags, CachedTag{Key: *t.Key, Value: *t.Value})
 					}
 					allMappings = append(allMappings, cacheMapping)
 
