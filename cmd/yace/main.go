@@ -220,7 +220,7 @@ func NewYACEApp() *cli.App {
 		&cli.StringFlag{
 			Name:        "valkey.address",
 			Value:       "",
-			Usage:       "Valkey server address (e.g., localhost:6379). If not set, tagging API caching is disabled.",
+			Usage:       "Valkey server address (e.g., localhost:6379) used to share Resource Tagging API responses between instances. If not set, caching is disabled.",
 			Destination: &valkeyAddress,
 			EnvVars:     []string{"VALKEY_ADDRESS"},
 		},
@@ -316,20 +316,14 @@ func startScraper(c *cli.Context) error {
 
 	s := NewScraper(cfg)
 
-	// Create Valkey cache if configured
-	valkeyCache, err := createValkeyCache(context.Background(), logger)
-	if err != nil {
-		logger.Warn("Failed to create valkey cache, continuing without caching", "error", err)
-	} else if valkeyCache != nil {
-		logger.Info("Valkey cache enabled", "address", valkeyAddress)
+	// The Valkey connection does not depend on the scrape config, so it is created
+	// once and shared by every client factory, including the ones built on /reload.
+	taggingCache := createValkeyCache(context.Background(), logger)
+	if taggingCache != nil {
+		defer taggingCache.Close()
 	}
 
-	var cachingFactory *clients.CachingFactory
-	if valkeyCache != nil {
-		cachingFactory, err = clients.NewFactoryWithCache(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled, valkeyCache)
-	} else {
-		cachingFactory, err = clients.NewFactory(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled)
-	}
+	cachingFactory, err := clients.NewFactoryWithCache(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled, taggingCache)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
@@ -378,18 +372,7 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		var newValkeyCache tagging.Cache
-		newValkeyCache, err = createValkeyCache(context.Background(), logger)
-		if err != nil {
-			logger.Warn("Failed to create valkey cache, continuing without caching", "error", err)
-		}
-
-		var cache *clients.CachingFactory
-		if newValkeyCache != nil {
-			cache, err = clients.NewFactoryWithCache(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled, newValkeyCache)
-		} else {
-			cache, err = clients.NewFactory(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled)
-		}
+		cache, err := clients.NewFactoryWithCache(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled, taggingCache)
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", cfg.ScrapeConfigFile)
 			return
@@ -406,10 +389,12 @@ func startScraper(c *cli.Context) error {
 	return srv.ListenAndServe()
 }
 
-// createValkeyCache creates a Valkey cache if configured, otherwise returns nil
-func createValkeyCache(ctx context.Context, logger *slog.Logger) (tagging.Cache, error) {
+// createValkeyCache connects to Valkey if an address is configured. It returns nil
+// if caching is disabled or the connection fails, in which case YACE falls back to
+// calling the AWS API directly.
+func createValkeyCache(ctx context.Context, logger *slog.Logger) tagging.Cache {
 	if valkeyAddress == "" {
-		return nil, nil
+		return nil
 	}
 
 	cache, err := tagging.NewValkeyCache(ctx, logger, tagging.ValkeyConfig{
@@ -419,9 +404,10 @@ func createValkeyCache(ctx context.Context, logger *slog.Logger) (tagging.Cache,
 		DB:       valkeyDB,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create valkey cache: %w", err)
+		logger.Warn("Failed to create valkey cache, continuing without caching", "err", err)
+		return nil
 	}
-	return cache, nil
+	return cache
 }
 
 func newLogger(format, level string) *slog.Logger {
