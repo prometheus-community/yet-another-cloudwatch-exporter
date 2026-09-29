@@ -166,87 +166,43 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			}
 		}
 
-		// Try to get from cache first
+		// Only tag keys are sent to AWS, so the raw response is independent of the
+		// search tag values and can be shared between all jobs asking for the same keys.
 		cacheKey := BuildCacheKey(region, filters, tagFilterKeys)
-		cachedMappings, cacheErr := c.getFromCache(ctx, cacheKey)
-
+		mappings, cacheErr := c.getFromCache(ctx, cacheKey)
 		if cacheErr != nil {
 			c.logger.Warn("Failed to get from cache, falling back to AWS API", "error", cacheErr)
 		}
 
-		if cachedMappings != nil {
-			// Use cached data
-			c.logger.Debug("Using cached tagging data", "key", cacheKey, "count", len(cachedMappings))
-			for _, mapping := range cachedMappings {
-				resource := model.TaggedResource{
-					ARN:       mapping.ResourceARN,
-					Namespace: job.Namespace,
-					Region:    region,
-					Tags:      make([]model.Tag, 0, len(mapping.Tags)),
-				}
-				for _, t := range mapping.Tags {
-					resource.Tags = append(resource.Tags, model.Tag{Key: t.Key, Value: t.Value})
-				}
-				if resource.FilterThroughTags(job.SearchTags) {
-					resources = append(resources, &resource)
-				} else {
-					c.logger.Debug("Skipping resource because search tags do not match", "arn", resource.ARN)
-				}
-			}
+		if mappings != nil {
+			c.logger.Debug("Using cached tagging data", "key", cacheKey, "count", len(mappings))
 		} else {
-			// Call AWS API and cache the result
-			var allMappings []ResourceTagMappingCache
-
-			inputparams := &resourcegroupstaggingapi.GetResourcesInput{
-				ResourceTypeFilters: filters,
-				ResourcesPerPage:    aws.Int32(int32(100)), // max allowed value according to API docs
-				TagFilters:          tagFilters,
+			var err error
+			mappings, err = c.getResourcesFromAPI(ctx, filters, tagFilters)
+			if err != nil {
+				return nil, err
 			}
-
-			paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(c.taggingAPI, inputparams, func(options *resourcegroupstaggingapi.GetResourcesPaginatorOptions) {
-				options.StopOnDuplicateToken = true
-			})
-			for paginator.HasMorePages() {
-				c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
-				page, err := paginator.NextPage(ctx)
-				if err != nil {
-					return nil, err
-				}
-
-				for _, resourceTagMapping := range page.ResourceTagMappingList {
-					// Build the cache mapping
-					cacheMapping := ResourceTagMappingCache{
-						ResourceARN: *resourceTagMapping.ResourceARN,
-						Tags:        make([]CachedTag, 0, len(resourceTagMapping.Tags)),
-					}
-					for _, t := range resourceTagMapping.Tags {
-						cacheMapping.Tags = append(cacheMapping.Tags, CachedTag{Key: *t.Key, Value: *t.Value})
-					}
-					allMappings = append(allMappings, cacheMapping)
-
-					// Build the resource for filtering
-					resource := model.TaggedResource{
-						ARN:       *resourceTagMapping.ResourceARN,
-						Namespace: job.Namespace,
-						Region:    region,
-						Tags:      make([]model.Tag, 0, len(resourceTagMapping.Tags)),
-					}
-
-					for _, t := range resourceTagMapping.Tags {
-						resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
-					}
-
-					if resource.FilterThroughTags(job.SearchTags) {
-						resources = append(resources, &resource)
-					} else {
-						c.logger.Debug("Skipping resource because search tags do not match", "arn", resource.ARN)
-					}
-				}
-			}
-
-			// Cache the raw AWS API response
-			if err := c.setToCache(ctx, cacheKey, allMappings); err != nil {
+			if err := c.setToCache(ctx, cacheKey, mappings); err != nil {
 				c.logger.Warn("Failed to cache tagging data", "error", err, "key", cacheKey)
+			}
+		}
+
+		for _, mapping := range mappings {
+			resource := model.TaggedResource{
+				ARN:       mapping.ResourceARN,
+				Namespace: job.Namespace,
+				Region:    region,
+				Tags:      make([]model.Tag, 0, len(mapping.Tags)),
+			}
+
+			for _, t := range mapping.Tags {
+				resource.Tags = append(resource.Tags, model.Tag{Key: t.Key, Value: t.Value})
+			}
+
+			if resource.FilterThroughTags(job.SearchTags) {
+				resources = append(resources, &resource)
+			} else {
+				c.logger.Debug("Skipping resource because search tags do not match", "arn", resource.ARN)
 			}
 		}
 
@@ -279,6 +235,39 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 	}
 
 	return resources, nil
+}
+
+// getResourcesFromAPI pages through the AWS GetResources API and returns the raw resource tag mappings.
+func (c client) getResourcesFromAPI(ctx context.Context, filters []string, tagFilters []types.TagFilter) ([]ResourceTagMappingCache, error) {
+	inputparams := &resourcegroupstaggingapi.GetResourcesInput{
+		ResourceTypeFilters: filters,
+		ResourcesPerPage:    aws.Int32(int32(100)), // max allowed value according to API docs
+		TagFilters:          tagFilters,
+	}
+
+	var mappings []ResourceTagMappingCache
+	paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(c.taggingAPI, inputparams, func(options *resourcegroupstaggingapi.GetResourcesPaginatorOptions) {
+		options.StopOnDuplicateToken = true
+	})
+	for paginator.HasMorePages() {
+		c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, resourceTagMapping := range page.ResourceTagMappingList {
+			mapping := ResourceTagMappingCache{
+				ResourceARN: *resourceTagMapping.ResourceARN,
+				Tags:        make([]CachedTag, 0, len(resourceTagMapping.Tags)),
+			}
+			for _, t := range resourceTagMapping.Tags {
+				mapping.Tags = append(mapping.Tags, CachedTag{Key: *t.Key, Value: *t.Value})
+			}
+			mappings = append(mappings, mapping)
+		}
+	}
+	return mappings, nil
 }
 
 // getFromCache retrieves cached data if cache is available
