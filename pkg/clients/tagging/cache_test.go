@@ -15,6 +15,7 @@ package tagging
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"testing"
 	"time"
@@ -138,6 +139,19 @@ func TestValkeyCache_GetInvalidJSONReturnsError(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestValkeyCache_GetBackendErrorReturnsError(t *testing.T) {
+	cache := &ValkeyCache{
+		backend: fakeValkeyBackend{getFn: func(_ context.Context, _ string) (string, error) {
+			return "", errors.New("connection refused")
+		}},
+		logger: slog.New(slog.DiscardHandler),
+	}
+
+	_, found, err := cache.Get(context.Background(), "k")
+	require.Error(t, err)
+	require.False(t, found)
+}
+
 func TestValkeyCache_SetStoresJSON(t *testing.T) {
 	cache, stored := newMapBackedCache(time.Minute)
 
@@ -154,4 +168,18 @@ func TestNewValkeyCache_RejectsNonPositiveTTL(t *testing.T) {
 		_, err := NewValkeyCache(context.Background(), slog.New(slog.DiscardHandler), ValkeyConfig{Address: "localhost:6379", TTL: ttl})
 		require.ErrorContains(t, err, "TTL must be positive")
 	}
+}
+
+func TestBuildCacheKey(t *testing.T) {
+	require.Equal(t, "yace:tagging:eu-central-1:ec2:instance,s3:ManagedBy,team",
+		BuildCacheKey("eu-central-1", []string{"s3", "ec2:instance"}, []string{"team", "ManagedBy"}))
+
+	// Order of filters and tag keys must not change the key
+	require.Equal(t,
+		BuildCacheKey("eu-central-1", []string{"s3", "ec2:instance"}, []string{"team", "ManagedBy"}),
+		BuildCacheKey("eu-central-1", []string{"ec2:instance", "s3"}, []string{"ManagedBy", "team"}))
+
+	require.NotEqual(t,
+		BuildCacheKey("eu-central-1", []string{"s3"}, []string{"ManagedBy"}),
+		BuildCacheKey("eu-west-1", []string{"s3"}, []string{"ManagedBy"}))
 }
