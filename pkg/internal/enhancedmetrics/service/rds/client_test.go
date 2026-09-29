@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
@@ -127,6 +128,89 @@ func TestAWSRDSClient_DescribeDBInstances(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DescribeDBInstances() got = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestAWSRDSClient_DescribeDBInstances_ChunksFilterValues(t *testing.T) {
+	tests := []struct {
+		name            string
+		instanceCount   int
+		paginateCallNum int // 1-based call that returns a marker, splitting its chunk into two pages; 0 disables
+		failCallNum     int // 1-based call that returns an error; 0 disables
+		wantChunkSizes  []int
+		wantErr         bool
+	}{
+		{name: "exactly the limit", instanceCount: 100, wantChunkSizes: []int{100}},
+		{name: "one above the limit", instanceCount: 101, wantChunkSizes: []int{100, 1}},
+		{name: "above the limit", instanceCount: 250, wantChunkSizes: []int{100, 100, 50}},
+		{name: "pagination in the last chunk", instanceCount: 150, paginateCallNum: 2, wantChunkSizes: []int{100, 50, 50}},
+		{name: "pagination in a non-last chunk", instanceCount: 250, paginateCallNum: 1, wantChunkSizes: []int{100, 100, 100, 50}},
+		{name: "error in a later chunk", instanceCount: 150, failCallNum: 2, wantChunkSizes: []int{100, 50}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instances := make([]string, tt.instanceCount)
+			want := make([]types.DBInstance, tt.instanceCount)
+			for i := range instances {
+				instances[i] = fmt.Sprintf("db-%d", i)
+				want[i] = types.DBInstance{DBInstanceIdentifier: aws.String(instances[i])}
+			}
+
+			var gotChunkSizes []int
+			var gotChunkValues []string
+			var prevValues []string
+			var pendingMarker *string
+			mock := &mockRDSClient{
+				describeDBInstancesFunc: func(_ context.Context, params *rds.DescribeDBInstancesInput, _ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					require.Len(t, params.Filters, 1)
+					require.Equal(t, "db-instance-id", aws.ToString(params.Filters[0].Name))
+					values := params.Filters[0].Values
+					require.LessOrEqual(t, len(values), maxDBInstanceIdentifiersPerFilter)
+					require.Equal(t, pendingMarker, params.Marker, "marker must continue the current chunk and reset for a new one")
+
+					gotChunkSizes = append(gotChunkSizes, len(values))
+					if params.Marker == nil {
+						gotChunkValues = append(gotChunkValues, values...)
+					} else {
+						require.Equal(t, prevValues, values, "marker page must repeat the chunk's filter values")
+					}
+					prevValues, pendingMarker = values, nil
+
+					callNum := len(gotChunkSizes)
+					if callNum == tt.failCallNum {
+						return nil, fmt.Errorf("API error")
+					}
+
+					page := values
+					output := &rds.DescribeDBInstancesOutput{}
+					switch {
+					case callNum == tt.paginateCallNum:
+						page = values[:len(values)/2]
+						pendingMarker = aws.String(fmt.Sprintf("m-%d", callNum))
+						output.Marker = pendingMarker
+					case params.Marker != nil:
+						page = values[len(values)/2:]
+					}
+					for _, id := range page {
+						output.DBInstances = append(output.DBInstances, types.DBInstance{DBInstanceIdentifier: aws.String(id)})
+					}
+					return output, nil
+				},
+			}
+
+			c := &AWSRDSClient{describeDBInstancesFunc: mock.DescribeDBInstances}
+			got, err := c.DescribeDBInstances(context.Background(), slog.New(slog.DiscardHandler), instances)
+
+			require.Equal(t, tt.wantChunkSizes, gotChunkSizes, "filter sizes per call")
+			require.Equal(t, instances, gotChunkValues, "each identifier must be sent exactly once, in order")
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, want, got)
 		})
 	}
 }
