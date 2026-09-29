@@ -169,12 +169,8 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 		// Only tag keys are sent to AWS, so the raw response is independent of the
 		// search tag values and can be shared between all jobs asking for the same keys.
 		cacheKey := BuildCacheKey(region, filters, tagFilterKeys)
-		mappings, cacheErr := c.getFromCache(ctx, cacheKey)
-		if cacheErr != nil {
-			c.logger.Warn("Failed to get from cache, falling back to AWS API", "error", cacheErr)
-		}
-
-		if mappings != nil {
+		mappings, found := c.getFromCache(ctx, cacheKey)
+		if found {
 			c.logger.Debug("Using cached tagging data", "key", cacheKey, "count", len(mappings))
 		} else {
 			var err error
@@ -182,9 +178,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			if err != nil {
 				return nil, err
 			}
-			if err := c.setToCache(ctx, cacheKey, mappings); err != nil {
-				c.logger.Warn("Failed to cache tagging data", "error", err, "key", cacheKey)
-			}
+			c.setToCache(ctx, cacheKey, mappings)
 		}
 
 		for _, mapping := range mappings {
@@ -270,18 +264,27 @@ func (c client) getResourcesFromAPI(ctx context.Context, filters []string, tagFi
 	return mappings, nil
 }
 
-// getFromCache retrieves cached data if cache is available
-func (c client) getFromCache(ctx context.Context, key string) ([]ResourceTagMappingCache, error) {
+// getFromCache retrieves cached data if a cache is configured. Cache errors are
+// logged and reported as a miss, so that discovery falls back to the AWS API.
+func (c client) getFromCache(ctx context.Context, key string) ([]ResourceTagMappingCache, bool) {
 	if c.cache == nil {
-		return nil, nil
+		return nil, false
 	}
-	return c.cache.Get(ctx, key)
+	mappings, found, err := c.cache.Get(ctx, key)
+	if err != nil {
+		c.logger.Warn("Failed to get from cache, falling back to AWS API", "err", err, "key", key)
+		return nil, false
+	}
+	return mappings, found
 }
 
-// setToCache stores data in cache if cache is available
-func (c client) setToCache(ctx context.Context, key string, mappings []ResourceTagMappingCache) error {
+// setToCache stores data in the cache if a cache is configured. Cache errors are
+// logged only, a failed write must not fail the discovery.
+func (c client) setToCache(ctx context.Context, key string, mappings []ResourceTagMappingCache) {
 	if c.cache == nil {
-		return nil
+		return
 	}
-	return c.cache.Set(ctx, key, mappings, CacheTTL)
+	if err := c.cache.Set(ctx, key, mappings, CacheTTL); err != nil {
+		c.logger.Warn("Failed to cache tagging data", "err", err, "key", key)
+	}
 }

@@ -43,8 +43,10 @@ type CachedTag struct {
 
 // Cache defines the interface for caching tagging API responses
 type Cache interface {
-	// Get retrieves cached resource tag mappings for the given cache key
-	Get(ctx context.Context, key string) ([]ResourceTagMappingCache, error)
+	// Get retrieves cached resource tag mappings for the given cache key.
+	// found reports whether the key exists, so that an empty cached result
+	// (no resources carry the searched tags) is still a cache hit.
+	Get(ctx context.Context, key string) (mappings []ResourceTagMappingCache, found bool, err error)
 	// Set stores resource tag mappings with the given cache key and TTL
 	Set(ctx context.Context, key string, mappings []ResourceTagMappingCache, ttl time.Duration) error
 	// Close closes the cache connection
@@ -134,27 +136,31 @@ func NewValkeyCache(ctx context.Context, logger *slog.Logger, cfg ValkeyConfig) 
 }
 
 // Get retrieves cached resource tag mappings for the given cache key
-func (c *ValkeyCache) Get(ctx context.Context, key string) ([]ResourceTagMappingCache, error) {
+func (c *ValkeyCache) Get(ctx context.Context, key string) ([]ResourceTagMappingCache, bool, error) {
 	result, err := c.backend.Get(ctx, key)
 	if err != nil {
 		if valkey.IsValkeyNil(err) {
 			c.logger.Debug("Cache miss", "key", key)
-			return nil, nil
+			return nil, false, nil
 		}
-		return nil, fmt.Errorf("failed to get from cache: %w", err)
+		return nil, false, fmt.Errorf("failed to get from cache: %w", err)
 	}
 
 	var mappings []ResourceTagMappingCache
 	if err := json.Unmarshal([]byte(result), &mappings); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cached data: %w", err)
+		return nil, false, fmt.Errorf("failed to unmarshal cached data: %w", err)
 	}
 
 	c.logger.Debug("Cache hit", "key", key, "count", len(mappings))
-	return mappings, nil
+	return mappings, true, nil
 }
 
 // Set stores resource tag mappings with the given cache key and TTL
 func (c *ValkeyCache) Set(ctx context.Context, key string, mappings []ResourceTagMappingCache, ttl time.Duration) error {
+	if mappings == nil {
+		// Store an empty result as "[]" rather than "null"
+		mappings = []ResourceTagMappingCache{}
+	}
 	data, err := json.Marshal(mappings)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data for cache: %w", err)

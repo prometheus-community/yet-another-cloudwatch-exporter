@@ -44,7 +44,7 @@ func (b fakeValkeyBackend) SetEX(ctx context.Context, key string, value string, 
 
 func (b fakeValkeyBackend) Close() {}
 
-func TestValkeyCache_GetMissReturnsNilSlice(t *testing.T) {
+func TestValkeyCache_GetMissIsNotFound(t *testing.T) {
 	cache := &ValkeyCache{
 		backend: fakeValkeyBackend{getFn: func(_ context.Context, _ string) (string, error) {
 			return "", valkey.Nil
@@ -52,8 +52,9 @@ func TestValkeyCache_GetMissReturnsNilSlice(t *testing.T) {
 		logger: slog.New(slog.DiscardHandler),
 	}
 
-	mappings, err := cache.Get(context.Background(), "missing")
+	mappings, found, err := cache.Get(context.Background(), "missing")
 	require.NoError(t, err)
+	require.False(t, found)
 	require.Nil(t, mappings)
 }
 
@@ -84,9 +85,45 @@ func TestValkeyCache_SetThenGetRoundTrip(t *testing.T) {
 	}
 
 	require.NoError(t, cache.Set(context.Background(), key, original, 2*time.Minute))
-	loaded, err := cache.Get(context.Background(), key)
+	loaded, found, err := cache.Get(context.Background(), key)
 	require.NoError(t, err)
+	require.True(t, found)
 	require.Equal(t, original, loaded)
+}
+
+func TestValkeyCache_EmptyResultIsAHit(t *testing.T) {
+	for name, empty := range map[string][]ResourceTagMappingCache{
+		"nil slice":   nil,
+		"empty slice": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			stored := map[string]string{}
+			cache := &ValkeyCache{
+				backend: fakeValkeyBackend{
+					getFn: func(_ context.Context, key string) (string, error) {
+						value, ok := stored[key]
+						if !ok {
+							return "", valkey.Nil
+						}
+						return value, nil
+					},
+					setExFn: func(_ context.Context, key string, value string, _ time.Duration) error {
+						stored[key] = value
+						return nil
+					},
+				},
+				logger: slog.New(slog.DiscardHandler),
+			}
+
+			require.NoError(t, cache.Set(context.Background(), "empty", empty, time.Minute))
+			require.Equal(t, "[]", stored["empty"])
+
+			mappings, found, err := cache.Get(context.Background(), "empty")
+			require.NoError(t, err)
+			require.True(t, found, "an empty cached result must be a hit, not a miss")
+			require.Empty(t, mappings)
+		})
+	}
 }
 
 func TestValkeyCache_GetInvalidJSONReturnsError(t *testing.T) {
@@ -97,8 +134,9 @@ func TestValkeyCache_GetInvalidJSONReturnsError(t *testing.T) {
 		logger: slog.New(slog.DiscardHandler),
 	}
 
-	_, err := cache.Get(context.Background(), "bad")
+	_, found, err := cache.Get(context.Background(), "bad")
 	require.Error(t, err)
+	require.False(t, found)
 }
 
 func TestValkeyCache_SetStoresJSON(t *testing.T) {
