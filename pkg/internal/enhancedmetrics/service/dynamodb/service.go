@@ -40,16 +40,12 @@ const awsDynamoDBNamespace = "AWS/DynamoDB"
 // returns stream ARNs for the "dynamodb:table" resource filter, but DescribeTable rejects them.
 func isTableARN(resourceARN string) bool {
 	parsed, err := arn.Parse(resourceARN)
-	if err != nil {
+	if err != nil || parsed.Service != "dynamodb" {
 		return false
 	}
 
-	if parsed.Service != "dynamodb" {
-		return false
-	}
-
-	resourceType, name, found := strings.Cut(parsed.Resource, "/")
-	return found && resourceType == "table" && name != "" && !strings.Contains(name, "/")
+	name, found := strings.CutPrefix(parsed.Resource, "table/")
+	return found && name != "" && !strings.Contains(name, "/")
 }
 
 type Client interface {
