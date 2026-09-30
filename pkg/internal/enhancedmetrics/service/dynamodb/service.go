@@ -17,9 +17,11 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/config"
@@ -28,6 +30,23 @@ import (
 )
 
 const awsDynamoDBNamespace = "AWS/DynamoDB"
+
+// isTableARN reports whether resourceARN is a DynamoDB table ARN, for example:
+//
+//	arn:aws:dynamodb:eu-west-1:123456789012:table/my-table -> true
+//
+// It returns false for non-DynamoDB ARNs, malformed ARNs and table sub-resources such as streams
+// ("table/my-table/stream/2024-09-05T09:18:25.479"), indexes, backups or exports. The tagging API
+// returns stream ARNs for the "dynamodb:table" resource filter, but DescribeTable rejects them.
+func isTableARN(resourceARN string) bool {
+	parsed, err := arn.Parse(resourceARN)
+	if err != nil || parsed.Service != "dynamodb" {
+		return false
+	}
+
+	name, found := strings.CutPrefix(parsed.Resource, "table/")
+	return found && name != "" && !strings.Contains(name, "/")
+}
 
 type Client interface {
 	// DescribeTables retrieves DynamoDB tables with their descriptions. tables is a list of table ARNs or table names.
@@ -125,7 +144,15 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 
 	tablesARNs := make([]string, 0, len(resources))
 	for _, resource := range resources {
+		if !isTableARN(resource.ARN) {
+			logger.Debug("Skipping non-table DynamoDB ARN", "arn", resource.ARN)
+			continue
+		}
 		tablesARNs = append(tablesARNs, resource.ARN)
+	}
+
+	if len(tablesARNs) == 0 {
+		return nil, nil
 	}
 
 	data, err := s.loadMetricsMetadata(
@@ -143,6 +170,10 @@ func (s *DynamoDB) GetMetrics(ctx context.Context, logger *slog.Logger, resource
 	var result []*model.CloudwatchData
 
 	for _, resource := range resources {
+		if !isTableARN(resource.ARN) {
+			continue
+		}
+
 		if resource.Namespace != s.GetNamespace() {
 			logger.Warn("Resource namespace does not match DynamoDB namespace, skipping", "arn", resource.ARN, "namespace", resource.Namespace)
 			continue

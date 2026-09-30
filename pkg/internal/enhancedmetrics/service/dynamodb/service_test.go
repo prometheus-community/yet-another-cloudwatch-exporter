@@ -99,6 +99,7 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 		describeErr          bool
 		wantErr              bool
 		wantResultCount      int
+		wantDescribedTables  []string
 	}{
 		{
 			name:            "empty resources",
@@ -257,6 +258,28 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 			wantErr:         false,
 			wantResultCount: 2,
 		},
+		{
+			name: "stream ARN is skipped",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table", Namespace: awsDynamoDBNamespace},
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table/stream/2024-09-05T09:18:25.479", Namespace: awsDynamoDBNamespace},
+			},
+			enhancedMetrics:     []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			tables:              defaultTables,
+			wantErr:             false,
+			wantResultCount:     1,
+			wantDescribedTables: []string{"arn:aws:dynamodb:us-east-1:123456789012:table/test-table"},
+		},
+		{
+			name: "only stream ARNs",
+			resources: []*model.TaggedResource{
+				{ARN: "arn:aws:dynamodb:us-east-1:123456789012:table/test-table/stream/2024-09-05T09:18:25.479", Namespace: awsDynamoDBNamespace},
+			},
+			enhancedMetrics: []*model.EnhancedMetricConfig{{Name: "ItemCount"}},
+			tables:          defaultTables,
+			wantErr:         false,
+			wantResultCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -287,6 +310,10 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 
 			require.Len(t, result, tt.wantResultCount)
 
+			if tt.wantDescribedTables != nil {
+				require.Equal(t, tt.wantDescribedTables, mockClient.describedTables)
+			}
+
 			if tt.wantResultCount > 0 {
 				for _, metric := range result {
 					require.NotNil(t, metric)
@@ -304,11 +331,13 @@ func TestDynamoDB_GetMetrics(t *testing.T) {
 }
 
 type mockServiceDynamoDBClient struct {
-	tables      []types.TableDescription
-	describeErr bool
+	tables          []types.TableDescription
+	describeErr     bool
+	describedTables []string
 }
 
-func (m *mockServiceDynamoDBClient) DescribeTables(context.Context, *slog.Logger, []string) ([]types.TableDescription, error) {
+func (m *mockServiceDynamoDBClient) DescribeTables(_ context.Context, _ *slog.Logger, tables []string) ([]types.TableDescription, error) {
+	m.describedTables = tables
 	if m.describeErr {
 		return nil, fmt.Errorf("mock describe error")
 	}
@@ -321,4 +350,30 @@ type mockConfigProvider struct {
 
 func (m *mockConfigProvider) GetAWSRegionalConfig(_ string, _ model.Role) *aws.Config {
 	return m.c
+}
+
+func TestIsTableARN(t *testing.T) {
+	tests := []struct {
+		name string
+		arn  string
+		want bool
+	}{
+		{name: "table", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/my-table", want: true},
+		{name: "table with dots and dashes", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/my_table.v-2", want: true},
+		{name: "stream", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/my-table/stream/2024-09-05T09:18:25.479", want: false},
+		{name: "index", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/my-table/index/my-index", want: false},
+		{name: "backup", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/my-table/backup/01234567890123-abcdefgh", want: false},
+		{name: "empty table name", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table/", want: false},
+		{name: "no table name", arn: "arn:aws:dynamodb:eu-west-1:123456789012:table", want: false},
+		{name: "global table", arn: "arn:aws:dynamodb::123456789012:global-table/my-table", want: false},
+		{name: "other service", arn: "arn:aws:rds:eu-west-1:123456789012:db:my-db", want: false},
+		{name: "malformed", arn: "not-an-arn", want: false},
+		{name: "empty", arn: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isTableARN(tt.arn))
+		})
+	}
 }
