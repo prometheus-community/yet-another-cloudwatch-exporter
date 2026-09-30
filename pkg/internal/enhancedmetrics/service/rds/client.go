@@ -16,11 +16,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 )
+
+// maxDBInstanceIdentifiersPerFilter is the maximum number of values the DescribeDBInstances
+// "db-instance-id" filter accepts. Larger filters are rejected with
+// "InvalidParameterCombination: Only up to 100 unique filter DB Instance Identifiers may be specified per filter."
+const maxDBInstanceIdentifiersPerFilter = 100
 
 // awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
@@ -50,8 +56,8 @@ func (c *AWSRDSClient) describeDBInstances(ctx context.Context, input *rds.Descr
 }
 
 // DescribeDBInstances retrieves the DB instances identified by dbInstances (passed as the
-// "db-instance-id" filter), handling pagination. It returns nil when dbInstances is empty to
-// avoid sending an empty filter to the AWS API.
+// "db-instance-id" filter in chunks of maxDBInstanceIdentifiersPerFilter), handling pagination.
+// It returns nil when dbInstances is empty to avoid sending an empty filter to the AWS API.
 func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Logger, dbInstances []string) ([]types.DBInstance, error) {
 	if len(dbInstances) == 0 {
 		return nil, nil
@@ -59,30 +65,32 @@ func (c *AWSRDSClient) DescribeDBInstances(ctx context.Context, logger *slog.Log
 
 	logger.Debug("Describing RDS DB instances", slog.Int("requestedInstances", len(dbInstances)))
 	var allInstances []types.DBInstance
-	var marker *string
 	maxRecords := aws.Int32(100)
 
-	for {
-		output, err := c.describeDBInstances(ctx, &rds.DescribeDBInstancesInput{
-			Marker:     marker,
-			MaxRecords: maxRecords,
-			Filters: []types.Filter{
-				{
-					Name:   aws.String("db-instance-id"),
-					Values: dbInstances,
+	for chunk := range slices.Chunk(dbInstances, maxDBInstanceIdentifiersPerFilter) {
+		var marker *string
+		for {
+			output, err := c.describeDBInstances(ctx, &rds.DescribeDBInstancesInput{
+				Marker:     marker,
+				MaxRecords: maxRecords,
+				Filters: []types.Filter{
+					{
+						Name:   aws.String("db-instance-id"),
+						Values: chunk,
+					},
 				},
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
+			})
+			if err != nil {
+				return nil, err
+			}
 
-		allInstances = append(allInstances, output.DBInstances...)
+			allInstances = append(allInstances, output.DBInstances...)
 
-		if output.Marker == nil {
-			break
+			if output.Marker == nil {
+				break
+			}
+			marker = output.Marker
 		}
-		marker = output.Marker
 	}
 
 	logger.Debug("Completed describing RDS DB instances", slog.Int("totalInstances", len(allInstances)))
