@@ -1,0 +1,18 @@
+---
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/CodeBuild
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: SucceededBuilds
+          statistics: [Sum]
+        - name: FailedBuilds
+          statistics: [Sum]
+        - name: Builds
+          statistics: [Sum]
+        - name: Duration
+          statistics: [Average, Maximum, Minimum, p90]
