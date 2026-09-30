@@ -1065,8 +1065,15 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		// Resources for this namespace are discovered via a ServiceFilter ResourceFunc
+		// (see pkg/clients/tagging/filters.go) rather than ResourceFilters, because
+		// application inference profiles aren't returned by the tagging API in a way
+		// that also carries the profile's human-readable name.
 		Namespace: "AWS/Bedrock",
 		Alias:     "bedrock",
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("^(?P<ModelId>[^/]+)/"),
+		},
 	},
 	{
 		Namespace: "AWS/Bedrock/Agents",

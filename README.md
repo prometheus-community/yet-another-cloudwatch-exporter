@@ -175,6 +175,8 @@ As a quick start, the following IAM policy can be used to grant the all permissi
         "apigateway:GET",
         "aps:ListWorkspaces",
         "autoscaling:DescribeAutoScalingGroups",
+        "bedrock:ListInferenceProfiles",
+        "bedrock:ListTagsForResource",
         "dms:DescribeReplicationInstances",
         "dms:DescribeReplicationTasks",
         "ec2:DescribeTransitGatewayAttachments",
@@ -209,6 +211,13 @@ This permission is required to discover resources for the AWS/ApiGateway namespa
 This permission is required to discover resources for the AWS/AutoScaling namespace
 ```json
 "autoscaling:DescribeAutoScalingGroups"
+```
+
+These permissions are required to discover resources (application inference profiles) and their
+tags for the AWS/Bedrock namespace
+```json
+"bedrock:ListInferenceProfiles",
+"bedrock:ListTagsForResource"
 ```
 
 These permissions are required to discover resources for the AWS/DMS namespace

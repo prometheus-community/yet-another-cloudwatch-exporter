@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -203,6 +204,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
 		c.createStorageGatewayClient(c.clients[role][region].awsConfig),
 		c.createShieldClient(c.clients[role][region].awsConfig),
+		c.createBedrockClient(c.clients[role][region].awsConfig),
 	)
 	return tagging.NewLimitedConcurrencyClient(client, concurrencyLimit)
 }
@@ -420,6 +422,20 @@ func (c *CachingFactory) createIAMClient(awsConfig *aws.Config) *iam.Client {
 
 func (c *CachingFactory) createShieldClient(awsConfig *aws.Config) *shield.Client {
 	return shield.NewFromConfig(*awsConfig, func(options *shield.Options) {
+		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
+		}
+		if c.endpointURLOverride != "" {
+			options.BaseEndpoint = aws.String(c.endpointURLOverride)
+		}
+		if c.fipsEnabled {
+			options.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateEnabled
+		}
+	})
+}
+
+func (c *CachingFactory) createBedrockClient(assumedConfig *aws.Config) *bedrock.Client {
+	return bedrock.NewFromConfig(*assumedConfig, func(options *bedrock.Options) {
 		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
 		}
