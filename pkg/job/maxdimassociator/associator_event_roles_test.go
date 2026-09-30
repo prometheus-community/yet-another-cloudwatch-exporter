@@ -32,8 +32,13 @@ var eventRule1 = &model.TaggedResource{
 	Namespace: "AWS/Events",
 }
 
+var eventRule2 = &model.TaggedResource{
+	ARN:       "arn:aws:events:eu-central-1:112246171613:rule/rule-on-default-bus",
+	Namespace: "AWS/Events",
+}
+
 var eventRuleResources = []*model.TaggedResource{
-	eventRule0, eventRule1,
+	eventRule0, eventRule1, eventRule2,
 }
 
 func TestAssociatorEventRule(t *testing.T) {
@@ -67,6 +72,39 @@ func TestAssociatorEventRule(t *testing.T) {
 			},
 			expectedSkip:     false,
 			expectedResource: eventRule0,
+		},
+		{
+			name: "2 dimensions should match partner bus",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/Events").ToModelDimensionsRegexp(),
+				resources:        eventRuleResources,
+				metric: &model.Metric{
+					MetricName: "Invocations",
+					Namespace:  "AWS/Events",
+					Dimensions: []model.Dimension{
+						{Name: "EventBusName", Value: "partner.name/123456"},
+						{Name: "RuleName", Value: "rule-name"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: eventRule1,
+		},
+		{
+			name: "1 dimension should match default bus",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/Events").ToModelDimensionsRegexp(),
+				resources:        eventRuleResources,
+				metric: &model.Metric{
+					MetricName: "Invocations",
+					Namespace:  "AWS/Events",
+					Dimensions: []model.Dimension{
+						{Name: "RuleName", Value: "rule-on-default-bus"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: eventRule2,
 		},
 	}
 

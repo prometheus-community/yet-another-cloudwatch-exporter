@@ -1095,6 +1095,7 @@ var SupportedServices = serviceConfigs{
 			aws.String("events"),
 		},
 		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":rule/(?P<RuleName>[^/]+)$"),
 			regexp.MustCompile(":rule/(?P<EventBusName>[^/]+)/(?P<RuleName>[^/]+)$"),
 			regexp.MustCompile(":rule/aws.partner/(?P<EventBusName>.+)/(?P<RuleName>[^/]+)$"),
 		},
