@@ -63,6 +63,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/AutoScaling` - Auto Scaling Group
   * `AWS/Backup` - Backup
   * `AWS/Bedrock` - GenerativeAI
+  * `AWS/BedrockMantle` - GenerativeAI OpenAI compatible
   * `AWS/Billing` - Billing
   * `AWS/Cassandra` - Cassandra
   * `AWS/CertificateManager` - Certificate Manager

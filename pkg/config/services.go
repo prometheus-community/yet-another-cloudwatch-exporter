@@ -1069,6 +1069,16 @@ var SupportedServices = serviceConfigs{
 		Alias:     "bedrock",
 	},
 	{
+		Namespace: "AWS/BedrockMantle",
+		Alias:     "bedrock-mantle",
+		ResourceFilters: []*string{
+			aws.String("bedrock-mantle:project"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":project/(?P<Project>[^/]+)$"),
+		},
+	},
+	{
 		Namespace: "AWS/Bedrock/Agents",
 		Alias:     "bedrock-agents",
 		ResourceFilters: []*string{
