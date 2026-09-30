@@ -61,6 +61,7 @@ type ScrapeMetrics struct {
 	StoragegatewayAPICounter                 Counter
 	DmsAPICounter                            Counter
 	DuplicateMetricsFilteredCounter          Counter
+	ScrapesSkippedCounter                    Counter
 }
 
 func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
@@ -132,6 +133,10 @@ func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
 			Name: "yace_cloudwatch_duplicate_metrics_filtered",
 			Help: "Help is not implemented yet.",
 		})},
+		ScrapesSkippedCounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_scrapes_skipped_total",
+			Help: "Number of scrapes skipped because the previous scrape had not yet completed",
+		})},
 	}
 }
 
@@ -161,6 +166,7 @@ func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
 		m.StoragegatewayAPICounter,
 		m.DmsAPICounter,
 		m.DuplicateMetricsFilteredCounter,
+		m.ScrapesSkippedCounter,
 	}
 	out := make([]prometheus.Collector, 0, len(vecs)+len(counters))
 	for _, c := range vecs {

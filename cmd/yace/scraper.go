@@ -98,6 +98,7 @@ func (s *Scraper) scrape(ctx context.Context, logger *slog.Logger, scraper *yace
 		// Let them know by logging a warning.
 		logger.Warn("Another scrape is already in process, will not start a new one. " +
 			"Adjust your configuration to ensure the previous scrape completes first.")
+		s.scrapeMetrics.ScrapesSkippedCounter.Inc()
 		return
 	}
 	defer sem.Release(1)
