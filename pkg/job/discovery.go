@@ -52,6 +52,7 @@ func runDiscoveryJob(
 	ctx context.Context,
 	logger *slog.Logger,
 	job model.DiscoveryJob,
+	accountID string,
 	region string,
 	clientTag tagging.Client,
 	clientCloudwatch cloudwatch.Client,
@@ -76,8 +77,9 @@ func runDiscoveryJob(
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
-	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
+	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources, accountID, region)
 
+	// Attach actual metrics to metric data.
 	if len(metricData) > 0 && svc != nil {
 		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
 		if err != nil {
@@ -127,6 +129,8 @@ func getMetricDataForQueries(
 	svc *config.ServiceConfig,
 	clientCloudwatch cloudwatch.Client,
 	resources []*model.TaggedResource,
+	accountID,
+	region string,
 ) []*model.CloudwatchData {
 	mux := &sync.Mutex{}
 	var getMetricDatas []*model.CloudwatchData
@@ -150,7 +154,7 @@ func getMetricDataForQueries(
 			defer wg.Done()
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(logger, discoveryJob, page, metric, assoc, accountID, region)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -175,16 +179,16 @@ func (ns nopAssociator) AssociateMetricToResource(_ *model.Metric) (*model.Tagge
 
 func getFilteredMetricDatas(
 	logger *slog.Logger,
-	namespace string,
-	tagsOnMetrics []string,
+	discoveryJob model.DiscoveryJob,
 	metricsList []*model.Metric,
-	dimensionNameList []string,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
+	accountID,
+	region string,
 ) []*model.CloudwatchData {
 	getMetricsData := make([]*model.CloudwatchData, 0, len(metricsList))
 	for _, cwMetric := range metricsList {
-		if len(dimensionNameList) > 0 && !metricDimensionsMatchNames(cwMetric, dimensionNameList) {
+		if len(discoveryJob.DimensionNameRequirements) > 0 && !metricDimensionsMatchNames(cwMetric, discoveryJob.DimensionNameRequirements) {
 			continue
 		}
 
@@ -201,18 +205,24 @@ func getFilteredMetricDatas(
 
 		resource := matchedResource
 		if resource == nil {
+			arn := "global"
+			if discoveryJob.InferArnFromDimensions != nil {
+				if inferred, ok := discoveryJob.InferArnFromDimensions(region, accountID, cwMetric.Dimensions); ok {
+					arn = inferred
+				}
+			}
 			resource = &model.TaggedResource{
-				ARN:       "global",
-				Namespace: namespace,
+				ARN:       arn,
+				Namespace: discoveryJob.Namespace,
 			}
 		}
 
-		metricTags := resource.MetricTags(tagsOnMetrics)
+		metricTags := resource.MetricTags(discoveryJob.ExportedTagsOnMetrics)
 		for _, stat := range m.Statistics {
 			getMetricsData = append(getMetricsData, &model.CloudwatchData{
 				MetricName:   m.Name,
 				ResourceName: resource.ARN,
-				Namespace:    namespace,
+				Namespace:    discoveryJob.Namespace,
 				Dimensions:   cwMetric.Dimensions,
 				GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 					Period:    m.Period,
