@@ -2,6 +2,24 @@
 
 Nothing here yet.
 
+## 0.68.0 / 2026-09-30
+
+* [FEATURE] Add `-disable-account-alias-lookup` flag to skip the IAM `ListAccountAliases` call during scrapes (the `account_alias` label is left empty) by @NickAdolf. #1925
+* [ENHANCEMENT] Change the "no resources found" log from ERROR to WARN by @LarsOudeLuttikhuis. #1863
+* [BUGFIX] RDS enhanced metrics: split `DescribeDBInstances` filters into chunks of at most 100 identifiers, so regions with more than 100 instances no longer fail by @andriikushch. #1936
+* [BUGFIX] DynamoDB enhanced metrics: skip stream ARNs so `DescribeTable` is called only with table ARNs by @andriikushch. #1937
+* [CHANGE] Add `RELEASE.md` describing the release process by @andriikushch. #1902
+* [CHANGE] Synchronize common files from prometheus/prometheus. #1900 #1905 #1918 #1922 #1929
+
+**Dependency updates**
+
+* Bump the aws group with 19 updates. #1904 #1907
+* Bump github.com/prometheus/common from 0.69.0 to 0.70.0. #1909
+* Bump golang.org/x/sync from 0.21.0 to 0.22.0. #1908
+* Bump github.com/stretchr/testify from 1.11.1 to 1.12.1. #1928
+* Bump actions/checkout from 6.0.3 to 7.0.1. #1895 #1914
+* Bump the promci group. #1903 #1906
+
 ## 0.67.0 / 2026-07-03
 
 * [CHANGE] Synchronize common files from prometheus/prometheus. #1886
