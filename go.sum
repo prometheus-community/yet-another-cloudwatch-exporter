@@ -32,8 +32,8 @@ github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.73.0 h1:ZLO3tmn
 github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.73.0/go.mod h1:s8hEV7TEkf4hLJNO+cQdTWk1QbEyiLslT5RVJRHfyGs=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.69.1 h1:bKwiQA6SKqFXBO+1IwP/hTwCU5RlqeitG4gVvSuMN8U=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.69.1/go.mod h1:Gm+i2GlUsFNlzoBq8VXF44XHbKANn3tV8nYBBp3rN8Q=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.336.1 h1:qiuU5+MtLJV2CAxLZYA/GPuvrsScBIk2am+QNAoHmMM=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.336.1/go.mod h1:d0e0acsyS3WnFCFJiByGwnUgPpn2wAk97PTIksHN2NI=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.337.0 h1:qvRAMBHqlGIc0mqv4jhgpfUSpBAIInwf3EXgBGZ/Nyk=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.337.0/go.mod h1:d0e0acsyS3WnFCFJiByGwnUgPpn2wAk97PTIksHN2NI=
 github.com/aws/aws-sdk-go-v2/service/elasticache v1.62.0 h1:wU59grEUIwlPcF15BjX9EQ7TkDYdw2ukx83DC411BdY=
 github.com/aws/aws-sdk-go-v2/service/elasticache v1.62.0/go.mod h1:aIYbJvnPkfVGRm7Ys/v1UsZ2Voc4hmneXAt62iJ3eCc=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.1 h1:Uwitin0mXJ7iG5rFuuja3aG9/c84LpyyZUhaTiwZj7w=
@@ -62,8 +62,8 @@ github.com/aws/aws-sdk-go-v2/service/storagegateway v1.52.1 h1:1lee6jjGuG3QPpZZP
 github.com/aws/aws-sdk-go-v2/service/storagegateway v1.52.1/go.mod h1:GY/u5ApHgukf0YUv2fppw0FjTrEwJFRwWjD07hLECX4=
 github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 h1:0HOqZXRvMytH6bFHVIc0oJX07sZjfhz0zXtjs6gdE8s=
 github.com/aws/aws-sdk-go-v2/service/sts v1.51.1/go.mod h1:26zA0GhDrLo+yiLI2yXWxqB1PdsShfLikoI7GOEgugM=
-github.com/aws/smithy-go v1.28.1 h1:R/nXH00c8qcfCzQVELtRw+eLQWtzv+VAIEFJ1/xxXlQ=
-github.com/aws/smithy-go v1.28.1/go.mod h1:YE2RhdIuDbA5E5bTdciG9KrW3+TiEONeUWCqxX9i1Fc=
+github.com/aws/smithy-go v1.28.2 h1:myhcykQcatTul2B/zITjDk203G7t0awUAs1hVry5Bvg=
+github.com/aws/smithy-go v1.28.2/go.mod h1:YE2RhdIuDbA5E5bTdciG9KrW3+TiEONeUWCqxX9i1Fc=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
