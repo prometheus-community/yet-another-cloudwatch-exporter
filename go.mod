@@ -1,6 +1,6 @@
 module github.com/prometheus-community/yet-another-cloudwatch-exporter
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.1
@@ -33,7 +33,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.yaml.in/yaml/v2 v2.4.4
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
