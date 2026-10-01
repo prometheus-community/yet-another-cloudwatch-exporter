@@ -30,7 +30,7 @@ require (
 	github.com/r3labs/diff/v3 v3.0.2
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.27.7
-	go.uber.org/atomic v1.11.0
+	go.uber.org/atomic v1.12.0
 	go.yaml.in/yaml/v2 v2.4.4
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	golang.org/x/sync v0.22.0
