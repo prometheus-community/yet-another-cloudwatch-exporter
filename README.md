@@ -253,6 +253,16 @@ This call can be disabled with `-disable-account-alias-lookup` if the alias is n
 
 If running YACE inside an AWS EC2 instance, the exporter will automatically attempt to assume the associated IAM Role. If this is undesirable behavior turn off the use the metadata endpoint by setting the environment variable `AWS_EC2_METADATA_DISABLED=true`.
 
+## Caching
+
+YACE can cache Resource Tagging API (`tag:GetResources`) responses in [Valkey](https://valkey.io/), so that several exporter instances scraping the same accounts share results and make fewer AWS API calls. Caching is disabled by default and is enabled by setting `-valkey.address` (or `VALKEY_ADDRESS`):
+
+```sh
+yace -config.file=config.yml -valkey.address=localhost:6379
+```
+
+Authentication, the database number and how long cached responses stay valid (default `10m`) can be set with `-valkey.username`, `-valkey.password`, `-valkey.db` and `-valkey.ttl`.
+
 ## Configuration
 
 Refer to the [configuration](docs/configuration.md) docs.

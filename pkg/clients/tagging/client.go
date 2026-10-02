@@ -68,6 +68,7 @@ type client struct {
 	prometheusSvcAPI  prometheusClientAdapter
 	storageGatewayAPI storageGatewayClientAdapter
 	shieldAPI         shieldClientAdapter
+	cache             Cache
 }
 
 func NewClient(
@@ -82,6 +83,38 @@ func NewClient(
 	prometheusClient *amp.Client,
 	storageGatewayAPI *storagegateway.Client,
 	shieldAPI *shield.Client,
+) Client {
+	return NewClientWithCache(
+		logger,
+		scrapeMetrics,
+		taggingAPI,
+		autoscalingAPI,
+		apiGatewayAPI,
+		apiGatewayV2API,
+		ec2API,
+		dmsClient,
+		prometheusClient,
+		storageGatewayAPI,
+		shieldAPI,
+		nil,
+	)
+}
+
+// NewClientWithCache creates a new tagging client with optional cache support.
+// If cache is nil, the client will always call the AWS API directly.
+func NewClientWithCache(
+	logger *slog.Logger,
+	scrapeMetrics *promutil.ScrapeMetrics,
+	taggingAPI *resourcegroupstaggingapi.Client,
+	autoscalingAPI *autoscaling.Client,
+	apiGatewayAPI *apigateway.Client,
+	apiGatewayV2API *apigatewayv2.Client,
+	ec2API *ec2.Client,
+	dmsClient *databasemigrationservice.Client,
+	prometheusClient *amp.Client,
+	storageGatewayAPI *storagegateway.Client,
+	shieldAPI *shield.Client,
+	cache Cache,
 ) Client {
 	if scrapeMetrics == nil {
 		scrapeMetrics = promutil.Discard
@@ -98,6 +131,7 @@ func NewClient(
 		prometheusSvcAPI:  newPrometheusClientAdapter(prometheusClient),
 		storageGatewayAPI: newStorageGatewayClientAdapter(storageGatewayAPI),
 		shieldAPI:         newShieldClientAdapter(shieldAPI),
+		cache:             cache,
 	}
 }
 
@@ -113,6 +147,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 			filters = append(filters, *filter)
 		}
 		var tagFilters []types.TagFilter
+		var tagFilterKeys []string
 		if len(job.SearchTags) > 0 {
 			for i := range job.SearchTags {
 				// Because everything with the AWS APIs is pointers we need a pointer to the `Key` field from the SearchTag.
@@ -125,41 +160,41 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 				// which makes this a safe way to reduce the amount of data we need to filter out.
 				// https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html#resourcegrouptagging-GetResources-request-TagFilters
 				tagFilters = append(tagFilters, types.TagFilter{Key: &st.Key})
+				tagFilterKeys = append(tagFilterKeys, st.Key)
 			}
 		}
-		inputparams := &resourcegroupstaggingapi.GetResourcesInput{
-			ResourceTypeFilters: filters,
-			ResourcesPerPage:    aws.Int32(int32(100)), // max allowed value according to API docs
-			TagFilters:          tagFilters,
-		}
 
-		paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(c.taggingAPI, inputparams, func(options *resourcegroupstaggingapi.GetResourcesPaginatorOptions) {
-			options.StopOnDuplicateToken = true
-		})
-		for paginator.HasMorePages() {
-			c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
-			page, err := paginator.NextPage(ctx)
+		// Only tag keys are sent to AWS, so the raw response is independent of the
+		// search tag values and can be shared between all jobs asking for the same keys.
+		cacheKey := BuildCacheKey(region, filters, tagFilterKeys)
+		mappings, found := c.getFromCache(ctx, cacheKey)
+		if found {
+			c.logger.Debug("Using cached tagging data", "key", cacheKey, "count", len(mappings))
+		} else {
+			var err error
+			mappings, err = c.getResourcesFromAPI(ctx, filters, tagFilters)
 			if err != nil {
 				return nil, err
 			}
+			c.setToCache(ctx, cacheKey, mappings)
+		}
 
-			for _, resourceTagMapping := range page.ResourceTagMappingList {
-				resource := model.TaggedResource{
-					ARN:       *resourceTagMapping.ResourceARN,
-					Namespace: job.Namespace,
-					Region:    region,
-					Tags:      make([]model.Tag, 0, len(resourceTagMapping.Tags)),
-				}
+		for _, mapping := range mappings {
+			resource := model.TaggedResource{
+				ARN:       mapping.ResourceARN,
+				Namespace: job.Namespace,
+				Region:    region,
+				Tags:      make([]model.Tag, 0, len(mapping.Tags)),
+			}
 
-				for _, t := range resourceTagMapping.Tags {
-					resource.Tags = append(resource.Tags, model.Tag{Key: *t.Key, Value: *t.Value})
-				}
+			for _, t := range mapping.Tags {
+				resource.Tags = append(resource.Tags, model.Tag{Key: t.Key, Value: t.Value})
+			}
 
-				if resource.FilterThroughTags(job.SearchTags) {
-					resources = append(resources, &resource)
-				} else {
-					c.logger.Debug("Skipping resource because search tags do not match", "arn", resource.ARN)
-				}
+			if resource.FilterThroughTags(job.SearchTags) {
+				resources = append(resources, &resource)
+			} else {
+				c.logger.Debug("Skipping resource because search tags do not match", "arn", resource.ARN)
 			}
 		}
 
@@ -192,4 +227,62 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 	}
 
 	return resources, nil
+}
+
+// getResourcesFromAPI pages through the AWS GetResources API and returns the raw resource tag mappings.
+func (c client) getResourcesFromAPI(ctx context.Context, filters []string, tagFilters []types.TagFilter) ([]ResourceTagMappingCache, error) {
+	inputparams := &resourcegroupstaggingapi.GetResourcesInput{
+		ResourceTypeFilters: filters,
+		ResourcesPerPage:    aws.Int32(int32(100)), // max allowed value according to API docs
+		TagFilters:          tagFilters,
+	}
+
+	var mappings []ResourceTagMappingCache
+	paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(c.taggingAPI, inputparams, func(options *resourcegroupstaggingapi.GetResourcesPaginatorOptions) {
+		options.StopOnDuplicateToken = true
+	})
+	for paginator.HasMorePages() {
+		c.scrapeMetrics.ResourceGroupTaggingAPICounter.Inc()
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, resourceTagMapping := range page.ResourceTagMappingList {
+			mapping := ResourceTagMappingCache{
+				ResourceARN: *resourceTagMapping.ResourceARN,
+				Tags:        make([]CachedTag, 0, len(resourceTagMapping.Tags)),
+			}
+			for _, t := range resourceTagMapping.Tags {
+				mapping.Tags = append(mapping.Tags, CachedTag{Key: *t.Key, Value: *t.Value})
+			}
+			mappings = append(mappings, mapping)
+		}
+	}
+	return mappings, nil
+}
+
+// getFromCache retrieves cached data if a cache is configured. Cache errors are
+// logged and reported as a miss, so that discovery falls back to the AWS API.
+func (c client) getFromCache(ctx context.Context, key string) ([]ResourceTagMappingCache, bool) {
+	if c.cache == nil {
+		return nil, false
+	}
+	mappings, found, err := c.cache.Get(ctx, key)
+	if err != nil {
+		c.logger.Warn("Failed to get from cache, falling back to AWS API", "err", err, "key", key)
+		return nil, false
+	}
+	return mappings, found
+}
+
+// setToCache stores data in the cache if a cache is configured. Cache errors are
+// logged only, a failed write must not fail the discovery.
+func (c client) setToCache(ctx context.Context, key string, mappings []ResourceTagMappingCache) {
+	if c.cache == nil {
+		return
+	}
+	if err := c.cache.Set(ctx, key, mappings); err != nil {
+		c.logger.Warn("Failed to cache tagging data", "err", err, "key", key)
+	}
 }

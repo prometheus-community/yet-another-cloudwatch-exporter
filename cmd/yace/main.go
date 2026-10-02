@@ -21,6 +21,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/prometheus/common/promslog"
 	promslogflag "github.com/prometheus/common/promslog/flag"
@@ -29,6 +30,7 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 )
 
@@ -66,6 +68,11 @@ var (
 	metricsPerQuery           int
 	labelsSnakeCase           bool
 	profilingEnabled          bool
+	valkeyAddress             string
+	valkeyUsername            string
+	valkeyPassword            string
+	valkeyDB                  int
+	valkeyTTL                 time.Duration
 
 	logger *slog.Logger
 )
@@ -212,6 +219,41 @@ func NewYACEApp() *cli.App {
 			Name:  enableFeatureFlag,
 			Usage: "Comma-separated list of enabled features",
 		},
+		&cli.StringFlag{
+			Name:        "valkey.address",
+			Value:       "",
+			Usage:       "Valkey server address (e.g., localhost:6379) used to share Resource Tagging API responses between instances. If not set, caching is disabled.",
+			Destination: &valkeyAddress,
+			EnvVars:     []string{"VALKEY_ADDRESS"},
+		},
+		&cli.StringFlag{
+			Name:        "valkey.username",
+			Value:       "",
+			Usage:       "Valkey username for authentication (optional)",
+			Destination: &valkeyUsername,
+			EnvVars:     []string{"VALKEY_USERNAME"},
+		},
+		&cli.StringFlag{
+			Name:        "valkey.password",
+			Value:       "",
+			Usage:       "Valkey password for authentication (optional)",
+			Destination: &valkeyPassword,
+			EnvVars:     []string{"VALKEY_PASSWORD"},
+		},
+		&cli.IntFlag{
+			Name:        "valkey.db",
+			Value:       0,
+			Usage:       "Valkey database number to use",
+			Destination: &valkeyDB,
+			EnvVars:     []string{"VALKEY_DB"},
+		},
+		&cli.DurationFlag{
+			Name:        "valkey.ttl",
+			Value:       tagging.DefaultCacheTTL,
+			Usage:       "How long a cached Resource Tagging API response stays valid",
+			Destination: &valkeyTTL,
+			EnvVars:     []string{"VALKEY_TTL"},
+		},
 	}
 
 	yace.Commands = []*cli.Command{
@@ -274,6 +316,9 @@ func startScraper(c *cli.Context) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid runtime scrape configuration: %w", err)
 	}
+	if valkeyAddress != "" && valkeyTTL <= 0 {
+		return fmt.Errorf("invalid valkey.ttl %s: must be positive", valkeyTTL)
+	}
 
 	scrapeCfg := config.ScrapeConf{}
 	jobsCfg, err := scrapeCfg.Load(cfg.ScrapeConfigFile, logger)
@@ -283,7 +328,14 @@ func startScraper(c *cli.Context) error {
 
 	s := NewScraper(cfg)
 
-	cachingFactory, err := clients.NewFactory(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled)
+	// The Valkey connection does not depend on the scrape config, so it is created
+	// once and shared by every client factory, including the ones built on /reload.
+	taggingCache := createValkeyCache(context.Background(), logger)
+	if taggingCache != nil {
+		defer taggingCache.Close()
+	}
+
+	cachingFactory, err := clients.NewFactoryWithCache(logger, s.scrapeMetrics, jobsCfg, cfg.FIPSEnabled, taggingCache)
 	if err != nil {
 		return fmt.Errorf("failed to construct aws sdk v2 client cache: %w", err)
 	}
@@ -332,7 +384,7 @@ func startScraper(c *cli.Context) error {
 		}
 
 		logger.Info("Reset clients cache")
-		cache, err := clients.NewFactory(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled)
+		cache, err := clients.NewFactoryWithCache(logger, s.scrapeMetrics, newJobsCfg, cfg.FIPSEnabled, taggingCache)
 		if err != nil {
 			logger.Error("Failed to construct aws sdk v2 client cache", "err", err, "path", cfg.ScrapeConfigFile)
 			return
@@ -347,6 +399,28 @@ func startScraper(c *cli.Context) error {
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
+}
+
+// createValkeyCache connects to Valkey if an address is configured. It returns nil
+// if caching is disabled or the connection fails, in which case YACE falls back to
+// calling the AWS API directly.
+func createValkeyCache(ctx context.Context, logger *slog.Logger) tagging.Cache {
+	if valkeyAddress == "" {
+		return nil
+	}
+
+	cache, err := tagging.NewValkeyCache(ctx, logger, tagging.ValkeyConfig{
+		Address:  valkeyAddress,
+		Username: valkeyUsername,
+		Password: valkeyPassword,
+		DB:       valkeyDB,
+		TTL:      valkeyTTL,
+	})
+	if err != nil {
+		logger.Warn("Failed to create valkey cache, continuing without caching", "err", err)
+		return nil
+	}
+	return cache
 }
 
 func newLogger(format, level string) *slog.Logger {
