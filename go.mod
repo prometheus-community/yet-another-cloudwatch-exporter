@@ -17,6 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticache v1.62.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.64.1
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.110.0
+	github.com/aws/aws-sdk-go-v2/service/oam v1.31.2
 	github.com/aws/aws-sdk-go-v2/service/rds v1.129.1
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.41.1
 	github.com/aws/aws-sdk-go-v2/service/shield v1.43.1

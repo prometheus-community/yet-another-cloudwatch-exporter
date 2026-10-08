@@ -28,6 +28,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
 	yacemetrics "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/metrics"
@@ -52,6 +53,10 @@ func (f *mockFactory) GetTaggingClient(_ string, _ model.Role, _ int) tagging.Cl
 
 func (f *mockFactory) GetAccountClient(_ string, _ model.Role) account.Client {
 	return f.accountClient
+}
+
+func (f *mockFactory) GetOAMClient(_ string, _ model.Role) oam.Client {
+	return nil
 }
 
 // mockAccountClient implements the account.Client interface
