@@ -1,0 +1,32 @@
+apiVersion: v1alpha1
+linkedAccounts:
+  oam:
+    sinkIdentifier: arn:aws:oam:eu-west-1:111111111111:sink/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111
+    region: eu-west-1
+discovery:
+  jobs:
+    - type: AWS/EC2
+      regions:
+        - eu-west-1
+      includeLinkedAccounts:
+        - "*"
+      metrics:
+        - name: CPUUtilization
+          statistics:
+            - Average
+          period: 300
+          length: 300
+customNamespace:
+  - name: customMetrics
+    namespace: CustomEC2Metrics
+    regions:
+      - eu-west-1
+    includeLinkedAccounts:
+      - "222222222222"
+      - "333333333333"
+    metrics:
+      - name: cpu_usage_idle
+        statistics:
+          - Average
+        period: 300
+        length: 300
