@@ -58,6 +58,7 @@ func runDiscoveryJob(
 	gmdProcessor getMetricDataProcessor,
 	enhancedMetricsService enhancedMetricsService,
 	role model.Role,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
 	var resources []*model.TaggedResource
 	var err error
@@ -84,7 +85,7 @@ func runDiscoveryJob(
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
-	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
+	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources, linkedAliasResolver)
 
 	if len(metricData) > 0 && svc != nil {
 		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
@@ -135,6 +136,7 @@ func getMetricDataForQueries(
 	svc *config.ServiceConfig,
 	clientCloudwatch cloudwatch.Client,
 	resources []*model.TaggedResource,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
 	mux := &sync.Mutex{}
 	var getMetricDatas []*model.CloudwatchData
@@ -158,7 +160,7 @@ func getMetricDataForQueries(
 			defer wg.Done()
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.IncludeLinkedAccounts, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(ctx, logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc, linkedAliasResolver)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -182,6 +184,7 @@ func (ns nopAssociator) AssociateMetricToResource(_ *model.Metric) (*model.Tagge
 }
 
 func getFilteredMetricDatas(
+	ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
 	tagsOnMetrics []string,
@@ -189,6 +192,7 @@ func getFilteredMetricDatas(
 	dimensionNameList []string,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
 	getMetricsData := make([]*model.CloudwatchData, 0, len(metricsList))
 	for _, cwMetric := range metricsList {
@@ -216,13 +220,15 @@ func getFilteredMetricDatas(
 		}
 
 		metricTags := resource.MetricTags(tagsOnMetrics)
+		linkedAccountAlias := linkedAliasResolver.Resolve(ctx, cwMetric.LinkedAccountID)
 		for _, stat := range m.Statistics {
 			getMetricsData = append(getMetricsData, &model.CloudwatchData{
-				MetricName:      m.Name,
-				ResourceName:    resource.ARN,
-				Namespace:       namespace,
-				Dimensions:      cwMetric.Dimensions,
-				LinkedAccountID: cwMetric.LinkedAccountID,
+				MetricName:         m.Name,
+				ResourceName:       resource.ARN,
+				Namespace:          namespace,
+				Dimensions:         cwMetric.Dimensions,
+				LinkedAccountID:    cwMetric.LinkedAccountID,
+				LinkedAccountAlias: linkedAccountAlias,
 				GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 					Period:    m.Period,
 					Length:    m.Length,
