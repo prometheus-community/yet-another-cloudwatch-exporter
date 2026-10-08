@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	aws_oam "github.com/aws/aws-sdk-go-v2/service/oam"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
@@ -41,6 +42,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
 	cloudwatch_client "github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/cloudwatch"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/oam"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/tagging"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/promutil"
@@ -52,6 +54,7 @@ type Factory interface {
 	GetCloudwatchClient(region string, role model.Role, concurrency cloudwatch_client.ConcurrencyConfig) cloudwatch_client.Client
 	GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client
 	GetAccountClient(region string, role model.Role) account.Client
+	GetOAMClient(region string, role model.Role) oam.Client
 }
 
 type awsRegion = string
@@ -75,6 +78,7 @@ type cachedClients struct {
 	// later on
 	onlyStatic bool
 	account    account.Client
+	oam        oam.Client
 }
 
 // Ensure the struct properly implements the interface
@@ -162,6 +166,33 @@ func NewFactory(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobs
 		}
 	}
 
+	// The OAM client used to resolve linked account labels may live in a region
+	// none of the jobs scrape, so make sure there is a client config for it.
+	if jobsCfg.OAMSinkIdentifier != "" && jobsCfg.OAMRegion != "" {
+		var linkedAccountRoles []model.Role
+		for _, discoveryJob := range jobsCfg.DiscoveryJobs {
+			if len(discoveryJob.IncludeLinkedAccounts) > 0 {
+				linkedAccountRoles = append(linkedAccountRoles, discoveryJob.Roles...)
+			}
+		}
+		for _, customNamespaceJob := range jobsCfg.CustomNamespaceJobs {
+			if len(customNamespaceJob.IncludeLinkedAccounts) > 0 {
+				linkedAccountRoles = append(linkedAccountRoles, customNamespaceJob.Roles...)
+			}
+		}
+		for _, role := range linkedAccountRoles {
+			if _, ok := cache[role]; !ok {
+				cache[role] = map[awsRegion]*cachedClients{}
+			}
+			if _, exists := cache[role][jobsCfg.OAMRegion]; !exists {
+				cache[role][jobsCfg.OAMRegion] = &cachedClients{
+					awsConfig:  awsConfigForRegion(role, &c, jobsCfg.OAMRegion, stsOptions),
+					onlyStatic: true,
+				}
+			}
+		}
+	}
+
 	return &CachingFactory{
 		logger:              logger,
 		scrapeMetrics:       scrapeMetrics,
@@ -223,6 +254,19 @@ func (c *CachingFactory) GetAccountClient(region string, role model.Role) accoun
 	return c.clients[role][region].account
 }
 
+func (c *CachingFactory) GetOAMClient(region string, role model.Role) oam.Client {
+	// Unlike the other clients the OAM client is lazily created after Refresh(),
+	// so always lock to avoid concurrent writes to the cache.
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if client := c.clients[role][region].oam; client != nil {
+		return client
+	}
+
+	c.clients[role][region].oam = oam.NewClient(c.logger, c.createOAMClient(c.clients[role][region].awsConfig))
+	return c.clients[role][region].oam
+}
+
 func (c *CachingFactory) Refresh() {
 	if c.refreshed.Load() {
 		return
@@ -263,6 +307,7 @@ func (c *CachingFactory) Clear() {
 	for _, regions := range c.clients {
 		for _, cache := range regions {
 			cache.account = nil
+			cache.oam = nil
 		}
 	}
 
@@ -416,6 +461,19 @@ func (c *CachingFactory) createStsClient(awsConfig *aws.Config) *sts.Client {
 
 func (c *CachingFactory) createIAMClient(awsConfig *aws.Config) *iam.Client {
 	return iam.NewFromConfig(*awsConfig)
+}
+
+func (c *CachingFactory) createOAMClient(awsConfig *aws.Config) *aws_oam.Client {
+	return aws_oam.NewFromConfig(*awsConfig, func(options *aws_oam.Options) {
+		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
+		}
+		if c.endpointURLOverride != "" {
+			options.BaseEndpoint = aws.String(c.endpointURLOverride)
+		}
+		// The FIPS setting is not applied because OAM linked account labels are
+		// optional metadata, and resolving them must not fail on missing FIPS endpoints.
+	})
 }
 
 func (c *CachingFactory) createShieldClient(awsConfig *aws.Config) *shield.Client {
