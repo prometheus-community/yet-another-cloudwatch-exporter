@@ -59,20 +59,28 @@ func runDiscoveryJob(
 	enhancedMetricsService enhancedMetricsService,
 	role model.Role,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
-	logger.Debug("Get tagged resources")
+	var resources []*model.TaggedResource
+	var err error
+	if len(job.IncludeLinkedAccounts) > 0 {
+		// Resources of linked accounts can't be discovered from the monitoring account,
+		// so skip resource discovery and export all metrics without resource association.
+		logger.Debug("Skipping tagged resources discovery for job including linked accounts")
+	} else {
+		logger.Debug("Get tagged resources")
 
-	resources, err := clientTag.GetResources(ctx, job, region)
-	if err != nil {
-		if errors.Is(err, tagging.ErrExpectedToFindResources) {
-			logger.Warn("No tagged resources made it through filtering", "err", err)
-		} else {
-			logger.Error("Couldn't describe resources", "err", err)
+		resources, err = clientTag.GetResources(ctx, job, region)
+		if err != nil {
+			if errors.Is(err, tagging.ErrExpectedToFindResources) {
+				logger.Warn("No tagged resources made it through filtering", "err", err)
+			} else {
+				logger.Error("Couldn't describe resources", "err", err)
+			}
+			return nil, nil
 		}
-		return nil, nil
-	}
 
-	if len(resources) == 0 {
-		logger.Debug("No tagged resources", "region", region, "namespace", job.Namespace)
+		if len(resources) == 0 {
+			logger.Debug("No tagged resources", "region", region, "namespace", job.Namespace)
+		}
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
@@ -149,7 +157,7 @@ func getMetricDataForQueries(
 		go func(metric *model.MetricConfig) {
 			defer wg.Done()
 
-			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
+			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.IncludeLinkedAccounts, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
 				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
 
 				mux.Lock()
@@ -210,10 +218,11 @@ func getFilteredMetricDatas(
 		metricTags := resource.MetricTags(tagsOnMetrics)
 		for _, stat := range m.Statistics {
 			getMetricsData = append(getMetricsData, &model.CloudwatchData{
-				MetricName:   m.Name,
-				ResourceName: resource.ARN,
-				Namespace:    namespace,
-				Dimensions:   cwMetric.Dimensions,
+				MetricName:      m.Name,
+				ResourceName:    resource.ARN,
+				Namespace:       namespace,
+				Dimensions:      cwMetric.Dimensions,
+				LinkedAccountID: cwMetric.LinkedAccountID,
 				GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 					Period:    m.Period,
 					Length:    m.Length,

@@ -21,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/model"
 )
 
 func Test_toMetricDataResult(t *testing.T) {
@@ -133,4 +135,54 @@ func Test_toMetricDataResult(t *testing.T) {
 			require.Equal(t, tc.expectedMetricDataResults, metricDataResults)
 		})
 	}
+}
+
+func Test_toModelMetric(t *testing.T) {
+	page := &aws_cloudwatch.ListMetricsOutput{
+		Metrics: []types.Metric{
+			{MetricName: aws.String("CPUUtilization"), Namespace: aws.String("AWS/EC2"), Dimensions: []types.Dimension{{Name: aws.String("InstanceId"), Value: aws.String("i-1")}}},
+			{MetricName: aws.String("CPUUtilization"), Namespace: aws.String("AWS/EC2"), Dimensions: []types.Dimension{{Name: aws.String("InstanceId"), Value: aws.String("i-2")}}},
+			{MetricName: aws.String("CPUUtilization"), Namespace: aws.String("AWS/EC2"), Dimensions: []types.Dimension{{Name: aws.String("InstanceId"), Value: aws.String("i-3")}}},
+		},
+		OwningAccounts: []string{"111111111111", "222222222222", "333333333333"},
+	}
+
+	instanceIDs := func(metrics []*model.Metric) []string {
+		ids := make([]string, 0, len(metrics))
+		for _, m := range metrics {
+			ids = append(ids, m.Dimensions[0].Value)
+		}
+		return ids
+	}
+
+	t.Run("without linked accounts", func(t *testing.T) {
+		metrics := toModelMetric(page, nil)
+		require.Equal(t, []string{"i-1", "i-2", "i-3"}, instanceIDs(metrics))
+		for _, m := range metrics {
+			require.Empty(t, m.LinkedAccountID)
+		}
+	})
+
+	t.Run("all linked accounts", func(t *testing.T) {
+		metrics := toModelMetric(page, []string{"*"})
+		require.Equal(t, []string{"i-1", "i-2", "i-3"}, instanceIDs(metrics))
+		require.Equal(t, "111111111111", metrics[0].LinkedAccountID)
+		require.Equal(t, "222222222222", metrics[1].LinkedAccountID)
+		require.Equal(t, "333333333333", metrics[2].LinkedAccountID)
+	})
+
+	t.Run("selected linked accounts", func(t *testing.T) {
+		metrics := toModelMetric(page, []string{"111111111111", "333333333333"})
+		require.Equal(t, []string{"i-1", "i-3"}, instanceIDs(metrics))
+		require.Equal(t, "111111111111", metrics[0].LinkedAccountID)
+		require.Equal(t, "333333333333", metrics[1].LinkedAccountID)
+	})
+
+	t.Run("missing owning accounts", func(t *testing.T) {
+		metrics := toModelMetric(&aws_cloudwatch.ListMetricsOutput{Metrics: page.Metrics}, []string{"*"})
+		require.Equal(t, []string{"i-1", "i-2", "i-3"}, instanceIDs(metrics))
+		for _, m := range metrics {
+			require.Empty(t, m.LinkedAccountID)
+		}
+	})
 }
