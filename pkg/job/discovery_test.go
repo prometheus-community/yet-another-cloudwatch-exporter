@@ -13,6 +13,7 @@
 package job
 
 import (
+	"context"
 	"testing"
 
 	"github.com/prometheus/common/promslog"
@@ -483,7 +484,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assoc := maxdimassociator.NewAssociator(promslog.NewNopLogger(), tt.args.dimensionRegexps, tt.args.resources)
-			metricDatas := getFilteredMetricDatas(promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc)
+			metricDatas := getFilteredMetricDatas(context.Background(), promslog.NewNopLogger(), tt.args.namespace, tt.args.tagsOnMetrics, tt.args.metricsList, tt.args.dimensionNameRequirements, tt.args.m, assoc, nil)
 			if len(metricDatas) != len(tt.wantGetMetricsData) {
 				t.Errorf("len(getFilteredMetricDatas()) = %v, want %v", len(metricDatas), len(tt.wantGetMetricsData))
 			}
@@ -504,4 +505,24 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_getFilteredMetricDatasLinkedAccounts(t *testing.T) {
+	resolver := newLinkedAccountAliasResolver(promslog.NewNopLogger(), &testOAMClient{accounts: map[string]string{"222222222222": "Account A"}}, "sink-arn")
+	metrics := []*model.Metric{
+		{MetricName: "CPUUtilization", Namespace: "AWS/EC2", LinkedAccountID: "222222222222"},
+		{MetricName: "CPUUtilization", Namespace: "AWS/EC2", LinkedAccountID: "333333333333"},
+		{MetricName: "CPUUtilization", Namespace: "AWS/EC2"},
+	}
+	metricConfig := &model.MetricConfig{Name: "CPUUtilization", Statistics: []string{"Average"}}
+
+	data := getFilteredMetricDatas(context.Background(), promslog.NewNopLogger(), "AWS/EC2", nil, metrics, nil, metricConfig, nopAssociator{}, resolver)
+
+	assert.Len(t, data, 3)
+	assert.Equal(t, "222222222222", data[0].LinkedAccountID)
+	assert.Equal(t, "Account A", data[0].LinkedAccountAlias)
+	assert.Equal(t, "333333333333", data[1].LinkedAccountID)
+	assert.Empty(t, data[1].LinkedAccountAlias)
+	assert.Empty(t, data[2].LinkedAccountID)
+	assert.Empty(t, data[2].LinkedAccountAlias)
 }
