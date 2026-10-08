@@ -1604,3 +1604,54 @@ func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 		})
 	})
 }
+
+func TestCreatePrometheusLabelsLinkedAccounts(t *testing.T) {
+	contextLabels := map[string]string{
+		"region":        "eu-west-1",
+		"account_id":    "111111111111",
+		"account_alias": "monitoring",
+	}
+
+	testCases := []struct {
+		name           string
+		data           *model.CloudwatchData
+		expectedLabels map[string]string
+	}{
+		{
+			name: "metric of monitoring account keeps context labels",
+			data: &model.CloudwatchData{ResourceName: "global"},
+			expectedLabels: map[string]string{
+				"name":          "global",
+				"region":        "eu-west-1",
+				"account_id":    "111111111111",
+				"account_alias": "monitoring",
+			},
+		},
+		{
+			name: "metric of linked account with alias",
+			data: &model.CloudwatchData{ResourceName: "global", LinkedAccountID: "222222222222", LinkedAccountAlias: "My Source Account"},
+			expectedLabels: map[string]string{
+				"name":          "global",
+				"region":        "eu-west-1",
+				"account_id":    "222222222222",
+				"account_alias": "my-source-account",
+			},
+		},
+		{
+			name: "metric of linked account without alias",
+			data: &model.CloudwatchData{ResourceName: "global", LinkedAccountID: "222222222222"},
+			expectedLabels: map[string]string{
+				"name":       "global",
+				"region":     "eu-west-1",
+				"account_id": "222222222222",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			labels := createPrometheusLabels(tc.data, false, contextLabels, promslog.NewNopLogger())
+			require.Equal(t, tc.expectedLabels, labels)
+		})
+	}
+}

@@ -283,7 +283,23 @@ func createPrometheusLabels(cwd *model.CloudwatchData, labelsSnakeCase bool, con
 
 	maps.Copy(labels, contextLabels)
 
+	// Metrics listed from a linked account belong to that source account and not
+	// to the monitoring account of the scrape context.
+	if cwd.LinkedAccountID != "" {
+		labels["account_id"] = cwd.LinkedAccountID
+		delete(labels, "account_alias")
+		if cwd.LinkedAccountAlias != "" {
+			labels["account_alias"] = formatLinkedAccountAlias(cwd.LinkedAccountAlias)
+		}
+	}
+
 	return labels
+}
+
+// formatLinkedAccountAlias lowercases an OAM link label and replaces spaces with
+// "-", so it looks like an IAM account alias.
+func formatLinkedAccountAlias(label string) string {
+	return strings.ToLower(strings.ReplaceAll(label, " ", "-"))
 }
 
 func contextToLabels(context *model.ScrapeContext, labelsSnakeCase bool, logger *slog.Logger) map[string]string {
