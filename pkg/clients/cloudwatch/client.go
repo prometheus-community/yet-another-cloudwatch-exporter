@@ -15,6 +15,7 @@ package cloudwatch
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -32,7 +33,10 @@ type Client interface {
 	// and metric name. Results pagination is handled automatically; the caller
 	// must provide a non-nil handler func that will be invoked for each page of
 	// results.
-	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
+	// When includeLinkedAccounts is non-empty, metrics from source accounts linked to
+	// the monitoring account are listed too. It holds the IDs of the linked accounts to
+	// keep, or "*" to keep all of them.
+	ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error
 
 	// GetMetricData returns the output of the GetMetricData CloudWatch API.
 	// Results pagination is handled automatically.
@@ -106,10 +110,13 @@ func NewClient(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, cloud
 	}
 }
 
-func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+func (c client) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
 	filter := &aws_cloudwatch.ListMetricsInput{
 		MetricName: aws.String(metric.Name),
 		Namespace:  aws.String(namespace),
+	}
+	if len(includeLinkedAccounts) > 0 {
+		filter.IncludeLinkedAccounts = aws.Bool(true)
 	}
 	if recentlyActiveOnly {
 		filter.RecentlyActive = types.RecentlyActivePt3h
@@ -130,7 +137,7 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 			return err
 		}
 
-		metricsPage := toModelMetric(page)
+		metricsPage := toModelMetric(page, includeLinkedAccounts)
 		c.logger.Debug("ListMetrics", "output", metricsPage)
 
 		fn(metricsPage)
@@ -139,13 +146,24 @@ func (c client) ListMetrics(ctx context.Context, namespace string, metric *model
 	return nil
 }
 
-func toModelMetric(page *aws_cloudwatch.ListMetricsOutput) []*model.Metric {
+func toModelMetric(page *aws_cloudwatch.ListMetricsOutput, includeLinkedAccounts []string) []*model.Metric {
+	includeAll := slices.Contains(includeLinkedAccounts, "*")
 	modelMetrics := make([]*model.Metric, 0, len(page.Metrics))
-	for _, cloudwatchMetric := range page.Metrics {
+	for i, cloudwatchMetric := range page.Metrics {
 		modelMetric := &model.Metric{
 			MetricName: *cloudwatchMetric.MetricName,
 			Namespace:  *cloudwatchMetric.Namespace,
 			Dimensions: toModelDimensions(cloudwatchMetric.Dimensions),
+		}
+		if len(includeLinkedAccounts) > 0 {
+			// OwningAccounts is only populated when IncludeLinkedAccounts is set, and
+			// its entries correspond to the metrics at the same index.
+			if i < len(page.OwningAccounts) {
+				modelMetric.LinkedAccountID = page.OwningAccounts[i]
+			}
+			if !includeAll && !slices.Contains(includeLinkedAccounts, modelMetric.LinkedAccountID) {
+				continue
+			}
 		}
 		modelMetrics = append(modelMetrics, modelMetric)
 	}
@@ -177,11 +195,15 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 			Period: aws.Int32(int32(data.GetMetricDataProcessingParams.Period)),
 			Stat:   &data.GetMetricDataProcessingParams.Statistic,
 		}
-		metricDataQueries = append(metricDataQueries, types.MetricDataQuery{
+		metricDataQuery := types.MetricDataQuery{
 			Id:         &data.GetMetricDataProcessingParams.QueryID,
 			MetricStat: metricStat,
 			ReturnData: aws.Bool(true),
-		})
+		}
+		if data.LinkedAccountID != "" {
+			metricDataQuery.AccountId = aws.String(data.LinkedAccountID)
+		}
+		metricDataQueries = append(metricDataQueries, metricDataQuery)
 		exportAllDataPoints = exportAllDataPoints || data.MetricMigrationParams.ExportAllDataPoints
 	}
 
@@ -230,11 +252,13 @@ const maxStatisticsPerMetricRequest = 5
 // metric (name + dimensions) are grouped and each set of up to five statistics counts as one
 // metric request. The period is deliberately not part of the key: AWS's pricing docs define the
 // billing unit per metric and statistic set and never mention period. The namespace is the same
-// for the whole call.
+// for the whole call. Metrics of different linked accounts are different metrics, even if their
+// name and dimensions are identical.
 func billableMetricRequests(getMetricData []*model.CloudwatchData) int {
 	type metricKey struct {
-		name       string
-		dimensions string
+		linkedAccountID string
+		name            string
+		dimensions      string
 	}
 	statsPerMetric := make(map[metricKey]map[string]struct{})
 	for _, data := range getMetricData {
@@ -245,8 +269,9 @@ func billableMetricRequests(getMetricData []*model.CloudwatchData) int {
 		sort.Strings(dims)
 
 		key := metricKey{
-			name:       data.MetricName,
-			dimensions: strings.Join(dims, "\x01"),
+			linkedAccountID: data.LinkedAccountID,
+			name:            data.MetricName,
+			dimensions:      strings.Join(dims, "\x01"),
 		}
 		stats, ok := statsPerMetric[key]
 		if !ok {

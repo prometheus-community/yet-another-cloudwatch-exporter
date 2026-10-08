@@ -95,7 +95,7 @@ type mockCloudwatchClient struct {
 	err               error
 }
 
-func (m *mockCloudwatchClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ bool, fn func(page []*model.Metric)) error {
+func (m *mockCloudwatchClient) ListMetrics(_ context.Context, _ string, _ *model.MetricConfig, _ []string, _ bool, fn func(page []*model.Metric)) error {
 	if m.err != nil {
 		return m.err
 	}
