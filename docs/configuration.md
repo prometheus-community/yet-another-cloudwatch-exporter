@@ -45,6 +45,9 @@ apiVersion: v1alpha1
 # STS regional endpoint (optional)
 [ sts-region: <string>]
 
+# Settings for metrics collected from linked accounts (optional)
+[ linkedAccounts: <linked_accounts_config> ]
+
 # Note that at least one of the following blocks must be defined.
 
 # Configurations for jobs of type "auto-discovery"
@@ -60,6 +63,54 @@ customNamespace:
 ```
 
 Note that while the `discovery`, `static` and `customNamespace` blocks are all optionals, at least one of them must be defined.
+
+### `linked_accounts_config`
+
+The `linked_accounts_config` block configures how metrics from source accounts linked to a
+[CloudWatch cross-account observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+monitoring account are handled.
+
+```yaml
+oam:
+  # ARN of the OAM sink in the monitoring account. When set, the labels of the attached links are exported
+  # as the `account_alias` label of metrics from linked accounts (optional)
+  [ sinkIdentifier: <string> ]
+
+  # Region of the OAM sink. Defaults to the region of the job (optional)
+  [ region: <string> ]
+```
+
+#### Linked accounts
+
+When YACE runs against a CloudWatch cross-account observability monitoring account, discovery and custom namespace
+jobs can collect metrics from the linked source accounts by setting `includeLinkedAccounts`:
+
+```yaml
+apiVersion: v1alpha1
+linkedAccounts:
+  oam:
+    sinkIdentifier: arn:aws:oam:eu-west-1:111111111111:sink/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111
+discovery:
+  jobs:
+    - type: AWS/EC2
+      regions:
+        - eu-west-1
+      includeLinkedAccounts:
+        - "*"
+      metrics:
+        - name: CPUUtilization
+          statistics: [Average]
+          period: 300
+          length: 300
+```
+
+* Metrics are listed with `IncludeLinkedAccounts` and fetched with the `AccountId` of their owning account, which is
+  exported as the `account_id` label.
+* If `linkedAccounts.oam.sinkIdentifier` is set, the OAM link label of the source account is exported as the
+  `account_alias` label (lowercased, with spaces replaced by `-`). This requires the `oam:ListAttachedLinks` permission.
+* Resources of linked accounts can't be discovered from the monitoring account, so discovery jobs including linked
+  accounts skip resource discovery: no info metrics and no `exportedTagsOnMetrics` are exported, and the `name` label
+  of all metrics is `global`.
 
 ### `discovery_jobs_list_config`
 
@@ -114,6 +165,11 @@ dimensionNameRequirements:
 # Passes down the flag `--recently-active PT3H` to the CloudWatch API. This will only return metrics that have been active in the last 3 hours.
 # This is useful for reducing the number of metrics returned by CloudWatch, which can be very large for some services. See AWS Cloudwatch API docs for [ListMetrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_ListMetrics.html) for more details.
 [ recentlyActiveOnly: <boolean> ]
+
+# List of source account IDs linked to this monitoring account through CloudWatch cross-account observability
+# to also collect metrics from, or "*" for all linked accounts (optional). See "Linked accounts" below.
+includeLinkedAccounts:
+  [ - <string> ... ]
 
 # Can be used to include contextual information (account_id, region, and customTags) on info metrics and cloudwatch metrics. This can be particularly 
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
@@ -269,6 +325,11 @@ dimensionNameRequirements:
 # Passes down the flag `--recently-active PT3H` to the CloudWatch API. This will only return metrics that have been active in the last 3 hours.
 # This is useful for reducing the number of metrics returned by CloudWatch, which can be very large for some services. See AWS Cloudwatch API docs for [ListMetrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_ListMetrics.html) for more details.
 [ recentlyActiveOnly: <boolean> ]
+
+# List of source account IDs linked to this monitoring account through CloudWatch cross-account observability
+# to also collect metrics from, or "*" for all linked accounts (optional). See "Linked accounts" below.
+includeLinkedAccounts:
+  [ - <string> ... ]
 
 # List of statistic types, e.g. "Minimum", "Maximum", etc (General Setting for all metrics in this job)
 statistics:
