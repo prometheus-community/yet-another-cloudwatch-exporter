@@ -17,8 +17,47 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/grafana/regexp"
 	"github.com/stretchr/testify/require"
 )
+
+// TestToModelDimensionsRegexpDoubleUnderscoreBecomesHyphen verifies that double
+// underscores in regex named groups are decoded as hyphens in dimension names,
+// allowing dimension names like "Per-VPC-Metrics" to be encoded as
+// "Per__VPC__Metrics" in a Go regex named group.
+func TestToModelDimensionsRegexpDoubleUnderscoreBecomesHyphen(t *testing.T) {
+	sc := ServiceConfig{
+		Namespace: "test",
+		Alias:     "test",
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("vpc/(?P<Per__VPC__Metrics>[^/]+)"),
+		},
+	}
+	dr := sc.ToModelDimensionsRegexp()
+	require.Len(t, dr, 1)
+	require.Equal(t, []string{"Per-VPC-Metrics"}, dr[0].DimensionsNames)
+}
+
+// TestEC2ServiceConfigIncludesVPC verifies that the AWS/EC2 service config
+// discovers both EC2 instances and VPCs, enabling resolution of VPC-scoped
+// metrics like NetworkAddressUsage that use the Per-VPC-Metrics dimension.
+func TestEC2ServiceConfigIncludesVPC(t *testing.T) {
+	svc := SupportedServices.GetService("AWS/EC2")
+	require.NotNil(t, svc)
+
+	filters := make([]string, 0, len(svc.ResourceFilters))
+	for _, f := range svc.ResourceFilters {
+		filters = append(filters, aws.ToString(f))
+	}
+	require.Contains(t, filters, "ec2:vpc", "expected ec2:vpc in AWS/EC2 ResourceFilters")
+
+	dr := svc.ToModelDimensionsRegexp()
+	var allDimensionNames []string
+	for _, d := range dr {
+		allDimensionNames = append(allDimensionNames, d.DimensionsNames...)
+	}
+	require.Contains(t, allDimensionNames, "Per-VPC-Metrics", "expected 'Per-VPC-Metrics' dimension in AWS/EC2 service config")
+}
 
 func TestSupportedServices(t *testing.T) {
 	for i, svc := range SupportedServices {
