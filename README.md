@@ -70,6 +70,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/CloudFront` - Cloud Front
   * `AWS/Cognito` - Cognito
   * `AWS/DataSync` - DataSync
+  * `AWS/DAX` - DynamoDB Accelerator (DAX)
   * `AWS/DDoSProtection` - Distributed Denial of Service (DDoS) protection service
   * `AWS/DirectoryService` - Directory Services (MicrosoftAD)
   * `AWS/DMS` - Database Migration Service
