@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
@@ -63,6 +64,7 @@ type client struct {
 	autoscalingAPI    autoscalingClientAdapter
 	apiGatewayAPI     apiGatewayClientAdapter
 	apiGatewayV2API   apiGatewayV2ClientAdapter
+	backupAPI         backupClientAdapter
 	ec2API            ec2ClientAdapter
 	dmsAPI            dmsClientAdapter
 	prometheusSvcAPI  prometheusClientAdapter
@@ -77,6 +79,7 @@ func NewClient(
 	autoscalingAPI *autoscaling.Client,
 	apiGatewayAPI *apigateway.Client,
 	apiGatewayV2API *apigatewayv2.Client,
+	backupAPI *backup.Client,
 	ec2API *ec2.Client,
 	dmsClient *databasemigrationservice.Client,
 	prometheusClient *amp.Client,
@@ -93,6 +96,7 @@ func NewClient(
 		autoscalingAPI:    newAutoscalingClientAdapter(autoscalingAPI),
 		apiGatewayAPI:     newAPIGatewayClientAdapter(apiGatewayAPI),
 		apiGatewayV2API:   newAPIGatewayV2ClientAdapter(apiGatewayV2API),
+		backupAPI:         newBackupClientAdapter(backupAPI),
 		ec2API:            newEC2ClientAdapter(ec2API),
 		dmsAPI:            newDMSClientAdapter(dmsClient),
 		prometheusSvcAPI:  newPrometheusClientAdapter(prometheusClient),

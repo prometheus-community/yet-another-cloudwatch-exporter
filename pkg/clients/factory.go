@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -198,6 +199,7 @@ func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concur
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
 		c.createAPIGatewayClient(c.clients[role][region].awsConfig),
 		c.createAPIGatewayV2Client(c.clients[role][region].awsConfig),
+		c.createBackupClient(c.clients[role][region].awsConfig),
 		c.createEC2Client(c.clients[role][region].awsConfig),
 		c.createDMSClient(c.clients[role][region].awsConfig),
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
@@ -342,6 +344,20 @@ func (c *CachingFactory) createAPIGatewayClient(assumedConfig *aws.Config) *apig
 
 func (c *CachingFactory) createAPIGatewayV2Client(assumedConfig *aws.Config) *apigatewayv2.Client {
 	return apigatewayv2.NewFromConfig(*assumedConfig, func(options *apigatewayv2.Options) {
+		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
+			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
+		}
+		if c.endpointURLOverride != "" {
+			options.BaseEndpoint = aws.String(c.endpointURLOverride)
+		}
+		if c.fipsEnabled {
+			options.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateEnabled
+		}
+	})
+}
+
+func (c *CachingFactory) createBackupClient(assumedConfig *aws.Config) *backup.Client {
+	return backup.NewFromConfig(*assumedConfig, func(options *backup.Options) {
 		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
 		}

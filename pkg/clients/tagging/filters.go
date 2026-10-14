@@ -15,6 +15,7 @@ package tagging
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -23,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
@@ -414,4 +416,125 @@ var ServiceFilters = map[string]ServiceFilter{
 			return output, nil
 		},
 	},
+	"AWS/Backup": {
+		// Some copy job metrics are published in the region of the source backup vault, but has the destination vault name
+		// as the BackupVaultName dimension which may not be in the same region. Add both the source and destination vaults
+		// for copy jobs sourced from this region
+		ResourceFunc: func(ctx context.Context, c client, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+			const maxPages = 100
+			const maxResultsPerPage int32 = 100
+			request := &backup.ListCopyJobsInput{MaxResults: aws.Int32(maxResultsPerPage)}
+
+			var resources []*model.TaggedResource
+			seen := map[string]struct{}{}
+			paginator := backup.NewListCopyJobsPaginator(c.backupAPI, request, func(options *backup.ListCopyJobsPaginatorOptions) {
+				options.StopOnDuplicateToken = true
+			})
+			pageNum := 0
+			for paginator.HasMorePages() && pageNum < maxPages {
+				c.scrapeMetrics.BackupAPICounter.Inc()
+				page, err := paginator.NextPage(ctx)
+				pageNum++
+				if err != nil {
+					return nil, fmt.Errorf("error calling backupAPI.ListCopyJobs, %w", err)
+				}
+
+				for _, copyJob := range page.CopyJobs {
+					sourceBackupVaultArn := *copyJob.SourceBackupVaultArn
+					destinationBackupVaultArn := *copyJob.DestinationBackupVaultArn
+
+					sourceBackupVaultArnParsed, err := arn.Parse(*copyJob.SourceBackupVaultArn)
+					if err != nil {
+						return nil, fmt.Errorf("backupAPI.ListCopyJobs returned an invalid SourceBackupVaultArn %s", sourceBackupVaultArn)
+					}
+
+					// The metrics are published in the source region so only keep jobs sourced that belong to the current region
+					if sourceBackupVaultArnParsed.Region != region {
+						continue
+					}
+
+					destinationBackupVaultArnParsed, err := arn.Parse(*copyJob.DestinationBackupVaultArn)
+					if err != nil {
+						return nil, fmt.Errorf("backupAPI.ListCopyJobs returned an invalid DestinationBackupVaultArn %s", destinationBackupVaultArn)
+					}
+
+					// It's possible to have the same destination for multiple copy jobs so there may be duplicates
+					// Using the resource name prevents collision (matches the dimension regexp) if destination matches a source
+					if _, ok := seen[destinationBackupVaultArnParsed.Resource]; ok {
+						continue
+					}
+
+					sourceResource := &model.TaggedResource{
+						ARN:       sourceBackupVaultArn,
+						Namespace: job.Namespace,
+						Region:    region,
+					}
+					sourceBackupVaultTags, err := getBackupTags(ctx, c, sourceBackupVaultArn)
+					if err != nil {
+						return nil, fmt.Errorf("error retrieving tags for source backup vault %s: %w", sourceBackupVaultArn, err)
+					}
+
+					for key, value := range sourceBackupVaultTags {
+						sourceResource.Tags = append(sourceResource.Tags, model.Tag{Key: key, Value: value})
+					}
+
+					// Only add the destination if the source wasn't filtered out
+					if sourceResource.FilterThroughTags(job.SearchTags) {
+						destinationResource := &model.TaggedResource{
+							ARN:       destinationBackupVaultArn,
+							Namespace: job.Namespace,
+							Region:    region, // TODO: destinationBackupVaultArnParsed.Region?
+						}
+
+						// TODO: This requires a client that can connect to a different region
+						destinationBackupVaultTags, err := getBackupTags(ctx, c, destinationBackupVaultArn)
+						if err != nil {
+							return nil, fmt.Errorf("error retrieving tags for destination backup vault %s: %w", destinationBackupVaultArn, err)
+						}
+
+						for key, value := range destinationBackupVaultTags {
+							destinationResource.Tags = append(destinationResource.Tags, model.Tag{Key: key, Value: value})
+						}
+
+						// destination is a by-product of source so don't filter
+
+						resources = append(resources, sourceResource)
+						resources = append(resources, destinationResource)
+
+						seen[sourceBackupVaultArnParsed.Resource] = struct{}{}
+						seen[destinationBackupVaultArnParsed.Resource] = struct{}{}
+					}
+				}
+			}
+
+			return resources, nil
+		},
+	},
+}
+
+func getBackupTags(ctx context.Context, c client, resourceArn string) (map[string]string, error) {
+	const maxPages = 100
+	const maxResultsPerPage int32 = 100 // increased to reduce throttling occurrences.
+	request := &backup.ListTagsInput{
+		ResourceArn: &resourceArn,
+		MaxResults:  aws.Int32(maxResultsPerPage),
+	}
+
+	tags := map[string]string{}
+	paginator := backup.NewListTagsPaginator(c.backupAPI, request, func(options *backup.ListTagsPaginatorOptions) {
+		options.StopOnDuplicateToken = true
+	})
+	pageNum := 0
+	for paginator.HasMorePages() && pageNum < maxPages {
+		c.scrapeMetrics.BackupAPICounter.Inc()
+		page, err := paginator.NextPage(ctx)
+		pageNum++
+		if err != nil {
+			return nil, fmt.Errorf("error calling backupAPI.ListTags for %s: %w", resourceArn, err)
+		}
+
+		maps.Copy(tags, page.Tags)
+	}
+
+	return tags, nil
 }
