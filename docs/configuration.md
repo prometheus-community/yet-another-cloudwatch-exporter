@@ -119,6 +119,16 @@ dimensionNameRequirements:
 # useful when cloudwatch metrics might not be present or when using info metrics to understand where your resources exist
 [ includeContextOnInfoMetrics: <boolean> ]
 
+# Reconstructs a resource ARN from a metric's own dimensions when the Resource Groups Tagging API didn't return that
+# resource, so metrics from untagged resources carry a real ARN instead of the placeholder `global`.
+# The ARN templates are best-effort: they're derived from documented AWS ARN formats and have not been validated
+# against live AWS API responses. A template that is wrong for your account yields a plausible but incorrect `name`
+# label rather than an error, so verify the labels against real output before relying on them.
+# Only namespaces with a known ARN shape are covered. Metrics in any other namespace keep the `global` ARN, as do
+# aggregate metrics whose dimensions identify a group rather than a single resource (for example an AWS/EC2 metric
+# dimensioned only by AutoScalingGroupName).
+[ inferMissingArnsFromDimensions: <boolean> ]
+
 # (optional) This is an experimental feature that can be used to enable enhanced metrics for specific services within this discovery job. It might be subject to changes in future releases.
 enhancedMetrics:
     [ - <enhanced_metrics_config> ... ]
