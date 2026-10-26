@@ -15,6 +15,7 @@ package exporter
 import (
 	"context"
 	"log/slog"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/prometheus/common/promslog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients/account"
@@ -362,4 +364,14 @@ func TestUpdateMetrics_ReturnsOptionValidationError(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "MetricsPerQuery")
+}
+
+func TestCloudWatchAPIRateLimit(t *testing.T) {
+	o := defaultOptions()
+	require.NoError(t, CloudWatchAPIRateLimit(20, 0, 300)(&o))
+	assert.Equal(t, cloudwatch.RateLimitConfig{ListMetrics: 20, GetMetricData: 0, GetMetricStatistics: 300}, o.cloudwatchConcurrency.RateLimit)
+	assert.Equal(t, 300.0, configFromOptions(o).CloudwatchConcurrency.RateLimit.GetMetricStatistics)
+
+	require.Error(t, CloudWatchAPIRateLimit(0, -1, 0)(&o))
+	require.Error(t, CloudWatchAPIRateLimit(math.NaN(), 0, 0)(&o))
 }
