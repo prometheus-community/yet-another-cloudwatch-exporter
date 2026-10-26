@@ -1,6 +1,6 @@
 # Purpose of the clients package
 The goal of this package is to abstract away as much of the AWS SDK implementation details as possible. YACE uses
-[AWS SDK for Go v2](https://aws.github.io/aws-sdk-go-v2/docs/) exclusively (SDK v1 support was removed in v0.64.0).
+[AWS SDK for Go v2](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/) exclusively (SDK v1 support was removed in v0.64.0).
 
 The folder structure isolates common interfaces from their implementations:
 
