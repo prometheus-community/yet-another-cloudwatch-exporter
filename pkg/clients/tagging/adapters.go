@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
@@ -84,6 +85,27 @@ func newAPIGatewayV2ClientAdapter(c *apigatewayv2.Client) apiGatewayV2ClientAdap
 
 func (a apiGatewayV2ClientAdapter) GetApis(ctx context.Context, params *apigatewayv2.GetApisInput, optFns ...func(*apigatewayv2.Options)) (*apigatewayv2.GetApisOutput, error) {
 	return a.getApis(ctx, params, optFns...)
+}
+
+// backupClientAdapter wraps *backup.Client via closures.
+type backupClientAdapter struct {
+	listCopyJobs func(ctx context.Context, params *backup.ListCopyJobsInput, optFns ...func(*backup.Options)) (*backup.ListCopyJobsOutput, error)
+	listTags     func(ctx context.Context, params *backup.ListTagsInput, optFns ...func(*backup.Options)) (*backup.ListTagsOutput, error)
+}
+
+func newBackupClientAdapter(c *backup.Client) backupClientAdapter {
+	return backupClientAdapter{
+		listCopyJobs: c.ListCopyJobs,
+		listTags:     c.ListTags,
+	}
+}
+
+func (b backupClientAdapter) ListCopyJobs(ctx context.Context, params *backup.ListCopyJobsInput, optFns ...func(*backup.Options)) (*backup.ListCopyJobsOutput, error) {
+	return b.listCopyJobs(ctx, params, optFns...)
+}
+
+func (b backupClientAdapter) ListTags(ctx context.Context, params *backup.ListTagsInput, optFns ...func(*backup.Options)) (*backup.ListTagsOutput, error) {
+	return b.listTags(ctx, params, optFns...)
 }
 
 // ec2ClientAdapter wraps *ec2.Client via closures.

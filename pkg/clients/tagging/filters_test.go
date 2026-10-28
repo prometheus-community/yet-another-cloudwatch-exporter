@@ -14,6 +14,7 @@ package tagging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -22,9 +23,12 @@ import (
 	apigtypes "github.com/aws/aws-sdk-go-v2/service/apigateway/types"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	apigv2types "github.com/aws/aws-sdk-go-v2/service/apigatewayv2/types"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
+	backuptypes "github.com/aws/aws-sdk-go-v2/service/backup/types"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	dmstypes "github.com/aws/aws-sdk-go-v2/service/databasemigrationservice/types"
 	"github.com/aws/smithy-go/middleware"
+	"github.com/grafana/regexp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
@@ -311,6 +315,168 @@ func TestDMSFilterFunc(t *testing.T) {
 			outputResources, err := filter.FilterFunc(context.Background(), c, tc.inputResources)
 			require.NoError(t, err)
 			require.Equal(t, tc.outputResources, outputResources)
+		})
+	}
+}
+
+func TestBackupResourceFunc(t *testing.T) {
+	const (
+		srcWest  = "arn:aws:backup:us-west-2:123123123123:backup-vault:src-west"
+		srcWest2 = "arn:aws:backup:us-west-2:123123123123:backup-vault:src-west-2"
+		dstEast  = "arn:aws:backup:us-east-1:123123123123:backup-vault:dst-east"
+		srcEast  = "arn:aws:backup:us-east-1:123123123123:backup-vault:src-east"
+	)
+
+	copyJob := func(src, dst string) backuptypes.CopyJob {
+		return backuptypes.CopyJob{SourceBackupVaultArn: aws.String(src), DestinationBackupVaultArn: aws.String(dst)}
+	}
+
+	tests := []struct {
+		name         string
+		region       string
+		searchTags   []model.SearchTag
+		pages        [][]backuptypes.CopyJob
+		listJobsErr  error
+		tags         map[string]map[string]string
+		listTagsErr  error
+		wantErr      string
+		wantArns     []string
+		wantTags     map[string][]model.Tag
+		wantTagCalls []string
+	}{
+		{
+			name:     "no copy jobs",
+			region:   "us-west-2",
+			pages:    [][]backuptypes.CopyJob{{}},
+			wantArns: nil,
+		},
+		{
+			name:     "copy job from current region adds source and destination",
+			region:   "us-west-2",
+			pages:    [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}},
+			wantArns: []string{srcWest, dstEast},
+		},
+		{
+			name:     "copy job sourced from another region is skipped",
+			region:   "us-west-2",
+			pages:    [][]backuptypes.CopyJob{{copyJob(srcEast, dstEast)}},
+			wantArns: nil,
+		},
+		{
+			name:   "tags are attached to source and destination",
+			region: "us-west-2",
+			pages:  [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}},
+			tags: map[string]map[string]string{
+				srcWest: {"Env": "prod"},
+				dstEast: {"Team": "storage"},
+			},
+			wantArns: []string{srcWest, dstEast},
+			wantTags: map[string][]model.Tag{
+				srcWest: {{Key: "Env", Value: "prod"}},
+				dstEast: {{Key: "Team", Value: "storage"}},
+			},
+		},
+		{
+			name:       "source matching search tags is kept",
+			region:     "us-west-2",
+			searchTags: []model.SearchTag{{Key: "Env", Value: regexp.MustCompile("prod")}},
+			pages:      [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}},
+			tags:       map[string]map[string]string{srcWest: {"Env": "prod"}},
+			wantArns:   []string{srcWest, dstEast},
+		},
+		{
+			name:       "source not matching search tags drops source and destination",
+			region:     "us-west-2",
+			searchTags: []model.SearchTag{{Key: "Env", Value: regexp.MustCompile("prod")}},
+			pages:      [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}},
+			tags:       map[string]map[string]string{srcWest: {"Env": "dev"}},
+			wantArns:   nil,
+		},
+		{
+			name:   "duplicate destination across copy jobs is only added once",
+			region: "us-west-2",
+			pages:  [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast), copyJob(srcWest2, dstEast)}},
+			// second job is skipped because its destination was already seen
+			wantArns: []string{srcWest, dstEast},
+		},
+		{
+			name:     "copy jobs across multiple pages are aggregated",
+			region:   "us-west-2",
+			pages:    [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}, {copyJob(srcWest2, "arn:aws:backup:eu-west-1:123123123123:backup-vault:dst-eu")}},
+			wantArns: []string{srcWest, dstEast, srcWest2, "arn:aws:backup:eu-west-1:123123123123:backup-vault:dst-eu"},
+		},
+		{
+			name:    "invalid source arn returns error",
+			region:  "us-west-2",
+			pages:   [][]backuptypes.CopyJob{{copyJob("not-an-arn", dstEast)}},
+			wantErr: "invalid SourceBackupVaultArn",
+		},
+		{
+			name:    "invalid destination arn returns error",
+			region:  "us-west-2",
+			pages:   [][]backuptypes.CopyJob{{copyJob(srcWest, "not-an-arn")}},
+			wantErr: "invalid DestinationBackupVaultArn",
+		},
+		{
+			name:        "ListCopyJobs error is returned",
+			region:      "us-west-2",
+			listJobsErr: errors.New("boom"),
+			wantErr:     "error calling backupAPI.ListCopyJobs",
+		},
+		{
+			name:        "ListTags error is returned",
+			region:      "us-west-2",
+			pages:       [][]backuptypes.CopyJob{{copyJob(srcWest, dstEast)}},
+			listTagsErr: errors.New("boom"),
+			wantErr:     "error retrieving tags for source backup vault",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pageIdx := 0
+			api := backupClientAdapter{
+				listCopyJobs: func(_ context.Context, _ *backup.ListCopyJobsInput, _ ...func(*backup.Options)) (*backup.ListCopyJobsOutput, error) {
+					if tc.listJobsErr != nil {
+						return nil, tc.listJobsErr
+					}
+					out := &backup.ListCopyJobsOutput{CopyJobs: tc.pages[pageIdx]}
+					pageIdx++
+					if pageIdx < len(tc.pages) {
+						out.NextToken = aws.String(fmt.Sprintf("token-%d", pageIdx))
+					}
+					return out, nil
+				},
+				listTags: func(_ context.Context, in *backup.ListTagsInput, _ ...func(*backup.Options)) (*backup.ListTagsOutput, error) {
+					if tc.listTagsErr != nil {
+						return nil, tc.listTagsErr
+					}
+					return &backup.ListTagsOutput{Tags: tc.tags[*in.ResourceArn]}, nil
+				},
+			}
+			c := client{scrapeMetrics: promutil.Discard, backupAPI: api}
+
+			filter := ServiceFilters["AWS/Backup"]
+			require.NotNil(t, filter.ResourceFunc)
+
+			job := model.DiscoveryJob{Namespace: "AWS/Backup", SearchTags: tc.searchTags}
+			got, err := filter.ResourceFunc(context.Background(), c, job, tc.region)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+
+			var gotArns []string
+			for _, r := range got {
+				gotArns = append(gotArns, r.ARN)
+				require.Equal(t, "AWS/Backup", r.Namespace)
+				require.Equal(t, tc.region, r.Region)
+				if want, ok := tc.wantTags[r.ARN]; ok {
+					require.ElementsMatch(t, want, r.Tags)
+				}
+			}
+			require.Equal(t, tc.wantArns, gotArns)
 		})
 	}
 }
