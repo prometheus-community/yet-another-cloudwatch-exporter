@@ -176,6 +176,24 @@ func NewYACEApp() *cli.App {
 			Usage:       "Maximum number of concurrent requests to GetMetricStatistics CloudWatch API. Used if the -cloudwatch-concurrency.per-api-limit-enabled concurrency limiter is enabled.",
 			Destination: &cloudwatchConcurrency.GetMetricStatistics,
 		},
+		&cli.Float64Flag{
+			Name:        "cloudwatch-rate-limit.list-metrics",
+			Value:       config.DefaultCloudwatchConcurrency.RateLimit.ListMetrics,
+			Usage:       "Maximum requests per second to the ListMetrics CloudWatch API, shared by all jobs of a role and region. 0 means unlimited.",
+			Destination: &cloudwatchConcurrency.RateLimit.ListMetrics,
+		},
+		&cli.Float64Flag{
+			Name:        "cloudwatch-rate-limit.get-metric-data",
+			Value:       config.DefaultCloudwatchConcurrency.RateLimit.GetMetricData,
+			Usage:       "Maximum requests per second to the GetMetricData CloudWatch API, shared by all jobs of a role and region. 0 means unlimited.",
+			Destination: &cloudwatchConcurrency.RateLimit.GetMetricData,
+		},
+		&cli.Float64Flag{
+			Name:        "cloudwatch-rate-limit.get-metric-statistics",
+			Value:       config.DefaultCloudwatchConcurrency.RateLimit.GetMetricStatistics,
+			Usage:       "Maximum requests per second to the GetMetricStatistics CloudWatch API, shared by all jobs of a role and region. 0 means unlimited.",
+			Destination: &cloudwatchConcurrency.RateLimit.GetMetricStatistics,
+		},
 		&cli.IntFlag{
 			Name:        "tag-concurrency",
 			Value:       config.DefaultTaggingAPIConcurrency,

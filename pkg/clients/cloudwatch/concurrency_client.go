@@ -91,6 +91,10 @@ type ConcurrencyConfig struct {
 
 	// GetMetricStatistics limits the number for GetMetricStatistics API concurrent API calls.
 	GetMetricStatistics int
+
+	// RateLimit caps the requests per second of each CloudWatch API. Unlike the concurrency
+	// limits, which apply per job, it is shared by all clients of a role and region.
+	RateLimit RateLimitConfig
 }
 
 // semaphore implements a simple semaphore using a channel.

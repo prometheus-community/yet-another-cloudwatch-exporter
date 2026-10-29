@@ -314,6 +314,62 @@ func TestCachingFactory_GetCloudwatchClient(t *testing.T) {
 	})
 }
 
+func TestCachingFactory_cloudwatchRateLimiter(t *testing.T) {
+	role1 := model.Role{RoleArn: "role1"}
+	role2 := model.Role{RoleArn: "role2"}
+	jobsCfg := model.JobsConfig{
+		StaticJobs: []model.StaticJob{{
+			Roles:   []model.Role{role1, role2},
+			Regions: []string{"region1", "region2"},
+		}},
+	}
+	rateLimit := cloudwatch_client.RateLimitConfig{GetMetricStatistics: 100}
+
+	t.Run("is shared by all clients of a role and region", func(t *testing.T) {
+		factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
+		require.NoError(t, err)
+
+		limiter := factory.cloudwatchRateLimiter("region1", role1, rateLimit)
+		require.NotNil(t, limiter)
+		assert.Same(t, limiter, factory.cloudwatchRateLimiter("region1", role1, rateLimit))
+	})
+
+	t.Run("is separate per region and per role", func(t *testing.T) {
+		factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
+		require.NoError(t, err)
+
+		limiter := factory.cloudwatchRateLimiter("region1", role1, rateLimit)
+		assert.NotSame(t, limiter, factory.cloudwatchRateLimiter("region2", role1, rateLimit))
+		assert.NotSame(t, limiter, factory.cloudwatchRateLimiter("region1", role2, rateLimit))
+	})
+
+	t.Run("outlives Refresh and Clear", func(t *testing.T) {
+		factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
+		require.NoError(t, err)
+
+		limiter := factory.cloudwatchRateLimiter("region1", role1, rateLimit)
+		factory.Refresh()
+		factory.Clear()
+		assert.Same(t, limiter, factory.cloudwatchRateLimiter("region1", role1, rateLimit))
+	})
+
+	t.Run("is not created without a rate limit", func(t *testing.T) {
+		factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
+		require.NoError(t, err)
+
+		assert.Nil(t, factory.cloudwatchRateLimiter("region1", role1, cloudwatch_client.RateLimitConfig{}))
+		assert.NotNil(t, factory.GetCloudwatchClient("region1", role1, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1}))
+	})
+
+	t.Run("is used by GetCloudwatchClient", func(t *testing.T) {
+		factory, err := NewFactory(promslog.NewNopLogger(), promutil.NewScrapeMetrics(nil), jobsCfg, false)
+		require.NoError(t, err)
+
+		assert.NotNil(t, factory.GetCloudwatchClient("region1", role1, cloudwatch_client.ConcurrencyConfig{SingleLimit: 1, RateLimit: rateLimit}))
+		assert.Len(t, factory.rateLimiters[role1], 1)
+	})
+}
+
 func TestCachingFactory_GetTaggingClient(t *testing.T) {
 	t.Run("refreshed cache does not create new client", func(t *testing.T) {
 		jobsCfg := model.JobsConfig{

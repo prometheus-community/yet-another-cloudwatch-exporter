@@ -102,5 +102,10 @@ func toCloudWatchConcurrency(cfg config.CloudWatchConcurrencyConfig) cloudwatch.
 		ListMetrics:         cfg.ListMetrics,
 		GetMetricData:       cfg.GetMetricData,
 		GetMetricStatistics: cfg.GetMetricStatistics,
+		RateLimit: cloudwatch.RateLimitConfig{
+			ListMetrics:         cfg.RateLimit.ListMetrics,
+			GetMetricData:       cfg.RateLimit.GetMetricData,
+			GetMetricStatistics: cfg.RateLimit.GetMetricStatistics,
+		},
 	}
 }

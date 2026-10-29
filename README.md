@@ -342,6 +342,8 @@ The flags 'cloudwatch-concurrency' and 'tag-concurrency' define the number of co
 
 Setting a higher value makes faster scraping times but can incur in throttling and the blocking of the API.
 
+The concurrency limits apply per job, so a configuration with many jobs sends many more requests at once. CloudWatch applies its API quotas per account and region, for example 400 `GetMetricStatistics` requests per second by default. The `cloudwatch-rate-limit.*` flags cap the requests per second of each CloudWatch API across all jobs of a role and region, so that a scrape stays within those quotas. They are off by default.
+
 ### Decoupled scraping
 The exporter scraped cloudwatch metrics in the background in fixed interval.
 This protects from the abuse of API requests that can cause extra billing in AWS account.
