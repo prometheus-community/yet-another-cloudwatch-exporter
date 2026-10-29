@@ -4,7 +4,7 @@ This folder contains a [docker-compose](./docker-compose.yaml) configuration fil
 This includes:
 - YACE, using as config file [yace-config.yaml](./yace-config.yaml)
 - Prometheus, with a scraping configuration targeting YACE
-- Grafana, wih no login required and the Prometheus datasource configured
+- Grafana, with no login required and the Prometheus datasource configured
 
 Docker will mount the `~/.aws` directory in order to re-utilize the host's AWS credentials. For selecting which region
 and AWS profile to use, fill in the `AWS_REGION` and `AWS_PROFILE` variables passed to the `docker-compose up` command,
