@@ -11,7 +11,7 @@ The command-line flags configure things which cannot change at runtime, such as 
 
 Command-line flags are used to configure settings of the exporter which cannot be updated at runtime.
 
-All flags may be prefixed with either one hypen or two (i.e., both `-config.file` and `--config.file` are valid).
+All flags may be prefixed with either one hyphen or two (i.e., both `-config.file` and `--config.file` are valid).
 
 | Flag | Description | Default value |
 | --- | --- | --- |
