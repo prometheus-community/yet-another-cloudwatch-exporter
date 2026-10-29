@@ -32,9 +32,19 @@ var ec2Instance2 = &model.TaggedResource{
 	Namespace: "AWS/EC2",
 }
 
+var ec2VPC1 = &model.TaggedResource{
+	ARN:       "arn:aws:ec2:eu-central-1:123456789012:vpc/vpc-0abc123ef",
+	Namespace: "AWS/EC2",
+	Tags: []model.Tag{
+		{Key: "app", Value: "my-app"},
+		{Key: "env", Value: "dev"},
+	},
+}
+
 var ec2Resources = []*model.TaggedResource{
 	ec2Instance1,
 	ec2Instance2,
+	ec2VPC1,
 }
 
 func TestAssociatorEC2(t *testing.T) {
@@ -114,6 +124,38 @@ func TestAssociatorEC2(t *testing.T) {
 				},
 			},
 			expectedSkip:     false,
+			expectedResource: nil,
+		},
+		{
+			name: "should match VPC resource with Per-VPC-Metrics dimension",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/EC2").ToModelDimensionsRegexp(),
+				resources:        ec2Resources,
+				metric: &model.Metric{
+					Namespace:  "AWS/EC2",
+					MetricName: "NetworkAddressUsage",
+					Dimensions: []model.Dimension{
+						{Name: "Per-VPC-Metrics", Value: "vpc-0abc123ef"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: ec2VPC1,
+		},
+		{
+			name: "should skip NetworkAddressUsage metric with unknown VPC ID",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/EC2").ToModelDimensionsRegexp(),
+				resources:        ec2Resources,
+				metric: &model.Metric{
+					Namespace:  "AWS/EC2",
+					MetricName: "NetworkAddressUsage",
+					Dimensions: []model.Dimension{
+						{Name: "Per-VPC-Metrics", Value: "vpc-unknown"},
+					},
+				},
+			},
+			expectedSkip:     true,
 			expectedResource: nil,
 		},
 	}
