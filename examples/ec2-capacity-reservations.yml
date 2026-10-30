@@ -1,0 +1,27 @@
+apiVersion: v1alpha1
+discovery:
+  exportedTagsOnMetrics:
+    AWS/EC2CapacityReservations:
+      - Name
+      - Environment
+  jobs:
+    - type: AWS/EC2CapacityReservations
+      regions:
+        - us-east-1
+      searchTags:
+        - key: Environment
+          value: production
+      dimensionNameRequirements:
+        - CapacityReservationId
+      recentlyActiveOnly: true
+      period: 300
+      length: 600
+      metrics:
+        - name: UsedInstanceCount
+          statistics: [Average]
+        - name: AvailableInstanceCount
+          statistics: [Average]
+        - name: TotalInstanceCount
+          statistics: [Average]
+        - name: InstanceUtilization
+          statistics: [Average]
