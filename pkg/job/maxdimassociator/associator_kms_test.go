@@ -58,12 +58,64 @@ func TestAssociatorKMS(t *testing.T) {
 			expectedSkip:     false,
 			expectedResource: kmsKey,
 		},
+		{
+			name: "should match with KeyArn and Operation dimensions",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/KMS").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{kmsKey},
+				metric: &model.Metric{
+					MetricName: "SuccessfulRequest",
+					Namespace:  "AWS/KMS",
+					Dimensions: []model.Dimension{
+						{Name: "KeyArn", Value: "arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012"},
+						{Name: "Operation", Value: "Decrypt"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: kmsKey,
+		},
+		{
+			name: "should skip with KeyArn of a key that was not discovered",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/KMS").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{kmsKey},
+				metric: &model.Metric{
+					MetricName: "SuccessfulRequest",
+					Namespace:  "AWS/KMS",
+					Dimensions: []model.Dimension{
+						{Name: "KeyArn", Value: "arn:aws:kms:us-east-2:123456789012:key/87654321-4321-4321-4321-210987654321"},
+						{Name: "Operation", Value: "Decrypt"},
+					},
+				},
+			},
+			expectedSkip:     true,
+			expectedResource: nil,
+		},
+		{
+			name: "should not match with only an Operation dimension",
+			args: args{
+				dimensionRegexps: config.SupportedServices.GetService("AWS/KMS").ToModelDimensionsRegexp(),
+				resources:        []*model.TaggedResource{kmsKey},
+				metric: &model.Metric{
+					MetricName: "SuccessfulRequest",
+					Namespace:  "AWS/KMS",
+					Dimensions: []model.Dimension{
+						{Name: "Operation", Value: "GenerateRandom"},
+					},
+				},
+			},
+			expectedSkip:     false,
+			expectedResource: nil,
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			associator := NewAssociator(promslog.NewNopLogger(), tc.args.dimensionRegexps, tc.args.resources)
+			dimensionsBefore := len(tc.args.metric.Dimensions)
 			res, skip := associator.AssociateMetricToResource(tc.args.metric)
+			require.Len(t, tc.args.metric.Dimensions, dimensionsBefore, "the metric dimensions must not be modified")
 			require.Equal(t, tc.expectedSkip, skip)
 			require.Equal(t, tc.expectedResource, res)
 		})
