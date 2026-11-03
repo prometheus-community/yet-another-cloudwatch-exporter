@@ -1251,6 +1251,81 @@ func Benchmark_BuildMetrics(b *testing.B) {
 	require.Equal(b, expectedLabels, labels)
 }
 
+func TestBuildMetrics_GetMetricStatisticsResultWithoutDatapoint(t *testing.T) {
+	ts := time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	newData := func(nilToZero, addCloudwatchTimestamp bool, results []*model.MetricStatisticsResult) []model.CloudwatchMetricResult {
+		return []model.CloudwatchMetricResult{{
+			Context: &model.ScrapeContext{
+				Region:    "eu-west-1",
+				AccountID: "123456789012",
+			},
+			Data: []*model.CloudwatchData{{
+				MetricName: "OperationsFailedReplication",
+				MetricMigrationParams: model.MetricMigrationParams{
+					NilToZero:              nilToZero,
+					AddCloudwatchTimestamp: addCloudwatchTimestamp,
+				},
+				Namespace: "AWS/S3",
+				GetMetricStatisticsResult: &model.GetMetricStatisticsResult{
+					Results:    results,
+					Statistics: []string{"Sum"},
+				},
+				ResourceName: "s3-replication",
+			}},
+		}}
+	}
+
+	expectedMetric := func(value float64) []*PrometheusMetric {
+		return []*PrometheusMetric{{
+			Name:  "aws_s3_operations_failed_replication_sum",
+			Value: value,
+			Labels: map[string]string{
+				"account_id": "123456789012",
+				"name":       "s3-replication",
+				"region":     "eu-west-1",
+			},
+		}}
+	}
+
+	testCases := []struct {
+		name            string
+		data            []model.CloudwatchMetricResult
+		expectedMetrics []*PrometheusMetric
+	}{
+		{
+			name:            "no datapoint with nilToZero exports 0",
+			data:            newData(true, false, nil),
+			expectedMetrics: expectedMetric(0),
+		},
+		{
+			name:            "no datapoint without nilToZero exports NaN",
+			data:            newData(false, false, nil),
+			expectedMetrics: expectedMetric(math.NaN()),
+		},
+		{
+			name: "no datapoint for the requested statistic with nilToZero exports 0",
+			data: newData(true, false, []*model.MetricStatisticsResult{
+				{Maximum: aws.Float64(1), Timestamp: aws.Time(ts)},
+			}),
+			expectedMetrics: expectedMetric(0),
+		},
+		{
+			name:            "no datapoint with addCloudwatchTimestamp exports nothing",
+			data:            newData(true, true, nil),
+			expectedMetrics: []*PrometheusMetric{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, _, err := BuildMetrics(tc.data, false, promslog.NewNopLogger())
+			require.NoError(t, err)
+			require.Equal(t, replaceNaNValues(tc.expectedMetrics), replaceNaNValues(res))
+		})
+	}
+}
+
 func TestBuildMetricName(t *testing.T) {
 	type testCase struct {
 		name      string
