@@ -1386,6 +1386,92 @@ func TestSortByTimeStamp(t *testing.T) {
 	require.Equal(t, expectedDataPoints, sortedDataPoints)
 }
 
+func Test_RemoveEmptyLabelsAndDuplicates(t *testing.T) {
+	testCases := []struct {
+		name    string
+		metrics []*PrometheusMetric
+		output  []*PrometheusMetric
+	}{
+		{
+			name: "keeps differing label sets and drops empty labels",
+			metrics: []*PrometheusMetric{
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label1": "value1", "label2": ""},
+					Value:  1.0,
+				},
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label2": "value2"},
+					Value:  2.0,
+				},
+				{
+					Name:   "metric1",
+					Labels: map[string]string{},
+					Value:  3.0,
+				},
+			},
+			output: []*PrometheusMetric{
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label1": "value1"},
+					Value:  1.0,
+				},
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label2": "value2"},
+					Value:  2.0,
+				},
+				{
+					Name:   "metric1",
+					Labels: map[string]string{},
+					Value:  3.0,
+				},
+			},
+		},
+		{
+			name: "treats an empty label as missing when removing duplicates",
+			metrics: []*PrometheusMetric{
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label1": "value1", "label2": ""},
+					Value:  1.0,
+				},
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label1": "value1"},
+					Value:  2.0,
+				},
+			},
+			output: []*PrometheusMetric{
+				{
+					Name:   "metric1",
+					Labels: map[string]string{"label1": "value1"},
+					Value:  1.0,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := RemoveEmptyLabelsAndDuplicates(NewScrapeMetrics(nil), tc.metrics)
+			require.ElementsMatch(t, tc.output, actual)
+		})
+	}
+
+	t.Run("nil scrapeMetrics does not panic", func(t *testing.T) {
+		metrics := []*PrometheusMetric{
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 1.0},
+			{Name: "metric1", Labels: map[string]string{"label1": "value1"}, Value: 2.0},
+		}
+
+		require.NotPanics(t, func() {
+			RemoveEmptyLabelsAndDuplicates(nil, metrics)
+		})
+	})
+}
+
 func Test_EnsureLabelConsistencyAndRemoveDuplicates(t *testing.T) {
 	testCases := []struct {
 		name           string

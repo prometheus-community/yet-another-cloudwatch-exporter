@@ -227,28 +227,55 @@ func (p *PrometheusCollector) Collect(metrics chan<- prometheus.Metric) {
 	}
 }
 
+// constMetricDesc is a prometheus.Desc together with the label key order it was registered with.
+type constMetricDesc struct {
+	desc      *prometheus.Desc
+	labelKeys []string
+}
+
+// matches reports whether labels has exactly the label keys of the Desc.
+func (d constMetricDesc) matches(labels map[string]string) bool {
+	if len(labels) != len(d.labelKeys) {
+		return false
+	}
+	for _, key := range d.labelKeys {
+		if _, ok := labels[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func toConstMetrics(metrics []*PrometheusMetric) []prometheus.Metric {
-	// We keep two fast lookup maps here one for the prometheus.Desc of a metric which can be reused for each metric with
-	// the same name and the expected label key order of a particular metric name.
 	// The prometheus.Desc object is expensive to create and being able to reuse it for all metrics with the same name
-	// results in large performance gain. We use the other map because metrics created using the Desc only provide label
-	// values and they must be provided in the exact same order as registered in the Desc.
-	metricToDesc := map[string]*prometheus.Desc{}
-	metricToExpectedLabelOrder := map[string][]string{}
+	// and label keys results in large performance gain. Metrics created using the Desc only provide label values and
+	// they must be provided in the exact same order as registered in the Desc, so we keep that order alongside it.
+	// Metrics with the same name usually share one set of label keys, but they don't have to (see OmitEmptyLabels).
+	metricToDescs := map[string][]constMetricDesc{}
 
 	result := make([]prometheus.Metric, 0, len(metrics))
 	for _, metric := range metrics {
 		metricName := metric.Name
-		if _, ok := metricToDesc[metricName]; !ok {
-			labelKeys := maps.Keys(metric.Labels)
-			metricToDesc[metricName] = prometheus.NewDesc(metricName, "Help is not implemented yet.", labelKeys, nil)
-			metricToExpectedLabelOrder[metricName] = labelKeys
+		var metricDesc *constMetricDesc
+		for i := range metricToDescs[metricName] {
+			if metricToDescs[metricName][i].matches(metric.Labels) {
+				metricDesc = &metricToDescs[metricName][i]
+				break
+			}
 		}
-		metricsDesc := metricToDesc[metricName]
+		if metricDesc == nil {
+			labelKeys := maps.Keys(metric.Labels)
+			metricToDescs[metricName] = append(metricToDescs[metricName], constMetricDesc{
+				desc:      prometheus.NewDesc(metricName, "Help is not implemented yet.", labelKeys, nil),
+				labelKeys: labelKeys,
+			})
+			metricDesc = &metricToDescs[metricName][len(metricToDescs[metricName])-1]
+		}
+		metricsDesc := metricDesc.desc
 
 		// Create the label values using the label order of the Desc
 		labelValues := make([]string, 0, len(metric.Labels))
-		for _, labelKey := range metricToExpectedLabelOrder[metricName] {
+		for _, labelKey := range metricDesc.labelKeys {
 			labelValues = append(labelValues, metric.Labels[labelKey])
 		}
 

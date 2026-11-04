@@ -19,6 +19,10 @@ type flagsCtxKey struct{}
 // AlwaysReturnInfoMetrics is a feature flag used to enable the return of info metrics even when there are no corresponding CloudWatch metrics
 const AlwaysReturnInfoMetrics = "always-return-info-metrics"
 
+// OmitEmptyLabels is a feature flag used to drop empty-valued labels instead of padding every series of a metric
+// with the labels seen on any other series of that metric
+const OmitEmptyLabels = "omit-empty-labels"
+
 // FeatureFlags is an interface all objects that can tell wether or not a feature flag is enabled can implement.
 type FeatureFlags interface {
 	// IsFeatureEnabled tells if the feature flag identified by flag is enabled.

@@ -333,16 +333,46 @@ func EnsureLabelConsistencyAndRemoveDuplicates(scrapeMetrics *ScrapeMetrics, met
 		scrapeMetrics = Discard
 	}
 
-	metricKeys := make(map[string]struct{}, len(metrics))
-	output := make([]*PrometheusMetric, 0, len(metrics))
-
 	for _, metric := range metrics {
 		for observedLabels := range observedMetricLabels[metric.Name] {
 			if _, ok := metric.Labels[observedLabels]; !ok {
 				metric.Labels[observedLabels] = ""
 			}
 		}
+	}
 
+	return removeDuplicates(scrapeMetrics, metrics)
+}
+
+// RemoveEmptyLabelsAndDuplicates drops every empty-valued label and then drops duplicates.
+//
+// Prometheus treats an empty label value the same as a missing label, so this exposes the same series as
+// EnsureLabelConsistencyAndRemoveDuplicates. The difference is that a series' exposed labels no longer depend on
+// which other resources exist: when a label key appears on or disappears from a single resource, the other series
+// are exposed unchanged instead of being re-exposed with or without key="". Re-exposing them makes the scrape loop
+// emit stale markers that collide with the new samples once empty labels are stripped (duplicate sample errors
+// downstream, e.g. on remote write).
+func RemoveEmptyLabelsAndDuplicates(scrapeMetrics *ScrapeMetrics, metrics []*PrometheusMetric) []*PrometheusMetric {
+	if scrapeMetrics == nil {
+		scrapeMetrics = Discard
+	}
+
+	for _, metric := range metrics {
+		for label, value := range metric.Labels {
+			if value == "" {
+				delete(metric.Labels, label)
+			}
+		}
+	}
+
+	return removeDuplicates(scrapeMetrics, metrics)
+}
+
+func removeDuplicates(scrapeMetrics *ScrapeMetrics, metrics []*PrometheusMetric) []*PrometheusMetric {
+	metricKeys := make(map[string]struct{}, len(metrics))
+	output := make([]*PrometheusMetric, 0, len(metrics))
+
+	for _, metric := range metrics {
 		// We are including the timestamp in the metric key to ensure that we don't have duplicate metrics
 		// if we have AddCloudwatchTimestamp enabled its the real timestamp, otherwise its a zero value
 		// the timestamp is needed to ensure valid date created by ExportAllDataPoints

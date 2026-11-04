@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [FEATURE] Add `omit-empty-labels` feature flag to drop empty-valued labels instead of padding every series of a metric with labels seen on other series, which avoids stale-marker/duplicate-sample churn when a tag key comes or goes.
 
 ## 0.68.0 / 2026-09-30
 

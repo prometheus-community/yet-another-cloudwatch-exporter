@@ -256,6 +256,35 @@ func TestNewPrometheusCollector_CanReportMetrics(t *testing.T) {
 	assert.Equal(t, 1.0, *tsMetric.Gauge.Value)
 }
 
+func TestNewPrometheusCollector_CanReportMetricsWithDifferentLabelKeys(t *testing.T) {
+	labelSets := map[float64]map[string]string{
+		1: {"key1": "value", "key2": "value"},
+		2: {"key1": "value", "key3": "value"},
+		3: {"key2": "value", "key1": "other"},
+		4: {},
+	}
+	metrics := make([]*PrometheusMetric, 0, len(labelSets))
+	for value, labels := range labelSets {
+		metrics = append(metrics, &PrometheusMetric{Name: "metric_with_labels", Labels: labels, Value: value})
+	}
+
+	registry := prometheus.NewRegistry()
+	require.NoError(t, registry.Register(NewPrometheusCollector(metrics)))
+	families, err := registry.Gather()
+	require.NoError(t, err)
+	require.Len(t, families, 1)
+	require.Len(t, families[0].Metric, len(labelSets))
+
+	for _, metric := range families[0].Metric {
+		expected := labelSets[metric.GetGauge().GetValue()]
+		actual := make(map[string]string, len(metric.Label))
+		for _, labelPair := range metric.Label {
+			actual[labelPair.GetName()] = labelPair.GetValue()
+		}
+		require.Equal(t, expected, actual)
+	}
+}
+
 func TestNewScrapeMetrics_DiscardingRegisterers(t *testing.T) {
 	for _, tc := range []struct {
 		name string

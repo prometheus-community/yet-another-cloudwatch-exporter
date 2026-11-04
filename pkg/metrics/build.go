@@ -75,7 +75,11 @@ func (s *Scraper) Scrape(ctx context.Context) ([]*promutil.PrometheusMetric, err
 		return nil, err
 	}
 	metrics, observedMetricLabels = promutil.BuildNamespaceInfoMetrics(tagsData, metrics, observedMetricLabels, s.cfg.LabelsSnakeCase, s.logger)
-	metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(s.scrapeMetrics, metrics, observedMetricLabels)
+	if config.FlagsFromCtx(ctx).IsFeatureEnabled(config.OmitEmptyLabels) {
+		metrics = promutil.RemoveEmptyLabelsAndDuplicates(s.scrapeMetrics, metrics)
+	} else {
+		metrics = promutil.EnsureLabelConsistencyAndRemoveDuplicates(s.scrapeMetrics, metrics, observedMetricLabels)
+	}
 
 	return metrics, nil
 }
