@@ -2,6 +2,7 @@
 
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
+* [FEATURE] Add support for the `AWS/S3/Tables` namespace. #1911
 
 ## 0.68.0 / 2026-09-30
 
