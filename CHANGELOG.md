@@ -1,5 +1,6 @@
 ## main / (unreleased)
 
+* [FEATURE] Add the `convert-cloudwatch-exporter-config` command to turn a prometheus/cloudwatch_exporter config into a YACE config by @cvas22.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
 
