@@ -1,6 +1,6 @@
-# Maintainers
+<!-- Generated from https://github.com/prometheus/org-infra/blob/main/team-members.yaml; edit the catalog instead. -->
 
-- Thomas Peitz (info@thomas-peitz.de / @thomaspeitz)
-- Cristian Greco (cristian.greco@grafana.com / @cristiangreco)
-- Andrii Kushch (andrii.kushch@grafana.com / @andriikushch)
-- Tristan Burgess (tristan.burgess@grafana.com / @tristanburgess)
+* Andrii Kushch <andrii.kushch@grafana.com> @andriikushch
+* Cristian Greco <cristian.greco@grafana.com> @cristiangreco
+* Thomas Peitz <info@thomas-peitz.de> @thomaspeitz
+* Tristan Burgess <tristan.burgess@grafana.com> @tristanburgess
