@@ -1,0 +1,27 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: LambdaInsights
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: cpu_total_time
+          statistics: [Average, Maximum]
+        - name: init_duration
+          statistics: [Average, Maximum, Minimum, p90]
+        - name: memory_utilization
+          statistics: [Average, Maximum]
+        - name: used_memory_max
+          statistics: [Average, Maximum]
+        - name: rx_bytes
+          statistics: [Sum]
+        - name: tx_bytes
+          statistics: [Sum]
+        - name: tmp_used
+          statistics: [Average, Maximum]
+        - name: total_memory
+          statistics: [Average, Maximum]
+        - name: total_network
+          statistics: [Sum]
