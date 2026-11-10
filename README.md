@@ -144,6 +144,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/VPN` - VPN connection
   * `AWS/WAFV2` - Web Application Firewall v2
   * `AWS/WorkSpaces` - Workspaces
+  * `CloudWatchSynthetics` - CloudWatch Synthetics
   * `ContainerInsights` - EKS ContainerInsights (Dependency on Cloudwatch agent)
   * `CWAgent` - CloudWatch agent
   * `ECS/ContainerInsights` - ECS/ContainerInsights (Fargate metrics)
