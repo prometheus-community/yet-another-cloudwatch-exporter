@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [FEATURE] Add support for the `AWS/Bedrock-AgentCore` namespace, with tag discovery for AgentCore runtime, memory and gateway resources.
 
 ## 0.68.0 / 2026-09-30
 

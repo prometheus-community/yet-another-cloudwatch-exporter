@@ -1089,6 +1089,18 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/Bedrock-AgentCore",
+		Alias:     "bedrock-agentcore",
+		ResourceFilters: []*string{
+			aws.String("bedrock-agentcore:runtime"),
+			aws.String("bedrock-agentcore:memory"),
+			aws.String("bedrock-agentcore:gateway"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile("(?P<Resource>arn:[^:]+:bedrock-agentcore:[^:]+:[^:]+:(?:runtime|memory|gateway)/[^/]+)$"),
+		},
+	},
+	{
 		Namespace: "AWS/Events",
 		Alias:     "event-rule",
 		ResourceFilters: []*string{
