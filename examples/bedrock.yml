@@ -1,0 +1,24 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/BedrockMantle
+      regions:
+        - us-east-1
+      period: 600
+      length: 600
+      metrics:
+        - name: InferenceClientErrors
+          statistics:
+          - Sum
+        - name: TotalInputTokens
+          statistics:
+          - Sum
+        - name: Inferences
+          statistics:
+          - Sum
+        - name: TotalOutputTokens
+          statistics:
+          - Sum
+        - name: InferenceClientErrors
+          statistics:
+          - Sum
