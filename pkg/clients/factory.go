@@ -104,6 +104,13 @@ func NewFactory(logger *slog.Logger, scrapeMetrics *promutil.ScrapeMetrics, jobs
 
 	options = append(options, aws_config.WithRetryMaxAttempts(5))
 
+	// Keep the SDK's own window where it sets one (5m for container credentials).
+	options = append(options, aws_config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
+		if o.ExpiryWindow == 0 {
+			withExpiryWindow(o)
+		}
+	}))
+
 	c, err := aws_config.LoadDefaultConfig(context.TODO(), options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load default aws config: %w", err)
@@ -451,6 +458,13 @@ func createStsOptions(stsRegion string, isDebugLoggingEnabled bool, endpointURLO
 
 var defaultRole = model.Role{}
 
+// withExpiryWindow refreshes credentials 30-60s early, so no request is signed with a token
+// about to expire. The SDK does not retry ExpiredToken.
+func withExpiryWindow(o *aws.CredentialsCacheOptions) {
+	o.ExpiryWindow = time.Minute
+	o.ExpiryWindowJitterFrac = 0.5
+}
+
 func awsConfigForRegion(r model.Role, c *aws.Config, region awsRegion, stsOptions func(*sts.Options)) *aws.Config {
 	regionalConfig := c.Copy()
 	regionalConfig.Region = region
@@ -467,7 +481,7 @@ func awsConfigForRegion(r model.Role, c *aws.Config, region awsRegion, stsOption
 			options.ExternalID = aws.String(r.ExternalID)
 		}
 	})
-	regionalConfig.Credentials = aws.NewCredentialsCache(credentials)
+	regionalConfig.Credentials = aws.NewCredentialsCache(credentials, withExpiryWindow)
 
 	return &regionalConfig
 }

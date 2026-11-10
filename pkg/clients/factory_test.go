@@ -14,8 +14,12 @@ package clients
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +35,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -527,4 +532,24 @@ func (t testClient) GetMetricData(_ context.Context, _ []*model.CloudwatchData, 
 
 func (t testClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.MetricStatisticsResult {
 	return nil
+}
+
+func TestAwsConfigForRegion_refreshesCredentialsBeforeExpiry(t *testing.T) {
+	calls := 0
+	stub := smithyhttp.ClientDoFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		body := fmt.Sprintf(`<AssumeRoleResponse><AssumeRoleResult><Credentials>
+<AccessKeyId>a</AccessKeyId><SecretAccessKey>s</SecretAccessKey><SessionToken>t</SessionToken>
+<Expiration>%s</Expiration></Credentials></AssumeRoleResult></AssumeRoleResponse>`, time.Now().Add(20*time.Second).UTC().Format(time.RFC3339))
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	base := aws.Config{Region: "us-east-1", Credentials: aws.AnonymousCredentials{}}
+	cfg := awsConfigForRegion(model.Role{RoleArn: "arn:aws:iam::123456789012:role/test"}, &base, "us-east-1", func(o *sts.Options) { o.HTTPClient = stub })
+
+	// Expiring in 20s puts the credentials inside the window, so each Retrieve fetches new ones.
+	for range 2 {
+		_, err := cfg.Credentials.Retrieve(context.Background())
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 2, calls)
 }
