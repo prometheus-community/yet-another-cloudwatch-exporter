@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [FEATURE] Add the `convert-cloudwatch-exporter-config` command to turn a prometheus/cloudwatch_exporter config into a YACE config by @cvas22. #1971
 
 ## 0.68.0 / 2026-09-30
 

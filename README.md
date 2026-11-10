@@ -257,6 +257,24 @@ If running YACE inside an AWS EC2 instance, the exporter will automatically atte
 
 Refer to the [configuration](docs/configuration.md) docs.
 
+### Migrating from cloudwatch_exporter
+
+`yace convert-cloudwatch-exporter-config` turns a [prometheus/cloudwatch_exporter](https://github.com/prometheus/cloudwatch_exporter) config into a YACE config and prints it:
+
+```sh
+yace convert-cloudwatch-exporter-config cloudwatch.yml > config.yml
+```
+
+Use `--region` when the cloudwatch_exporter config relies on the default region. Each metric rule becomes:
+
+- a discovery job when it has `aws_tag_select` and YACE supports the namespace, with `tag_selections` as `searchTags`,
+- static jobs when `aws_dimension_select` gives a value for every dimension, or when the rule has no dimensions,
+- a custom namespace job otherwise.
+
+Rules that end up with the same settings share a job. The defaults of cloudwatch_exporter (60s period, 600s range and delay, CloudWatch timestamps) are written out explicitly, since YACE's defaults differ.
+
+Settings YACE can't express are printed as warnings. The main ones: `aws_dimension_select_regex` and partial `aws_dimension_select` can't filter dimension values, so every value is exported and you'd filter with `metric_relabel_configs`; static jobs don't support `delay_seconds`. The metric names mostly match, but dimensions become `dimension_<Name>` labels (`dimension_<name>` with `-labels-snake-case`) and tags show up on the `aws_<namespace>_info` metrics, so queries and dashboards need updating.
+
 ## Metrics Examples
 
 ```text
