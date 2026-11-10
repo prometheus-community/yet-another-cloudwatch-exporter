@@ -849,6 +849,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/S3/Tables",
+		Alias:     "s3-tables",
+		ResourceFilters: []*string{
+			aws.String("s3tables:bucket"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":bucket/(?P<TableBucketName>[^/]+)$"),
+		},
+	},
+	{
 		Namespace: "AWS/Scheduler",
 		Alias:     "scheduler",
 	},
