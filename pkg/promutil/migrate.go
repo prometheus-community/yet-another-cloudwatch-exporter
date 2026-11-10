@@ -247,6 +247,15 @@ func getDataPoints(cwd *model.CloudwatchData, statistic string) ([]model.DataPoi
 		average := total / float64(len(averageDataPoints))
 		return []model.DataPoint{{Value: &average, Timestamp: timestamp}}, nil
 	}
+
+	// No datapoint matched the statistic: as for GetMetricDataResult, return a single nil datapoint, which is then
+	// either dropped or converted to 0 (nilToZero)
+	if !cwd.MetricMigrationParams.AddCloudwatchTimestamp {
+		return []model.DataPoint{{
+			Value:     nil,
+			Timestamp: time.Time{},
+		}}, nil
+	}
 	return nil, nil
 }
 
