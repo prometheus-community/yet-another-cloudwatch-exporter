@@ -46,6 +46,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 h1:29SvnfGhX
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4/go.mod h1:wm04I5DMuNVvZHFe/dHnUxincvNbbK7AiNBbYsQivek=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.110.0 h1:fJUTGbCN/EKBq/TIR84MDI0qr4eY9qNaw19dT+S2LCA=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.110.0/go.mod h1:jUmFXtUKRVCKTaKap+NgL32pmSkVehamqqMENlGMApk=
+github.com/aws/aws-sdk-go-v2/service/oam v1.31.2 h1:Q9lF+gcaGW3Y25qecDgRphffMpL7KoeSOTEkX9zoieE=
+github.com/aws/aws-sdk-go-v2/service/oam v1.31.2/go.mod h1:c3dujqgEWPL4Pugndlg5A3GDT+4zRVw1ZTF6+/b0yCU=
 github.com/aws/aws-sdk-go-v2/service/rds v1.129.1 h1:tLLKlVNRH6YIWCIq/9a8b6LMamBsIDCOQ5hdlhYl3qk=
 github.com/aws/aws-sdk-go-v2/service/rds v1.129.1/go.mod h1:ISB8224E71TShRfUITcXvgbjlq0MVx/KWpvF0jbiFmg=
 github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.41.1 h1:/zM3BqS31PoZd9xqSIRSj2sOKWtBUoTFKbju91psHgY=

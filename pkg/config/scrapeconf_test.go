@@ -30,6 +30,7 @@ func TestConfLoad(t *testing.T) {
 		{configFile: "sts_region.ok.yml"},
 		{configFile: "multiple_roles.ok.yml"},
 		{configFile: "custom_namespace.ok.yml"},
+		{configFile: "include_linked_accounts.ok.yml"},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.configFile, func(t *testing.T) {
@@ -174,4 +175,19 @@ func TestValidateConfigFailuresWhenUsingAsLibrary(t *testing.T) {
 			require.EqualError(t, err, tc.errorMsg)
 		})
 	}
+}
+
+func TestConfLoadIncludeLinkedAccounts(t *testing.T) {
+	config := ScrapeConf{}
+	jobsCfg, err := config.Load("testdata/include_linked_accounts.ok.yml", promslog.NewNopLogger())
+	require.NoError(t, err)
+
+	require.Equal(t, "arn:aws:oam:eu-west-1:111111111111:sink/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111", jobsCfg.OAMSinkIdentifier)
+	require.Equal(t, "eu-west-1", jobsCfg.OAMRegion)
+
+	require.Len(t, jobsCfg.DiscoveryJobs, 1)
+	require.Equal(t, []string{"*"}, jobsCfg.DiscoveryJobs[0].IncludeLinkedAccounts)
+
+	require.Len(t, jobsCfg.CustomNamespaceJobs, 1)
+	require.Equal(t, []string{"222222222222", "333333333333"}, jobsCfg.CustomNamespaceJobs[0].IncludeLinkedAccounts)
 }

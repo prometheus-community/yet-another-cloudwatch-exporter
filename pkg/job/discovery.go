@@ -58,25 +58,34 @@ func runDiscoveryJob(
 	gmdProcessor getMetricDataProcessor,
 	enhancedMetricsService enhancedMetricsService,
 	role model.Role,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) ([]*model.TaggedResource, []*model.CloudwatchData) {
-	logger.Debug("Get tagged resources")
+	var resources []*model.TaggedResource
+	var err error
+	if len(job.IncludeLinkedAccounts) > 0 {
+		// Resources of linked accounts can't be discovered from the monitoring account,
+		// so skip resource discovery and export all metrics without resource association.
+		logger.Debug("Skipping tagged resources discovery for job including linked accounts")
+	} else {
+		logger.Debug("Get tagged resources")
 
-	resources, err := clientTag.GetResources(ctx, job, region)
-	if err != nil {
-		if errors.Is(err, tagging.ErrExpectedToFindResources) {
-			logger.Warn("No tagged resources made it through filtering", "err", err)
-		} else {
-			logger.Error("Couldn't describe resources", "err", err)
+		resources, err = clientTag.GetResources(ctx, job, region)
+		if err != nil {
+			if errors.Is(err, tagging.ErrExpectedToFindResources) {
+				logger.Warn("No tagged resources made it through filtering", "err", err)
+			} else {
+				logger.Error("Couldn't describe resources", "err", err)
+			}
+			return nil, nil
 		}
-		return nil, nil
-	}
 
-	if len(resources) == 0 {
-		logger.Debug("No tagged resources", "region", region, "namespace", job.Namespace)
+		if len(resources) == 0 {
+			logger.Debug("No tagged resources", "region", region, "namespace", job.Namespace)
+		}
 	}
 
 	svc := config.SupportedServices.GetService(job.Namespace)
-	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources)
+	metricData := getMetricDataForQueries(ctx, logger, job, svc, clientCloudwatch, resources, linkedAliasResolver)
 
 	if len(metricData) > 0 && svc != nil {
 		metricData, err = gmdProcessor.Run(ctx, svc.Namespace, metricData)
@@ -127,6 +136,7 @@ func getMetricDataForQueries(
 	svc *config.ServiceConfig,
 	clientCloudwatch cloudwatch.Client,
 	resources []*model.TaggedResource,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
 	mux := &sync.Mutex{}
 	var getMetricDatas []*model.CloudwatchData
@@ -149,8 +159,8 @@ func getMetricDataForQueries(
 		go func(metric *model.MetricConfig) {
 			defer wg.Done()
 
-			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.IncludeLinkedAccounts, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
+				data := getFilteredMetricDatas(ctx, logger, discoveryJob.Namespace, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc, linkedAliasResolver)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -174,6 +184,7 @@ func (ns nopAssociator) AssociateMetricToResource(_ *model.Metric) (*model.Tagge
 }
 
 func getFilteredMetricDatas(
+	ctx context.Context,
 	logger *slog.Logger,
 	namespace string,
 	tagsOnMetrics []string,
@@ -181,6 +192,7 @@ func getFilteredMetricDatas(
 	dimensionNameList []string,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
+	linkedAliasResolver *linkedAccountAliasResolver,
 ) []*model.CloudwatchData {
 	getMetricsData := make([]*model.CloudwatchData, 0, len(metricsList))
 	for _, cwMetric := range metricsList {
@@ -208,12 +220,15 @@ func getFilteredMetricDatas(
 		}
 
 		metricTags := resource.MetricTags(tagsOnMetrics)
+		linkedAccountAlias := linkedAliasResolver.Resolve(ctx, cwMetric.LinkedAccountID)
 		for _, stat := range m.Statistics {
 			getMetricsData = append(getMetricsData, &model.CloudwatchData{
-				MetricName:   m.Name,
-				ResourceName: resource.ARN,
-				Namespace:    namespace,
-				Dimensions:   cwMetric.Dimensions,
+				MetricName:         m.Name,
+				ResourceName:       resource.ARN,
+				Namespace:          namespace,
+				Dimensions:         cwMetric.Dimensions,
+				LinkedAccountID:    cwMetric.LinkedAccountID,
+				LinkedAccountAlias: linkedAccountAlias,
 				GetMetricDataProcessingParams: &model.GetMetricDataProcessingParams{
 					Period:    m.Period,
 					Length:    m.Length,
