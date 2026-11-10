@@ -55,6 +55,7 @@ type ScrapeMetrics struct {
 	TargetGroupsAPICounter                   Counter
 	APIGatewayAPICounter                     Counter
 	APIGatewayAPIV2Counter                   Counter
+	BackupAPICounter                         Counter
 	Ec2APICounter                            Counter
 	ShieldAPICounter                         Counter
 	ManagedPrometheusAPICounter              Counter
