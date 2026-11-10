@@ -14,6 +14,7 @@
 package config
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -94,6 +95,26 @@ func TestConfigValidate(t *testing.T) {
 				cfg.CloudwatchConcurrency.GetMetricStatistics = 0
 			},
 			wantError: "getmetricstatistics concurrency",
+		},
+		{
+			name: "rate limits",
+			mutate: func(cfg *Config) {
+				cfg.CloudwatchConcurrency.RateLimit = CloudWatchRateLimitConfig{ListMetrics: 20, GetMetricData: 0, GetMetricStatistics: 300}
+			},
+		},
+		{
+			name: "negative rate limit",
+			mutate: func(cfg *Config) {
+				cfg.CloudwatchConcurrency.RateLimit.GetMetricStatistics = -1
+			},
+			wantError: "rate limits",
+		},
+		{
+			name: "NaN rate limit",
+			mutate: func(cfg *Config) {
+				cfg.CloudwatchConcurrency.RateLimit.ListMetrics = math.NaN()
+			},
+			wantError: "rate limits",
 		},
 	}
 

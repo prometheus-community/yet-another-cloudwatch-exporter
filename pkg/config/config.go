@@ -38,6 +38,17 @@ type CloudWatchConcurrencyConfig struct {
 	ListMetrics         int
 	GetMetricData       int
 	GetMetricStatistics int
+
+	// RateLimit caps the requests per second of each CloudWatch API, shared by all jobs of a
+	// role and region. Zero values leave an API unlimited.
+	RateLimit CloudWatchRateLimitConfig
+}
+
+// CloudWatchRateLimitConfig sets the maximum requests per second for each CloudWatch API.
+type CloudWatchRateLimitConfig struct {
+	ListMetrics         float64
+	GetMetricData       float64
+	GetMetricStatistics float64
 }
 
 // Config contains scrape-time settings used by embedders and CLI glue.
@@ -76,6 +87,12 @@ func (c Config) Validate() error {
 	}
 	if c.TaggingAPIConcurrency <= 0 {
 		return fmt.Errorf("tagging api concurrency must be a positive value")
+	}
+
+	// !(x >= 0) also rejects NaN.
+	rateLimits := c.CloudwatchConcurrency.RateLimit
+	if !(rateLimits.ListMetrics >= 0) || !(rateLimits.GetMetricData >= 0) || !(rateLimits.GetMetricStatistics >= 0) {
+		return fmt.Errorf("cloudwatch api rate limits must be zero (unlimited) or positive")
 	}
 
 	if c.CloudwatchConcurrency.PerAPILimitEnabled {

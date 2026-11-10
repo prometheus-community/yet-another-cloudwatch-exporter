@@ -34,6 +34,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	golang.org/x/sync v0.24.0
+	golang.org/x/time v0.16.0
 )
 
 require (

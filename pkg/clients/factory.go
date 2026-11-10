@@ -66,6 +66,12 @@ type CachingFactory struct {
 	cleared             *atomic.Bool
 	fipsEnabled         bool
 	endpointURLOverride string
+
+	// rateLimiters holds one CloudWatch API rate limiter per role and region, shared by every
+	// CloudWatch client of that role and region. It outlives Refresh and Clear, so the rate
+	// holds across scrapes.
+	rateLimitersMu sync.Mutex
+	rateLimiters   map[model.Role]map[awsRegion]*cloudwatch_client.RateLimiter
 }
 
 type cachedClients struct {
@@ -181,8 +187,33 @@ func (c *CachingFactory) GetCloudwatchClient(region string, role model.Role, con
 		defer c.mu.Unlock()
 	}
 
-	client := cloudwatch_client.NewClient(c.logger, c.scrapeMetrics, c.createCloudwatchClient(c.clients[role][region].awsConfig))
+	client := cloudwatch_client.NewClient(c.logger, c.scrapeMetrics, c.createCloudwatchClient(c.clients[role][region].awsConfig, c.cloudwatchRateLimiter(region, role, concurrency.RateLimit)))
 	return cloudwatch_client.NewLimitedConcurrencyClient(client, concurrency.NewLimiter())
+}
+
+// cloudwatchRateLimiter returns the rate limiter shared by all CloudWatch clients of role and
+// region, creating it with cfg on first use, or nil when cfg sets no limit. A limiter keeps the
+// rates it was created with.
+func (c *CachingFactory) cloudwatchRateLimiter(region string, role model.Role, cfg cloudwatch_client.RateLimitConfig) *cloudwatch_client.RateLimiter {
+	if !cfg.Enabled() {
+		return nil
+	}
+
+	c.rateLimitersMu.Lock()
+	defer c.rateLimitersMu.Unlock()
+
+	if c.rateLimiters == nil {
+		c.rateLimiters = map[model.Role]map[awsRegion]*cloudwatch_client.RateLimiter{}
+	}
+	if c.rateLimiters[role] == nil {
+		c.rateLimiters[role] = map[awsRegion]*cloudwatch_client.RateLimiter{}
+	}
+	limiter, ok := c.rateLimiters[role][region]
+	if !ok {
+		limiter = cloudwatch_client.NewRateLimiter(cfg)
+		c.rateLimiters[role][region] = limiter
+	}
+	return limiter
 }
 
 func (c *CachingFactory) GetTaggingClient(region string, role model.Role, concurrencyLimit int) tagging.Client {
@@ -275,7 +306,7 @@ func (c *CachingFactory) GetAWSRegionalConfig(region string, role model.Role) *a
 	return c.clients[role][region].awsConfig
 }
 
-func (c *CachingFactory) createCloudwatchClient(regionConfig *aws.Config) *cloudwatch.Client {
+func (c *CachingFactory) createCloudwatchClient(regionConfig *aws.Config, rateLimiter *cloudwatch_client.RateLimiter) *cloudwatch.Client {
 	return cloudwatch.NewFromConfig(*regionConfig, func(options *cloudwatch.Options) {
 		if c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
@@ -292,6 +323,10 @@ func (c *CachingFactory) createCloudwatchClient(regionConfig *aws.Config) *cloud
 
 		if c.fipsEnabled {
 			options.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateEnabled
+		}
+
+		if rateLimiter != nil {
+			options.APIOptions = append(options.APIOptions, rateLimiter.APIOption())
 		}
 	})
 }
