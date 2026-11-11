@@ -271,6 +271,11 @@ func TestDefaultRegistry(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "AWS/EBS is registered",
+			namespace:   "AWS/EBS",
+			expectError: false,
+		},
+		{
 			name:        "unknown namespace returns error",
 			namespace:   "AWS/Unknown",
 			expectError: true,
@@ -281,7 +286,7 @@ func TestDefaultRegistry(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, err := DefaultEnhancedMetricServiceRegistry.GetEnhancedMetricsService(tt.namespace)
 
-			assert.Len(t, DefaultEnhancedMetricServiceRegistry.services, 4, "Expected 4 services to be registered in the default registry")
+			assert.Len(t, DefaultEnhancedMetricServiceRegistry.services, 5, "Expected 5 services to be registered in the default registry")
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Nil(t, svc)
