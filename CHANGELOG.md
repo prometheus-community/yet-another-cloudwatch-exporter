@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [BUGFIX] Static jobs no longer panic when a metric is configured with only percentile statistics such as `p95` by @vignesh2027. #1973
 
 ## 0.68.0 / 2026-09-30
 
