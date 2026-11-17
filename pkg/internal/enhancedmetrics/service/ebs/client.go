@@ -16,11 +16,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
+
+// maxVolumeIDsPerFilter is the maximum number of values the DescribeVolumes "volume-id" filter
+// accepts. Larger filters are rejected with
+// "FilterLimitExceeded: The maximum number of filter values specified on a single call is 200".
+const maxVolumeIDsPerFilter = 200
 
 // awsClient is kept for test mocking; production code uses method-value closures.
 type awsClient interface {
@@ -48,10 +54,9 @@ func (c *AWSEBSClient) describeVolumes(ctx context.Context, input *ec2.DescribeV
 	return result, nil
 }
 
-// DescribeVolumes retrieves the volumes identified by volumeIDs, handling pagination.
-// The IDs are passed as the "volume-id" filter rather than the VolumeIds parameter, because
-// VolumeIds fails the whole request if any one volume no longer exists, and the tagging API
-// can still return a volume for a while after it is deleted.
+// DescribeVolumes retrieves volumeIDs using a paginated "volume-id" filter in chunks of
+// maxVolumeIDsPerFilter. VolumeIds would fail the whole request on a deleted volume,
+// which the tagging API can still return.
 func (c *AWSEBSClient) DescribeVolumes(ctx context.Context, logger *slog.Logger, volumeIDs []string) ([]types.Volume, error) {
 	if len(volumeIDs) == 0 {
 		return nil, nil
@@ -60,27 +65,29 @@ func (c *AWSEBSClient) DescribeVolumes(ctx context.Context, logger *slog.Logger,
 	logger.Debug("Describing EBS volumes", slog.Int("requestedVolumes", len(volumeIDs)))
 	var allVolumes []types.Volume
 
-	var nextToken *string
-	for {
-		output, err := c.describeVolumes(ctx, &ec2.DescribeVolumesInput{
-			NextToken: nextToken,
-			Filters: []types.Filter{
-				{
-					Name:   aws.String("volume-id"),
-					Values: volumeIDs,
+	for chunk := range slices.Chunk(volumeIDs, maxVolumeIDsPerFilter) {
+		var nextToken *string
+		for {
+			output, err := c.describeVolumes(ctx, &ec2.DescribeVolumesInput{
+				NextToken: nextToken,
+				Filters: []types.Filter{
+					{
+						Name:   aws.String("volume-id"),
+						Values: chunk,
+					},
 				},
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
+			})
+			if err != nil {
+				return nil, err
+			}
 
-		allVolumes = append(allVolumes, output.Volumes...)
+			allVolumes = append(allVolumes, output.Volumes...)
 
-		if output.NextToken == nil {
-			break
+			if output.NextToken == nil {
+				break
+			}
+			nextToken = output.NextToken
 		}
-		nextToken = output.NextToken
 	}
 
 	logger.Debug("Completed describing EBS volumes", slog.Int("totalVolumes", len(allVolumes)))
