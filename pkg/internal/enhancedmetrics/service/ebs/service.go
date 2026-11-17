@@ -166,7 +166,8 @@ func (s *EBS) GetMetrics(ctx context.Context, logger *slog.Logger, resources []*
 		resource := volumeResources[i]
 		volume, exists := data[id]
 		if !exists {
-			logger.Warn("EBS volume not found in metadata", "arn", resource.ARN)
+			// The tagging API can still return deleted volumes.
+			logger.Debug("EBS volume not found in metadata", "arn", resource.ARN)
 			continue
 		}
 
