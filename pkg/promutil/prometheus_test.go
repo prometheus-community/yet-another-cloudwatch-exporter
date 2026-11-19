@@ -310,7 +310,8 @@ func exerciseCounters(sm *ScrapeMetrics) {
 	sm.CloudwatchAPICounter.Inc("ListMetrics")
 	sm.CloudwatchAPICounter.Add(2, "GetMetricData")
 	sm.DuplicateMetricsFilteredCounter.Inc()
-	sm.CloudwatchGetMetricDataAPIMetricsCounter.Add(42)
+	sm.CloudwatchGetMetricDataAPIMetricsCounter.Add(42, "123456789012")
+	sm.CloudwatchGetMetricDataAPIBillableCallsCounter.Add(7, "123456789012")
 }
 
 func readCounterValue(t *testing.T, c prometheus.Counter) float64 {
