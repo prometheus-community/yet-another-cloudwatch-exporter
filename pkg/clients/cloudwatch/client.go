@@ -197,7 +197,7 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		accountID = sc.AccountID
 	}
 	c.scrapeMetrics.CloudwatchGetMetricDataAPIMetricsCounter.Add(float64(len(input.MetricDataQueries)), accountID)
-	c.scrapeMetrics.CloudwatchGetMetricDataAPIBillableCallsCounter.Add(float64(billableMetricRequests(getMetricData)), accountID)
+	c.scrapeMetrics.CloudwatchGetMetricDataAPIBillableRequestsCounter.Add(float64(billableMetricRequests(getMetricData)), accountID)
 	c.logger.Debug("GetMetricData", "input", input)
 
 	paginator := aws_cloudwatch.NewGetMetricDataPaginator(c.cloudwatchAPI, input, func(options *aws_cloudwatch.GetMetricDataPaginatorOptions) {
