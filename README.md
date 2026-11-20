@@ -127,6 +127,7 @@ Only the latest version gets security updates. We won't support older versions.
   * `AWS/Route53Resolver` - Route53 Resolver
   * `AWS/RUM` - Real User Monitoring
   * `AWS/S3` - Object Storage
+  * `AWS/S3/Tables` - S3 Tables (table buckets)
   * `AWS/Sagemaker/ModelBuildingPipeline` - Sagemaker Model Building Pipelines
   * `AWS/SageMaker` - Sagemaker invocations
   * `AWS/Scheduler` - EventBridge Scheduler

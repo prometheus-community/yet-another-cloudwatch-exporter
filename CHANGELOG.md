@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [FEATURE] Add support for the `AWS/S3/Tables` namespace. #1911
 
 ## 0.68.0 / 2026-09-30
 
