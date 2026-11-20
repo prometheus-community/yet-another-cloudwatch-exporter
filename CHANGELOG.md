@@ -1,6 +1,6 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [FEATURE] Support collecting metrics from accounts linked through CloudWatch cross-account observability with `includeLinkedAccounts` on discovery and custom namespace jobs, and resolve their `account_alias` from the OAM sink configured in `linkedAccounts`. Based on #1466 and #1808 by @gtn3010 and @paguos.
 
 ## 0.68.0 / 2026-09-30
 

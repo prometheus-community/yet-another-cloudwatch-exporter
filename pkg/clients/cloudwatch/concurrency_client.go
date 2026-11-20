@@ -52,9 +52,9 @@ func NewLimitedConcurrencyClient(client Client, limiter ConcurrencyLimiter) Clie
 	}
 }
 
-func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
+func (c limitedConcurrencyClient) ListMetrics(ctx context.Context, namespace string, metric *model.MetricConfig, includeLinkedAccounts []string, recentlyActiveOnly bool, fn func(page []*model.Metric)) error {
 	c.limiter.Acquire(listMetricsCall)
-	err := c.client.ListMetrics(ctx, namespace, metric, recentlyActiveOnly, fn)
+	err := c.client.ListMetrics(ctx, namespace, metric, includeLinkedAccounts, recentlyActiveOnly, fn)
 	c.limiter.Release(listMetricsCall)
 	return err
 }

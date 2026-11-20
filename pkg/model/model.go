@@ -25,6 +25,8 @@ const (
 
 type JobsConfig struct {
 	StsRegion           string
+	OAMSinkIdentifier   string
+	OAMRegion           string
 	DiscoveryJobs       []DiscoveryJob
 	StaticJobs          []StaticJob
 	CustomNamespaceJobs []CustomNamespaceJob
@@ -42,6 +44,7 @@ type DiscoveryJob struct {
 	RecentlyActiveOnly          bool
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
+	IncludeLinkedAccounts       []string
 	DimensionsRegexps           []DimensionsRegexp
 
 	// EnhancedMetrics holds configuration for enhanced metrics in discovery jobs. It contains a configuration for the non-CloudWatch metrics to collect.
@@ -76,6 +79,7 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	IncludeLinkedAccounts     []string
 }
 
 type Role struct {
@@ -121,6 +125,9 @@ type Metric struct {
 	Dimensions []Dimension
 	MetricName string
 	Namespace  string
+	// LinkedAccountID is the ID of the source account owning the metric. It is only
+	// set when the metric was listed from a linked account of a monitoring account.
+	LinkedAccountID string
 }
 
 type CloudwatchMetricResult struct {
@@ -152,6 +159,11 @@ type CloudwatchData struct {
 	Namespace    string
 	Tags         []Tag
 	Dimensions   []Dimension
+	// LinkedAccountID is the ID of the source account owning the metric when it was
+	// listed from a linked account, empty otherwise.
+	LinkedAccountID string
+	// LinkedAccountAlias is the OAM label of the linked source account, if resolved.
+	LinkedAccountAlias string
 	// GetMetricDataProcessingParams includes necessary fields to run GetMetricData
 	GetMetricDataProcessingParams *GetMetricDataProcessingParams
 
