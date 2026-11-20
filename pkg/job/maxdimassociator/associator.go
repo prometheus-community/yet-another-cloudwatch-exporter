@@ -152,6 +152,11 @@ func (assoc Associator) AssociateMetricToResource(cwMetric *model.Metric) (*mode
 		return nil, false
 	}
 
+	// Use a copy of the metric that may carry extra dimensions derived from
+	// the existing ones, so it can be matched against the known regexps.
+	// The original metric is left untouched.
+	cwMetric = withDerivedDimensions(cwMetric)
+
 	dimensions := make([]string, 0, len(cwMetric.Dimensions))
 	for _, dimension := range cwMetric.Dimensions {
 		dimensions = append(dimensions, dimension.Name)
@@ -263,6 +268,41 @@ func fixDimension(namespace string, dim model.Dimension) (model.Dimension, bool)
 	}
 
 	return dim, false
+}
+
+// withDerivedDimensions returns a copy of the metric with additional dimensions
+// derived from the existing ones, for special cases where CloudWatch publishes
+// a metric with a dimension that has no matching regexp but which contains the
+// value of another dimension the associator knows about.
+// If nothing needs to be derived, the metric is returned as is.
+func withDerivedDimensions(cwMetric *model.Metric) *model.Metric {
+	// AWS/KMS publishes some metrics (e.g. SecondsUntilKeyMaterialExpiration)
+	// with the KeyId dimension, and others (e.g. SuccessfulRequest) with the
+	// KeyArn dimension. Resources can only be mapped to a single regexp, so
+	// derive KeyId from KeyArn to let both kinds of metrics match the key.
+	if cwMetric.Namespace == "AWS/KMS" {
+		var keyArn string
+		for _, dim := range cwMetric.Dimensions {
+			if dim.Name == "KeyId" {
+				return cwMetric
+			}
+			if dim.Name == "KeyArn" {
+				keyArn = dim.Value
+			}
+		}
+		if _, keyID, found := strings.Cut(keyArn, ":key/"); found && keyID != "" {
+			dims := make([]model.Dimension, 0, len(cwMetric.Dimensions)+1)
+			dims = append(dims, cwMetric.Dimensions...)
+			dims = append(dims, model.Dimension{Name: "KeyId", Value: keyID})
+			return &model.Metric{
+				Dimensions: dims,
+				MetricName: cwMetric.MetricName,
+				Namespace:  cwMetric.Namespace,
+			}
+		}
+	}
+
+	return cwMetric
 }
 
 // containsAll returns true if a contains all elements of b
