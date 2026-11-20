@@ -192,7 +192,7 @@ func (c client) GetMetricData(ctx context.Context, getMetricData []*model.Cloudw
 		ScanBy:            "TimestampDescending",
 	}
 	var resp aws_cloudwatch.GetMetricDataOutput
-	accountID := "unkown"
+	accountID := "unknown"
 	if sc, ok := model.ScrapeContextFromCtx(ctx); ok {
 		accountID = sc.AccountID
 	}
