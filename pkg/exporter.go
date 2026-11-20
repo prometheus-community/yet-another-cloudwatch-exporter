@@ -126,6 +126,24 @@ func TaggingAPIConcurrency(maxConcurrency int) OptionsFunc {
 	}
 }
 
+// CloudWatchAPIRateLimit caps the requests per second of each CloudWatch API. The limits are
+// shared by all jobs of a role and region, and a value of 0 leaves that API unlimited.
+func CloudWatchAPIRateLimit(listMetrics, getMetricData, getMetricStatistics float64) OptionsFunc {
+	return func(o *options) error {
+		// !(x >= 0) also rejects NaN.
+		if !(listMetrics >= 0) || !(getMetricData >= 0) || !(getMetricStatistics >= 0) {
+			return fmt.Errorf("CloudWatchAPIRateLimit values must be zero (unlimited) or positive")
+		}
+
+		o.cloudwatchConcurrency.RateLimit = cloudwatch.RateLimitConfig{
+			ListMetrics:         listMetrics,
+			GetMetricData:       getMetricData,
+			GetMetricStatistics: getMetricStatistics,
+		}
+		return nil
+	}
+}
+
 // EnableFeatureFlag is an option that enables a feature flag on the YACE's entrypoint.
 func EnableFeatureFlag(flags ...string) OptionsFunc {
 	return func(o *options) error {
@@ -239,6 +257,11 @@ func configFromOptions(o options) config.Config {
 			ListMetrics:         o.cloudwatchConcurrency.ListMetrics,
 			GetMetricData:       o.cloudwatchConcurrency.GetMetricData,
 			GetMetricStatistics: o.cloudwatchConcurrency.GetMetricStatistics,
+			RateLimit: config.CloudWatchRateLimitConfig{
+				ListMetrics:         o.cloudwatchConcurrency.RateLimit.ListMetrics,
+				GetMetricData:       o.cloudwatchConcurrency.RateLimit.GetMetricData,
+				GetMetricStatistics: o.cloudwatchConcurrency.RateLimit.GetMetricStatistics,
+			},
 		},
 	}
 }
@@ -258,5 +281,10 @@ func toClientCloudWatchConcurrency(cfg config.CloudWatchConcurrencyConfig) cloud
 		ListMetrics:         cfg.ListMetrics,
 		GetMetricData:       cfg.GetMetricData,
 		GetMetricStatistics: cfg.GetMetricStatistics,
+		RateLimit: cloudwatch.RateLimitConfig{
+			ListMetrics:         cfg.RateLimit.ListMetrics,
+			GetMetricData:       cfg.RateLimit.GetMetricData,
+			GetMetricStatistics: cfg.RateLimit.GetMetricStatistics,
+		},
 	}
 }
