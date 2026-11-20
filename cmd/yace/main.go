@@ -30,6 +30,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/clients"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/config/cwexporter"
 )
 
 const (
@@ -233,6 +234,41 @@ func NewYACEApp() *cli.App {
 				logger.Info("Config file is valid", "path", configFile)
 				os.Exit(0)
 				return nil
+			},
+		},
+		{
+			Name:      "convert-cloudwatch-exporter-config",
+			Usage:     "Converts a prometheus/cloudwatch_exporter config file into a YACE config and prints it",
+			ArgsUsage: "<cloudwatch_exporter config file>",
+			Flags: []cli.Flag{
+				&cli.StringFlag{Name: "region", Usage: "AWS region to use when the cloudwatch_exporter config doesn't set one."},
+			},
+			Action: func(c *cli.Context) error {
+				logger = newLogger(logFormat, logLevel).With("version", version.Version)
+				if c.NArg() != 1 {
+					return fmt.Errorf("expected the path of a cloudwatch_exporter config file")
+				}
+				data, err := os.ReadFile(c.Args().First())
+				if err != nil {
+					return err
+				}
+				res, err := cwexporter.Convert(data, cwexporter.Options{Region: c.String("region")})
+				if err != nil {
+					return err
+				}
+				for _, w := range res.Warnings {
+					logger.Warn(w)
+				}
+				out, err := res.YAML()
+				if err != nil {
+					return err
+				}
+				// Make sure YACE accepts what was generated before printing it.
+				if _, err := (&config.ScrapeConf{}).Parse(out, logger); err != nil {
+					return fmt.Errorf("converted config is not valid: %w", err)
+				}
+				_, err = os.Stdout.Write(out)
+				return err
 			},
 		},
 		{
