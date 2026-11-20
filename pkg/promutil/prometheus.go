@@ -45,22 +45,23 @@ func (noopRegisterer) MustRegister(...prometheus.Collector) {}
 func (noopRegisterer) Unregister(prometheus.Collector) bool { return true }
 
 type ScrapeMetrics struct {
-	CloudwatchAPIErrorCounter                CounterVec // labels: api_name
-	CloudwatchAPICounter                     CounterVec // labels: api_name
-	CloudwatchGetMetricDataAPICounter        Counter
-	CloudwatchGetMetricDataAPIMetricsCounter Counter
-	CloudwatchGetMetricStatisticsAPICounter  Counter
-	ResourceGroupTaggingAPICounter           Counter
-	AutoScalingAPICounter                    Counter
-	TargetGroupsAPICounter                   Counter
-	APIGatewayAPICounter                     Counter
-	APIGatewayAPIV2Counter                   Counter
-	Ec2APICounter                            Counter
-	ShieldAPICounter                         Counter
-	ManagedPrometheusAPICounter              Counter
-	StoragegatewayAPICounter                 Counter
-	DmsAPICounter                            Counter
-	DuplicateMetricsFilteredCounter          Counter
+	CloudwatchAPIErrorCounter                         CounterVec // labels: api_name
+	CloudwatchAPICounter                              CounterVec // labels: api_name
+	CloudwatchGetMetricDataAPICounter                 Counter
+	CloudwatchGetMetricDataAPIMetricsCounter          CounterVec // labels: account_id
+	CloudwatchGetMetricDataAPIBillableRequestsCounter CounterVec // labels: account_id
+	CloudwatchGetMetricStatisticsAPICounter           Counter
+	ResourceGroupTaggingAPICounter                    Counter
+	AutoScalingAPICounter                             Counter
+	TargetGroupsAPICounter                            Counter
+	APIGatewayAPICounter                              Counter
+	APIGatewayAPIV2Counter                            Counter
+	Ec2APICounter                                     Counter
+	ShieldAPICounter                                  Counter
+	ManagedPrometheusAPICounter                       Counter
+	StoragegatewayAPICounter                          Counter
+	DmsAPICounter                                     Counter
+	DuplicateMetricsFilteredCounter                   Counter
 }
 
 func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
@@ -82,10 +83,14 @@ func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
 			Name: "yace_cloudwatch_getmetricdata_requests_total",
 			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
 		})},
-		CloudwatchGetMetricDataAPIMetricsCounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
+		CloudwatchGetMetricDataAPIMetricsCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_metrics_requested_total",
 			Help: "Number of metrics requested from the CloudWatch GetMetricData API which is how AWS bills",
-		})},
+		}, []string{"account_id"})},
+		CloudwatchGetMetricDataAPIBillableRequestsCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
+			Name: "yace_cloudwatch_getmetricdata_metrics_billable_requests_total",
+			Help: "Number of billable metric requests made to the CloudWatch GetMetricData API. Up to five statistics of the same metric and period count as one",
+		}, []string{"account_id"})},
 		CloudwatchGetMetricStatisticsAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricstatistics_requests_total",
 			Help: "DEPRECATED: replaced by yace_cloudwatch_requests_total with api_name label",
@@ -145,10 +150,11 @@ func (m *ScrapeMetrics) Collectors() []prometheus.Collector {
 	vecs := []CounterVec{
 		m.CloudwatchAPIErrorCounter,
 		m.CloudwatchAPICounter,
+		m.CloudwatchGetMetricDataAPIMetricsCounter,
+		m.CloudwatchGetMetricDataAPIBillableRequestsCounter,
 	}
 	counters := []Counter{
 		m.CloudwatchGetMetricDataAPICounter,
-		m.CloudwatchGetMetricDataAPIMetricsCounter,
 		m.CloudwatchGetMetricStatisticsAPICounter,
 		m.ResourceGroupTaggingAPICounter,
 		m.AutoScalingAPICounter,
