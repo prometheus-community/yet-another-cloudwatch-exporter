@@ -1,0 +1,13 @@
+apiVersion: v1alpha1
+discovery:
+  jobs:
+    - type: AWS/IPAM
+      regions:
+        - us-east-1
+      period: 300
+      length: 300
+      metrics:
+        - name: IPAddressesAllocated
+          statistics: [Average]
+        - name: IPAddressesAvailable
+          statistics: [Average]
