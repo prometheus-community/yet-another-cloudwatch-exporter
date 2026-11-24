@@ -26,6 +26,9 @@ All flags may be prefixed with either one hypen or two (i.e., both `-config.file
 | `-cloudwatch-concurrency.list-metrics-limit` | Maximum number of concurrent requests to CloudWatch `ListMetrics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
 | `-cloudwatch-concurrency.get-metric-data-limit` | Maximum number of concurrent requests to CloudWatch `GetMetricsData` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
 | `-cloudwatch-concurrency.get-metric-statistics-limit` | Maximum number of concurrent requests to CloudWatch `GetMetricStatistics` API. Only applicable if `per-api-limit-enabled` is `true`. | `5` |
+| `-cloudwatch-rate-limit.list-metrics` | Maximum requests per second to the CloudWatch `ListMetrics` API, shared by all jobs of a role and region. `0` means unlimited. | `0` |
+| `-cloudwatch-rate-limit.get-metric-data` | Maximum requests per second to the CloudWatch `GetMetricData` API, shared by all jobs of a role and region. `0` means unlimited. | `0` |
+| `-cloudwatch-rate-limit.get-metric-statistics` | Maximum requests per second to the CloudWatch `GetMetricStatistics` API, shared by all jobs of a role and region. `0` means unlimited. | `0` |
 | `-tag-concurrency` | Maximum number of concurrent requests to Resource Tagging API | `5` |
 | `-scraping-interval` | Seconds to wait between scraping the AWS metrics | `300` |
 | `-metrics-per-query` | Number of metrics made in a single GetMetricsData request | `500` |
