@@ -89,7 +89,7 @@ func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
 		}, []string{"account_id"})},
 		CloudwatchGetMetricDataAPIBillableRequestsCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_metrics_billable_requests_total",
-			Help: "Number of billable metric requests made to the CloudWatch GetMetricData API. Up to five statistics of the same metric and period count as one",
+			Help: "Number of billable metric requests made to the CloudWatch GetMetricData API. Up to five statistics of the same metric count as one",
 		}, []string{"account_id"})},
 		CloudwatchGetMetricStatisticsAPICounter: Counter{inner: f.NewCounter(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricstatistics_requests_total",
