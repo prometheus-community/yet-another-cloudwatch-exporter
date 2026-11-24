@@ -70,7 +70,7 @@ func Test_billableMetricRequests(t *testing.T) {
 		{name: "same statistic twice counts once", data: stats("CPU", d1, 300, "Average", "Average"), expected: 1},
 		{name: "different dimensions are different metrics", data: concat(stats("CPU", d1, 300, "Average"), stats("CPU", d2, 300, "Average")), expected: 2},
 		{name: "different metric names are different metrics", data: concat(stats("CPU", d1, 300, "Average"), stats("Net", d1, 300, "Average")), expected: 2},
-		{name: "different periods are different metrics", data: concat(stats("CPU", d1, 300, "Average"), stats("CPU", d1, 60, "Average")), expected: 2},
+		{name: "different periods are the same metric", data: concat(stats("CPU", d1, 300, "Average"), stats("CPU", d1, 60, "Average")), expected: 1},
 		{
 			name:     "dimension order does not matter",
 			data:     concat(stats("CPU", dims("a", "1", "b", "2"), 300, "Average"), stats("CPU", dims("b", "2", "a", "1"), 300, "Sum")),

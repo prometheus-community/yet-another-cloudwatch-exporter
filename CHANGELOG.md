@@ -1,6 +1,7 @@
 ## main / (unreleased)
 
-Nothing here yet.
+* [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
+* [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
 
 ## 0.68.0 / 2026-09-30
 

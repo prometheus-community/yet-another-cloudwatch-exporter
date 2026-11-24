@@ -178,17 +178,20 @@ func ScrapeAwsData(
 
 					accountAlias := account.ResolveAlias(ctx, factory.GetAccountClient(region, role), disableAccountAliasLookup, jobLogger)
 
+					sc := &model.ScrapeContext{
+						Region:       region,
+						AccountID:    accountID,
+						AccountAlias: accountAlias,
+						CustomTags:   customNamespaceJob.CustomTags,
+					}
+					ctx := model.CtxWithScrapeContext(ctx, sc)
+
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor)
 					metricResult := model.CloudwatchMetricResult{
-						Context: &model.ScrapeContext{
-							Region:       region,
-							AccountID:    accountID,
-							AccountAlias: accountAlias,
-							CustomTags:   customNamespaceJob.CustomTags,
-						},
-						Data: metrics,
+						Context: sc,
+						Data:    metrics,
 					}
 					mux.Lock()
 					cwData = append(cwData, metricResult)

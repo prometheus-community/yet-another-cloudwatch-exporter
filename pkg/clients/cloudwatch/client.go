@@ -227,13 +227,14 @@ const maxStatisticsPerMetricRequest = 5
 
 // billableMetricRequests returns how many metric requests AWS bills for a GetMetricData call
 // made with the given data. Every query is one statistic of one metric. Statistics of the same
-// metric (name + dimensions) and period are grouped and each set of up to five statistics counts
-// as one metric request. The namespace is the same for the whole call.
+// metric (name + dimensions) are grouped and each set of up to five statistics counts as one
+// metric request. The period is deliberately not part of the key: AWS's pricing docs define the
+// billing unit per metric and statistic set and never mention period. The namespace is the same
+// for the whole call.
 func billableMetricRequests(getMetricData []*model.CloudwatchData) int {
 	type metricKey struct {
 		name       string
 		dimensions string
-		period     int64
 	}
 	statsPerMetric := make(map[metricKey]map[string]struct{})
 	for _, data := range getMetricData {
@@ -246,7 +247,6 @@ func billableMetricRequests(getMetricData []*model.CloudwatchData) int {
 		key := metricKey{
 			name:       data.MetricName,
 			dimensions: strings.Join(dims, "\x01"),
-			period:     data.GetMetricDataProcessingParams.Period,
 		}
 		stats, ok := statsPerMetric[key]
 		if !ok {

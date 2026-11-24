@@ -85,7 +85,7 @@ func NewScrapeMetrics(r prometheus.Registerer) *ScrapeMetrics {
 		})},
 		CloudwatchGetMetricDataAPIMetricsCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_metrics_requested_total",
-			Help: "Number of metrics requested from the CloudWatch GetMetricData API which is how AWS bills",
+			Help: "Number of metrics requested from the CloudWatch GetMetricData API.",
 		}, []string{"account_id"})},
 		CloudwatchGetMetricDataAPIBillableRequestsCounter: CounterVec{inner: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "yace_cloudwatch_getmetricdata_metrics_billable_requests_total",
