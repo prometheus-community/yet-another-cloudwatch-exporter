@@ -14,8 +14,16 @@ package clients
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +39,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/storagegateway"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/prometheus/common/promslog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -527,4 +536,104 @@ func (t testClient) GetMetricData(_ context.Context, _ []*model.CloudwatchData, 
 
 func (t testClient) GetMetricStatistics(_ context.Context, _ *slog.Logger, _ []model.Dimension, _ string, _ *model.MetricConfig) []*model.MetricStatisticsResult {
 	return nil
+}
+
+func TestAwsConfigForRegion_credentialsExpiryWindow(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		expiresIn time.Duration
+		wantCalls int
+	}{
+		{name: "refetched inside the window", expiresIn: 20 * time.Second, wantCalls: 2},
+		{name: "cached outside the window", expiresIn: 2 * time.Minute, wantCalls: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			stub := smithyhttp.ClientDoFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				body := fmt.Sprintf(`<AssumeRoleResponse><AssumeRoleResult><Credentials>
+<AccessKeyId>a</AccessKeyId><SecretAccessKey>s</SecretAccessKey><SessionToken>t</SessionToken>
+<Expiration>%s</Expiration></Credentials></AssumeRoleResult></AssumeRoleResponse>`, time.Now().Add(tc.expiresIn).UTC().Format(time.RFC3339))
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
+			})
+			base := aws.Config{Region: "us-east-1", Credentials: aws.AnonymousCredentials{}}
+			cfg := awsConfigForRegion(model.Role{RoleArn: "arn:aws:iam::123456789012:role/test"}, &base, "us-east-1", func(o *sts.Options) { o.HTTPClient = stub })
+
+			for range 2 {
+				_, err := cfg.Credentials.Retrieve(context.Background())
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantCalls, calls)
+		})
+	}
+}
+
+func TestNewFactory_credentialsExpiryWindow(t *testing.T) {
+	// serveContainerCreds and serveProcessCreds serve creds from a credential source and return
+	// how many times it was asked.
+	serveContainerCreds := func(t *testing.T, creds string) func() int {
+		calls := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls++
+			fmt.Fprint(w, creds)
+		}))
+		t.Cleanup(srv.Close)
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", srv.URL)
+		return func() int { return calls }
+	}
+	serveProcessCreds := func(t *testing.T, creds string) func() int {
+		if runtime.GOOS == "windows" {
+			t.Skip("credential_process runs through sh")
+		}
+		dir := t.TempDir()
+		credsFile, countFile, configFile := filepath.Join(dir, "creds.json"), filepath.Join(dir, "count"), filepath.Join(dir, "config")
+		require.NoError(t, os.WriteFile(credsFile, []byte(creds), 0o600))
+		config := fmt.Sprintf("[default]\ncredential_process = sh -c \"echo >> '%s'; cat '%s'\"\n", countFile, credsFile)
+		require.NoError(t, os.WriteFile(configFile, []byte(config), 0o600))
+		t.Setenv("AWS_CONFIG_FILE", configFile)
+		return func() int {
+			count, _ := os.ReadFile(countFile)
+			return len(count)
+		}
+	}
+
+	for _, tc := range []struct {
+		name      string
+		serve     func(t *testing.T, creds string) func() int
+		expiresIn time.Duration
+		wantCalls int
+	}{
+		// The SDK gives container credentials a 5m window, so credentials expiring in 2m are
+		// refetched on every Retrieve. A 1m window would cache them.
+		{name: "container credentials keep the SDK window", serve: serveContainerCreds, expiresIn: 2 * time.Minute, wantCalls: 2},
+		// The SDK sets no window for process credentials, so without ours credentials expiring
+		// in 20s would be cached.
+		{name: "process credentials get the 1m window", serve: serveProcessCreds, expiresIn: 20 * time.Second, wantCalls: 2},
+		{name: "process credentials are cached outside the window", serve: serveProcessCreds, expiresIn: 2 * time.Minute, wantCalls: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, env := range []string{
+				"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY", "AWS_SECRET_KEY",
+				"AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_WEB_IDENTITY_TOKEN_FILE",
+				"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+				"AWS_CONTAINER_AUTHORIZATION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+			} {
+				t.Setenv(env, "")
+			}
+			t.Setenv("AWS_CONFIG_FILE", filepath.Join(t.TempDir(), "none"))
+			t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(t.TempDir(), "none"))
+			t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+			expiration := time.Now().Add(tc.expiresIn).UTC().Format(time.RFC3339)
+			calls := tc.serve(t, fmt.Sprintf(`{"Version":1,"AccessKeyId":"a","SecretAccessKey":"s","Token":"t","SessionToken":"t","Expiration":%q}`, expiration))
+
+			factory, err := NewFactory(promslog.NewNopLogger(), nil, jobsCfgWithDefaultRoleAndRegion1, false)
+			require.NoError(t, err)
+			for range 2 {
+				_, err := factory.GetAWSRegionalConfig("region1", defaultRole).Credentials.Retrieve(context.Background())
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantCalls, calls())
+		})
+	}
 }
