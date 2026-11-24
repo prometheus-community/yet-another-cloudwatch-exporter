@@ -793,7 +793,7 @@ var SupportedServices = serviceConfigs{
 		DimensionRegexps: []*regexp.Regexp{
 			regexp.MustCompile(":cluster:(?P<DBClusterIdentifier>[^/]+)"),
 			regexp.MustCompile(":db:(?P<DBInstanceIdentifier>[^/]+)"),
-			regexp.MustCompile(":db-proxy:(?P<ProxyIdentifier>[^/]+)"),
+			regexp.MustCompile(":db-proxy:(?P<ProxyName>[^/]+)"),
 		},
 	},
 	{
