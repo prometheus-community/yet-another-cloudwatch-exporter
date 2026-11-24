@@ -282,6 +282,16 @@ var SupportedServices = serviceConfigs{
 		},
 	},
 	{
+		Namespace: "AWS/DAX",
+		Alias:     "dax",
+		ResourceFilters: []*string{
+			aws.String("dax:cache"),
+		},
+		DimensionRegexps: []*regexp.Regexp{
+			regexp.MustCompile(":cache/(?P<ClusterId>[^/]+)"),
+		},
+	},
+	{
 		Namespace: "AWS/DirectoryService",
 		Alias:     "ds",
 		ResourceFilters: []*string{
