@@ -398,8 +398,11 @@ var SupportedServices = serviceConfigs{
 	{
 		Namespace: "AWS/EC2CapacityReservations",
 		Alias:     "ec2CapacityReservations",
+		ResourceFilters: []*string{
+			aws.String("ec2:capacity-reservation"),
+		},
 		DimensionRegexps: []*regexp.Regexp{
-			regexp.MustCompile(":capacity-reservation/(?P<CapacityReservationId>)$"),
+			regexp.MustCompile(":capacity-reservation/(?P<CapacityReservationId>[^/]+)$"),
 		},
 	},
 	{
