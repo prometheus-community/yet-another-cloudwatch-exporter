@@ -433,6 +433,9 @@ Currently supported enhanced metrics are:
 - AWS/DynamoDB (TableSizeBytes) - The total size of the table in bytes, updated approximately every six hours; may not reflect recent changes. Per-index sizes are emitted as the `IndexSizeBytes` metric, distinguished by the `GlobalSecondaryIndexName` dimension.
 - AWS/RDS (AllocatedStorage) - The storage capacity in bytes allocated for the DB instance.
 - AWS/ElastiCache (NumCacheNodes) - The count of cache nodes in the cluster; must be 1 for Valkey or Redis OSS clusters, or between 1 and 40 for Memcached clusters.
+- AWS/EBS (Iops) - The provisioned IOPS of the volume; for gp2 this is the baseline, not the burst ceiling. Not reported for st1, sc1 or standard volumes.
+- AWS/EBS (Throughput) - The provisioned throughput of the volume in bytes per second. Only reported for gp3 volumes.
+- AWS/EBS (Size) - The size of the volume in bytes.
 
 ```yaml
 enhancedMetrics:

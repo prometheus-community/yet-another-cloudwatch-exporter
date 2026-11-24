@@ -18,6 +18,7 @@ import (
 
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/dynamodb"
+	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/ebs"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/elasticache"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/lambda"
 	"github.com/prometheus-community/yet-another-cloudwatch-exporter/pkg/internal/enhancedmetrics/service/rds"
@@ -32,7 +33,8 @@ var DefaultEnhancedMetricServiceRegistry = (&Registry{}).
 	Register(rds.NewRDSService(nil)).
 	Register(lambda.NewLambdaService(nil)).
 	Register(dynamodb.NewDynamoDBService(nil)).
-	Register(elasticache.NewElastiCacheService(nil))
+	Register(elasticache.NewElastiCacheService(nil)).
+	Register(ebs.NewEBSService(nil))
 
 // MetricsService represents an enhanced metrics service with methods to get its instance and namespace.
 // Services implementing this interface can be registered in the Registry.
