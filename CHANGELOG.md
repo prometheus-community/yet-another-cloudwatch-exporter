@@ -2,6 +2,7 @@
 
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
+* [BUGFIX] Static jobs no longer panic when a metric is configured with only percentile statistics such as `p95` by @vignesh2027. #1973
 
 ## 0.68.0 / 2026-09-30
 

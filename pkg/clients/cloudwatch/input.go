@@ -67,12 +67,20 @@ func createGetMetricStatisticsInput(logger *slog.Logger, dimensions []model.Dime
 		ExtendedStatistics: extendedStatistics,
 	}
 
+	statisticsFlags := ""
+	if len(statistics) > 0 {
+		statisticsFlags += " --statistics " + string(statistics[0])
+	}
+	if len(extendedStatistics) > 0 {
+		statisticsFlags += " --extended-statistics " + extendedStatistics[0]
+	}
+
 	logger.Debug("CLI helper - " +
 		"aws cloudwatch get-metric-statistics" +
 		" --metric-name " + metric.Name +
 		" --dimensions " + dimensionsToCliString(dimensions) +
 		" --namespace " + *namespace +
-		" --statistics " + string(statistics[0]) +
+		statisticsFlags +
 		" --period " + strconv.FormatInt(period, 10) +
 		" --start-time " + startTime.Format(time.RFC3339) +
 		" --end-time " + endTime.Format(time.RFC3339))
