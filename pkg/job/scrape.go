@@ -90,6 +90,8 @@ func ScrapeAwsData(
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
 
+					linkedAliasResolver := newLinkedAccountAliasResolverForJob(jobLogger, factory, jobsCfg, discoveryJob.IncludeLinkedAccounts, region, role)
+
 					resources, metrics := runDiscoveryJob(
 						ctx,
 						jobLogger,
@@ -100,6 +102,7 @@ func ScrapeAwsData(
 						gmdProcessor,
 						enhancedMetricsService,
 						role,
+						linkedAliasResolver,
 					)
 
 					addDataToOutput := len(metrics) != 0
@@ -188,7 +191,8 @@ func ScrapeAwsData(
 
 					cloudwatchClient := factory.GetCloudwatchClient(region, role, cloudwatchConcurrency)
 					gmdProcessor := getmetricdata.NewDefaultProcessor(logger, cloudwatchClient, metricsPerQuery, cloudwatchConcurrency.GetMetricData)
-					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor)
+					linkedAliasResolver := newLinkedAccountAliasResolverForJob(jobLogger, factory, jobsCfg, customNamespaceJob.IncludeLinkedAccounts, region, role)
+					metrics := runCustomNamespaceJob(ctx, jobLogger, customNamespaceJob, cloudwatchClient, gmdProcessor, linkedAliasResolver)
 					metricResult := model.CloudwatchMetricResult{
 						Context: sc,
 						Data:    metrics,
@@ -202,4 +206,25 @@ func ScrapeAwsData(
 	}
 	wg.Wait()
 	return awsInfoData, cwData
+}
+
+// newLinkedAccountAliasResolverForJob returns a resolver for the OAM labels of linked
+// accounts, or nil when the job doesn't include linked accounts or no OAM sink is configured.
+func newLinkedAccountAliasResolverForJob(
+	logger *slog.Logger,
+	factory clients.Factory,
+	jobsCfg model.JobsConfig,
+	includeLinkedAccounts []string,
+	region string,
+	role model.Role,
+) *linkedAccountAliasResolver {
+	if len(includeLinkedAccounts) == 0 || jobsCfg.OAMSinkIdentifier == "" {
+		return nil
+	}
+	oamRegion := jobsCfg.OAMRegion
+	if oamRegion == "" {
+		oamRegion = region
+	}
+	logger.Debug("Resolving linked account aliases from OAM", "sink_identifier", jobsCfg.OAMSinkIdentifier, "oam_region", oamRegion)
+	return newLinkedAccountAliasResolver(logger, factory.GetOAMClient(oamRegion, role), jobsCfg.OAMSinkIdentifier)
 }

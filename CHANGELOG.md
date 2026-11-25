@@ -1,5 +1,6 @@
 ## main / (unreleased)
 
+* [FEATURE] Support collecting metrics from accounts linked through CloudWatch cross-account observability with `includeLinkedAccounts` on discovery and custom namespace jobs, and resolve their `account_alias` from the OAM sink configured in `linkedAccounts`. Based on #1466 and #1808 by @gtn3010 and @paguos.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
 
