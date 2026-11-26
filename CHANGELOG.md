@@ -1,5 +1,6 @@
 ## main / (unreleased)
 
+* [BUGFIX] Fix a data race on the cached account client that could panic with `GetAccount called using nil *client pointer` when static or custom namespace jobs share a role and region.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_requested_total` now includes an `account_id` label.
 * [ENHANCEMENT] Metric `yace_cloudwatch_getmetricdata_metrics_billable_requests_total` expresses better how AWS bills for `GetMetricData` requests.
 
